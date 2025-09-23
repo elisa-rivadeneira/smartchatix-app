@@ -1,0 +1,35 @@
+{
+  "user": {
+    "name": "",
+    "preferences": {},
+    "goals": [],
+    "motivations": [],
+    "timezone": "America/Mexico_City"
+  },
+  "projects": [
+    {
+      "id": 1758569060202,
+      "name": "Proyecto Web",
+      "priority": "alta",
+      "description": "Desarrollo de aplicación",
+      "createdAt": "2025-09-22T19:24:20.202Z",
+      "status": "active"
+    }
+  ],
+  "priorities": [],
+  "habits": [],
+  "achievements": [],
+  "lastInteraction": "2025-09-22T19:24:20.203Z",
+  "dailyStats": {
+    "streak": 2,
+    "totalDays": 2,
+    "lastActiveDate": "Tue Sep 23 2025"
+  },
+  "context": {
+    "recentTopics": [],
+    "ongoingTasks": [],
+    "nextActions": [
+      "Continuar trabajando en el proyecto: Proyecto Web"
+    ]
+  }
+}

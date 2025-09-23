@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm install:*)",
+      "Read(//home/oem/Pictures/Screenshots/**)",
+      "Bash(node:*)",
+      "Bash(npx babel:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)",
+      "WebFetch(domain:localhost)",
+      "Bash(pkill:*)",
+      "Bash(npx esbuild:*)",
+      "Read(//tmp/**)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run server:*)",
+      "Bash(lsof:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(curl:*)",
+      "Bash(xargs kill:*)",
+      "Bash(fuser:*)",
+      "Bash(netstat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
