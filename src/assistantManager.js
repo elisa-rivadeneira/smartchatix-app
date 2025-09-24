@@ -16,7 +16,7 @@ class AssistantManager {
     this.isActive = true;
 
     // Start daily scheduler
-    this.dailyScheduler.start();
+    // this.dailyScheduler.start();
 
     // Load user context
     const context = this.userMemory.getDailyContext();

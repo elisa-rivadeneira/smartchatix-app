@@ -25,10 +25,10 @@ class DailyScheduler {
 
     console.log(`Próximo saludo programado para: ${target.toLocaleString('es-ES')}`);
 
-    setTimeout(() => {
-      this.sendMorningGreeting();
-      this.scheduleNextGreeting();
-    }, timeUntilGreeting);
+    // setTimeout(() => {
+    //   this.sendMorningGreeting();
+    //   this.scheduleNextGreeting();
+    // }, timeUntilGreeting);
   }
 
   startDailyCheck() {
