@@ -41,7 +41,7 @@ class DailyScheduler {
     const now = new Date();
     if (now.getHours() === 6 && now.getMinutes() === 0) {
       this.userMemory.clearDailyLog();
-      this.sendMorningGreeting();
+      // this.sendMorningGreeting();
     }
   }
 
