@@ -188,9 +188,9 @@ const startServer = async () => {
   await initializeAssistant();
 
   app.listen(PORT, () => {
-    console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`);
-    console.log(`📡 API disponible en http://localhost:${PORT}/api/assistant/`);
-    console.log(`🤖 Asistente programado para saludo matutino a las 6:00 AM`);
+    const now = new Date().toLocaleString('es-ES');
+    console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT} - ${now}`);
+    console.log(`📡 API disponible en http://localhost:${PORT}/api/assistant/ - ${now}`);
   });
 };
 

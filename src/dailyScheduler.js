@@ -23,7 +23,8 @@ class DailyScheduler {
 
     const timeUntilGreeting = target.getTime() - now.getTime();
 
-    console.log(`Próximo saludo programado para: ${target.toLocaleString('es-ES')}`);
+    const currentTime = new Date().toLocaleString('es-ES');
+    console.log(`[${currentTime}] Próximo saludo programado para: ${target.toLocaleString('es-ES')}`);
 
     // setTimeout(() => {
     //   this.sendMorningGreeting();
