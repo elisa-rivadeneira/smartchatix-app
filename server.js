@@ -187,10 +187,12 @@ process.on('SIGTERM', shutdown);
 const startServer = async () => {
   await initializeAssistant();
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     const now = new Date().toLocaleString('es-ES');
-    console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT} - ${now}`);
-    console.log(`📡 API disponible en http://localhost:${PORT}/api/assistant/ - ${now}`);
+    console.log(`🚀 Servidor ejecutándose en http://0.0.0.0:${PORT} - ${now}`);
+    console.log(`📡 Accesible desde localhost: http://localhost:${PORT}`);
+    console.log(`📱 Accesible desde red local: http://[tu-ip-local]:${PORT} - ${now}`);
+    console.log(`📡 API disponible en /api/ - ${now}`);
   });
 };
 

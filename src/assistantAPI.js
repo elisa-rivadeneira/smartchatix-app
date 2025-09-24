@@ -1,9 +1,21 @@
 // API client for assistant communication
-// Correcto - detecta el entorno
-const API_BASE = window.location.hostname === 'localhost'
-  ? 'http://localhost:3001/api'
-  : '/api';  // En producción usa la misma URL
+// Configuración dinámica de API
+const getApiBase = () => {
+  const hostname = window.location.hostname;
 
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    console.log('🌐 Modo producción detectado:', hostname);
+    return '/api';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  console.log('🔧 Modo desarrollo detectado, usando:', devHost);
+  return `http://${devHost}:3001/api`;
+};
+
+const API_BASE = getApiBase();
 const API_BASE_URL = `${API_BASE}/assistant`;
 
 class AssistantAPI {

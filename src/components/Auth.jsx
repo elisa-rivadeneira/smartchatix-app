@@ -1,6 +1,22 @@
 import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, LogIn, AlertCircle, CheckCircle } from 'lucide-react';
 
+// Configuración dinámica de API para autenticación
+const getAuthApiBase = () => {
+  const hostname = window.location.hostname;
+
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    console.log('🔐 Auth componente modo producción detectado:', hostname);
+    return '/api/auth';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  console.log('🔧 Auth componente modo desarrollo detectado, usando:', devHost);
+  return `http://${devHost}:3001/api/auth`;
+};
+
 const Auth = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -76,7 +92,7 @@ const Auth = ({ onLogin }) => {
             name: formData.name
           };
 
-      const response = await fetch(`http://localhost:3001${endpoint}`, {
+      const response = await fetch(`${getAuthApiBase()}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

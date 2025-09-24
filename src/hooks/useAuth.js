@@ -1,5 +1,21 @@
 import { useState, useEffect } from 'react';
 
+// Configuración dinámica de API para autenticación
+const getAuthApiBase = () => {
+  const hostname = window.location.hostname;
+
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    console.log('🔐 Auth modo producción detectado:', hostname);
+    return '/api/auth';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  console.log('🔧 Auth modo desarrollo detectado, usando:', devHost);
+  return `http://${devHost}:3001/api/auth`;
+};
+
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -14,7 +30,7 @@ const useAuth = () => {
 
         if (savedToken && savedUser) {
           // Verificar que el token siga siendo válido
-          const response = await fetch('http://localhost:3001/api/auth/verify', {
+          const response = await fetch(`${getAuthApiBase()}/verify`, {
             headers: {
               'Authorization': `Bearer ${savedToken}`
             }
@@ -55,7 +71,7 @@ const useAuth = () => {
       const authToken = localStorage.getItem('authToken');
       if (authToken) {
         // Notificar al servidor del logout
-        await fetch('http://localhost:3001/api/auth/logout', {
+        await fetch(`${getAuthApiBase()}/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${authToken}`

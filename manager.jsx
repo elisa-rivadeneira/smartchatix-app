@@ -4,6 +4,22 @@ import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
 
+// Configuración dinámica de API
+const getApiBase = () => {
+  const hostname = window.location.hostname;
+
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    console.log('📱 Manager modo producción detectado:', hostname);
+    return '/api/auth';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  console.log('🔧 Manager modo desarrollo detectado, usando:', devHost);
+  return `http://${devHost}:3001/api/auth`;
+};
+
 // Mensajes motivacionales del coach - movido fuera del componente
 const coachMessages = [
   "¡Excelente trabajo! Mantén ese momentum 🚀",
@@ -129,7 +145,7 @@ const PersonalCoachAssistant = () => {
   // Función para cargar datos específicos del usuario
   const loadUserData = useCallback(async () => {
     try {
-      const response = await authenticatedFetch('http://localhost:3001/api/auth/profile');
+      const response = await authenticatedFetch(`${getApiBase()}/profile`);
       if (response.ok) {
         const data = await response.json();
 
@@ -378,7 +394,7 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
 
-        const response = await authenticatedFetch('http://localhost:3001/api/auth/projects', {
+        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
           method: 'POST',
           body: JSON.stringify({ project: projectData })
         });
@@ -525,7 +541,7 @@ const PersonalCoachAssistant = () => {
         };
 
         // Guardar en la base de datos
-        const response = await authenticatedFetch('http://localhost:3001/api/auth/project-tasks', {
+        const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
           method: 'POST',
           body: JSON.stringify({
             projectId: projectId,
@@ -655,7 +671,7 @@ const PersonalCoachAssistant = () => {
     };
 
     try {
-      const response = await authenticatedFetch('http://localhost:3001/api/auth/daily-tasks', {
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
