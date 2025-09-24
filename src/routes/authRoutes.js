@@ -6,18 +6,27 @@ const userDB = new UserDatabase();
 
 // Middleware para verificar autenticación
 const authenticateToken = async (req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n🔐 [${timestamp}] Verificando autenticación para: ${req.url}`);
+
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+  console.log(`🔑 Auth header: ${authHeader ? 'PRESENTE' : 'AUSENTE'}`);
+  console.log(`🎫 Token: ${token ? `${token.substring(0, 20)}...` : 'NO ENCONTRADO'}`);
+
   if (!token) {
+    console.log(`❌ Sin token - respondiendo 401`);
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
 
   try {
     const user = await userDB.verifyToken(token);
+    console.log(`✅ Token válido para usuario: ${user.email}`);
     req.user = user;
     next();
   } catch (error) {
+    console.log(`❌ Error verificando token: ${error.message}`);
     return res.status(403).json({ error: error.message });
   }
 };
@@ -68,16 +77,31 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
+
+  console.log(`\n🔑 [${timestamp}] INTENTO DE LOGIN`);
+  console.log(`📱 Cliente: ${isMobile ? 'MÓVIL' : 'DESKTOP'}`);
+  console.log(`🌐 IP: ${req.ip}`);
+  console.log(`📧 Email recibido: ${req.body.email || 'NO RECIBIDO'}`);
+  console.log(`🔒 Password recibido: ${req.body.password ? 'SÍ' : 'NO'}`);
+  console.log(`📦 Body completo: ${JSON.stringify(req.body, null, 2)}`);
+
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
+      console.log(`❌ Faltan credenciales - email: ${!!email}, password: ${!!password}`);
       return res.status(400).json({
         error: 'Email y contraseña son requeridos'
       });
     }
 
+    console.log(`🔍 Intentando autenticar usuario: ${email}`);
     const result = await userDB.loginUser(email, password);
+    console.log(`✅ Login exitoso para: ${email}`);
+    console.log(`🎫 Token generado: ${result.token.substring(0, 20)}...`);
 
     res.json({
       success: true,
@@ -88,7 +112,8 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en login:', error);
+    console.log(`❌ Error en login: ${error.message}`);
+    console.log(`🔍 Stack trace: ${error.stack}`);
     res.status(401).json({
       error: error.message || 'Credenciales inválidas'
     });
@@ -117,6 +142,9 @@ router.post('/logout', authenticateToken, async (req, res) => {
 
 // Verificar token (para mantener sesión)
 router.get('/verify', authenticateToken, (req, res) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n✅ [${timestamp}] TOKEN VERIFICADO - Usuario: ${req.user.email}`);
+
   res.json({
     success: true,
     user: {

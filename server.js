@@ -11,8 +11,73 @@ const PORT = process.env.PORT || 3001;
 const assistant = new AssistantManager();
 let assistantContext = null;
 
+// Middleware de logging
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
+
+  console.log(`\n🌐 [${timestamp}] ${req.method} ${req.url}`);
+  console.log(`📱 Cliente: ${isMobile ? 'MÓVIL' : 'DESKTOP'} - ${userAgent.substring(0, 100)}`);
+  console.log(`🔗 IP: ${req.ip}`);
+
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📦 Body: ${JSON.stringify(req.body, null, 2)}`);
+  }
+
+  // Log de la respuesta
+  const originalSend = res.send;
+  res.send = function(data) {
+    const responseTime = new Date().toISOString();
+    console.log(`📤 [${responseTime}] Respuesta ${res.statusCode}: ${typeof data === 'string' ? data.substring(0, 200) : JSON.stringify(data).substring(0, 200)}`);
+    originalSend.call(this, data);
+  };
+
+  next();
+});
+
+// Configuración CORS mejorada con logging
+const corsOptions = {
+  origin: function (origin, callback) {
+    console.log(`🔗 CORS: Request from origin: ${origin || 'no-origin'}`);
+
+    // Permitir requests sin origin (apps móviles, postman, etc.)
+    if (!origin) {
+      console.log('✅ CORS: Allowing request without origin');
+      return callback(null, true);
+    }
+
+    // Permitir localhost y cualquier dominio para desarrollo/producción
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://app.smartchatix.com',
+      /^http:\/\/192\.168\.\d+\.\d+:3001$/  // IPs locales
+    ];
+
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin;
+      } else {
+        return allowedOrigin.test(origin);
+      }
+    });
+
+    if (isAllowed) {
+      console.log('✅ CORS: Origin allowed');
+      callback(null, true);
+    } else {
+      console.log('❌ CORS: Origin not allowed');
+      callback(null, true); // Permitir de todos modos para debugging
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static('dist'));
 
