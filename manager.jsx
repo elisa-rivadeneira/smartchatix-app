@@ -2027,6 +2027,27 @@ Responde siempre en español y mantén el tono configurado.`;
                 Tareas del Proyecto
               </h5>
 
+              {/* Agregar nueva tarea */}
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  placeholder="Nueva tarea del proyecto..."
+                  value={newProjectTask[project.id] || ''}
+                  onChange={(e) => setNewProjectTask(prev => ({ ...prev, [project.id]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addProjectTask(project.id);
+                  }}
+                  className="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={() => addProjectTask(project.id)}
+                  disabled={!newProjectTask[project.id]?.trim()}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
+                >
+                  <Plus size={14} className="mr-1" />
+                  Agregar
+                </button>
+              </div>
 
               {/* Lista de tareas */}
               <div className="space-y-2 max-h-48 overflow-y-auto">
