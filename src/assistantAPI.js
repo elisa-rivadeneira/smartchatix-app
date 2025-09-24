@@ -1,5 +1,10 @@
 // API client for assistant communication
-const API_BASE_URL = 'http://localhost:3001/api/assistant';
+// Correcto - detecta el entorno
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:3001/api'
+  : '/api';  // En producción usa la misma URL
+
+const API_BASE_URL = `${API_BASE}/assistant`;
 
 class AssistantAPI {
   static async getStatus() {

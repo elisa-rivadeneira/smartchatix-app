@@ -21,7 +21,8 @@
       "Bash(curl:*)",
       "Bash(xargs kill:*)",
       "Bash(fuser:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []
