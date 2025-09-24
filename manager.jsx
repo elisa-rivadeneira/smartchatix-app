@@ -22,6 +22,7 @@ const PersonalCoachAssistant = () => {
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState('');
   const [newDailyTask, setNewDailyTask] = useState('');
+  const [selectedProjectForTask, setSelectedProjectForTask] = useState('');
   const [activeView, setActiveView] = useState('dashboard');
   const [coachMessage, setCoachMessage] = useState('');
 
@@ -649,7 +650,7 @@ const PersonalCoachAssistant = () => {
       id: Date.now(),
       text: newDailyTask.trim(),
       completed: false,
-      projectId: null,
+      projectId: selectedProjectForTask || null,
       projectTaskId: null
     };
 
@@ -665,6 +666,7 @@ const PersonalCoachAssistant = () => {
       if (response.ok) {
         setDailyTasks([...dailyTasks, task]);
         setNewDailyTask('');
+        setSelectedProjectForTask('');
       } else {
         console.error('Error al guardar tarea diaria');
       }
@@ -673,6 +675,7 @@ const PersonalCoachAssistant = () => {
       // Si falla la petición, al menos actualizar localmente
       setDailyTasks([...dailyTasks, task]);
       setNewDailyTask('');
+      setSelectedProjectForTask('');
     }
   };
 
@@ -1657,25 +1660,39 @@ Responde siempre en español y mantén el tono configurado.`;
           </h3>
 
           {/* Add Daily Task Input */}
-          <div className="flex gap-2 mb-3 flex-shrink-0">
-            <input
-              type="text"
-              value={newDailyTask}
-              onChange={(e) => setNewDailyTask(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  addDailyTask();
-                }
-              }}
-              placeholder="Agregar nueva tarea para hoy..."
-              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-            <button
-              onClick={addDailyTask}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex items-center"
+          <div className="space-y-2 mb-3 flex-shrink-0">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newDailyTask}
+                onChange={(e) => setNewDailyTask(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    addDailyTask();
+                  }
+                }}
+                placeholder="Agregar nueva tarea para hoy..."
+                className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <button
+                onClick={addDailyTask}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex items-center"
+              >
+                +
+              </button>
+            </div>
+            <select
+              value={selectedProjectForTask}
+              onChange={(e) => setSelectedProjectForTask(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              +
-            </button>
+              <option value="">Sin asignar a proyecto</option>
+              {projects.filter(p => p.status === 'activo').map(project => (
+                <option key={project.id} value={project.id}>
+                  📋 {project.title}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2 flex-1 overflow-y-auto">
