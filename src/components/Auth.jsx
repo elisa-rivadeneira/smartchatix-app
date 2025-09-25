@@ -83,7 +83,7 @@ const Auth = ({ onLogin }) => {
     setMessage({ type: '', text: '' });
 
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const endpoint = isLogin ? '/login' : '/register';
       const payload = isLogin
         ? { email: formData.email, password: formData.password }
         : {
