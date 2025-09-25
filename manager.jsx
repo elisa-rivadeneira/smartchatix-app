@@ -2720,6 +2720,57 @@ Responde siempre en español y mantén el tono configurado.`;
     );
   };
 
+  // Funciones para manejar configuración
+  const handleConfigChange = (key, value) => {
+    setAssistantConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const saveAssistantConfig = async () => {
+    try {
+      const response = await authenticatedFetch('/assistant-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ config: assistantConfig }),
+      });
+
+      if (response.ok) {
+        setIsConfigSaved(true);
+        setTimeout(() => setIsConfigSaved(false), 2000);
+      } else {
+        throw new Error('Error al guardar configuración');
+      }
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+    }
+  };
+
+  const saveUserConfig = async () => {
+    try {
+      // Implementar guardado de configuración de usuario
+      console.log('Guardando configuración de usuario:', userConfig);
+      setShowUserProfileModal(false);
+    } catch (error) {
+      console.error('Error guardando configuración de usuario:', error);
+    }
+  };
+
+  // Cerrar dropdowns cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserDropdown]);
+
   // Main component JSX
   // Mostrar pantalla de carga mientras verifica autenticación
   if (authLoading) {
@@ -2842,7 +2893,7 @@ Responde siempre en español y mantén el tono configurado.`;
 
             {/* Dropdown del usuario */}
             {showUserDropdown && (
-              <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 min-w-48 z-50">
+              <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 min-w-48 z-50 user-dropdown">
                 <div className="py-2">
                   <button
                     onClick={() => {
@@ -2915,6 +2966,339 @@ Responde siempre en español y mantén el tono configurado.`;
            renderAssistantView()}
         </div>
       </div>
+
+      {/* Modal de Configuración del Asistente */}
+      {showAssistantModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Header del modal */}
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold flex items-center">
+                  <Settings className="mr-2" size={18} />
+                  Configuración del Asistente
+                </h3>
+                <button
+                  onClick={() => setShowAssistantModal(false)}
+                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  title="Cerrar modal"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Contenido scrolleable del modal */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="space-y-6">
+                {/* Configuración básica del asistente */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    🤖 Asistente
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Tu nombre
+                      </label>
+                      <input
+                        type="text"
+                        value={assistantConfig.userName}
+                        onChange={(e) => handleConfigChange('userName', e.target.value)}
+                        placeholder="¿Cómo te gustaría que te llame?"
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Nombre del Asistente
+                      </label>
+                      <input
+                        type="text"
+                        value={assistantConfig.assistantName}
+                        onChange={(e) => handleConfigChange('assistantName', e.target.value)}
+                        placeholder="¿Cómo se llama tu asistente?"
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Configuración del sistema */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    ⚙️ Sistema
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Instrucciones Base
+                      </label>
+                      <textarea
+                        value={assistantConfig.basePrompt}
+                        onChange={(e) => handleConfigChange('basePrompt', e.target.value)}
+                        placeholder="Define el rol y comportamiento de tu asistente..."
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Tono de Comunicación
+                      </label>
+                      <select
+                        value={assistantConfig.tone}
+                        onChange={(e) => handleConfigChange('tone', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="Amigable">Amigable</option>
+                        <option value="Profesional">Profesional</option>
+                        <option value="Motivador">Motivador</option>
+                        <option value="Directo">Directo</option>
+                        <option value="Casual">Casual</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Especialidades */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    🎯 Especialidades
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Selecciona especialidades:
+                      </label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {availableSpecialties.map(specialty => (
+                          <label key={specialty} className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={assistantConfig.specialties.includes(specialty)}
+                              onChange={(e) => {
+                                const updatedSpecialties = e.target.checked
+                                  ? [...assistantConfig.specialties, specialty]
+                                  : assistantConfig.specialties.filter(s => s !== specialty);
+                                handleConfigChange('specialties', updatedSpecialties);
+                              }}
+                              className="mr-2"
+                            />
+                            {specialty}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Agregar especialidad personalizada:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newCustomSpecialty}
+                          onChange={(e) => setNewCustomSpecialty(e.target.value)}
+                          placeholder="Nueva especialidad..."
+                          className="flex-1 p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => {
+                            if (newCustomSpecialty.trim()) {
+                              setAvailableSpecialties([...availableSpecialties, newCustomSpecialty.trim()]);
+                              handleConfigChange('specialties', [...assistantConfig.specialties, newCustomSpecialty.trim()]);
+                              setNewCustomSpecialty('');
+                            }
+                          }}
+                          className="px-3 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Áreas de enfoque */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    📋 Áreas de Enfoque
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {Object.entries(assistantConfig.focusAreas).map(([area, enabled]) => (
+                      <label key={area} className="flex items-center text-sm">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => handleConfigChange('focusAreas', {
+                            ...assistantConfig.focusAreas,
+                            [area]: e.target.checked
+                          })}
+                          className="mr-2"
+                        />
+                        {area.charAt(0).toUpperCase() + area.slice(1)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Memoria del asistente */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    🧠 Memoria del Asistente
+                    <button
+                      onClick={() => setShowMemorySection(!showMemorySection)}
+                      className="ml-2 text-xs text-blue-500 hover:text-blue-700"
+                    >
+                      {showMemorySection ? 'Ocultar' : 'Mostrar'}
+                    </button>
+                  </h4>
+
+                  {showMemorySection && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(assistantConfig.memory).map(([key, value]) => (
+                        <div key={key}>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                          </label>
+                          <textarea
+                            value={value}
+                            onChange={(e) => handleConfigChange('memory', {
+                              ...assistantConfig.memory,
+                              [key]: e.target.value
+                            })}
+                            placeholder={`Información sobre ${key}...`}
+                            className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                            rows={2}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer del modal con botones */}
+            <div className="border-t border-gray-200 p-4 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowAssistantModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveAssistantConfig}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  isConfigSaved
+                    ? 'bg-green-500 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                <div className="flex items-center">
+                  {isConfigSaved ? <CheckCircle2 className="mr-2" size={16} /> : <Save className="mr-2" size={16} />}
+                  {isConfigSaved ? 'Guardado!' : 'Guardar'}
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuración de Usuario */}
+      {showUserProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden">
+            {/* Header del modal */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold flex items-center">
+                  <User className="mr-2" size={18} />
+                  Perfil de Usuario
+                </h3>
+                <button
+                  onClick={() => setShowUserProfileModal(false)}
+                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  title="Cerrar modal"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Contenido del modal */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={userConfig.name}
+                  onChange={(e) => setUserConfig(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Tu nombre"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={userConfig.email}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">El email no se puede cambiar</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nueva Contraseña
+                </label>
+                <input
+                  type="password"
+                  value={userConfig.newPassword}
+                  onChange={(e) => setUserConfig(prev => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="Dejar vacío para no cambiar"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Memoria a Largo Plazo
+                </label>
+                <textarea
+                  value={userConfig.longTermMemory}
+                  onChange={(e) => setUserConfig(prev => ({ ...prev, longTermMemory: e.target.value }))}
+                  placeholder="Información personal que quieras que el asistente recuerde sobre ti, tus objetivos, preferencias, contexto importante..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            {/* Footer del modal */}
+            <div className="border-t border-gray-200 p-4 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowUserProfileModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveUserConfig}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -23,7 +23,8 @@
       "Bash(fuser:*)",
       "Bash(netstat:*)",
       "Bash(kill:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
