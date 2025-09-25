@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff } from 'lucide-react';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
@@ -125,23 +125,18 @@ const PersonalCoachAssistant = () => {
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedConfigSection, setSelectedConfigSection] = useState('');
 
-  // Estados para modales y dropdown
+  // Estados para dropdown del usuario y modales
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showAssistantModal, setShowAssistantModal] = useState(false);
   const [showUserProfileModal, setShowUserProfileModal] = useState(false);
-  const [showMemoryFields, setShowMemoryFields] = useState(false);
-  const [showPasswordFields, setShowPasswordFields] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Estados para configuración del usuario
   const [userConfig, setUserConfig] = useState({
     name: user?.name || '',
     email: user?.email || '',
     newPassword: '',
-    confirmPassword: ''
+    longTermMemory: ''
   });
-
   const messagesEndRef = useRef(null);
 
   // Estados para funciones de voz
@@ -888,6 +883,66 @@ const PersonalCoachAssistant = () => {
       }
     }));
   };
+
+  // Funciones para guardar configuraciones
+  const saveAssistantConfig = async () => {
+    try {
+      const response = await authenticatedFetch('/assistant-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ config: assistantConfig }),
+      });
+
+      if (response.ok) {
+        setIsConfigSaved(true);
+        setTimeout(() => setIsConfigSaved(false), 2000);
+      } else {
+        throw new Error('Error al guardar configuración');
+      }
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+    }
+  };
+
+  const saveUserConfig = async () => {
+    try {
+      // Implementar guardado de configuración de usuario
+      console.log('Guardando configuración de usuario:', userConfig);
+      setShowUserProfileModal(false);
+    } catch (error) {
+      console.error('Error guardando configuración de usuario:', error);
+    }
+  };
+
+  // Cerrar dropdowns cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserDropdown]);
+
+  // Verificaciones de autenticación
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Auth onLogin={login} />;
+  }
 
   // Funciones que el asistente puede ejecutar
   const assistantFunctions = [
@@ -2262,100 +2317,6 @@ Responde siempre en español y mantén el tono configurado.`;
     </div>
   );
 
-  // Funciones para los modales
-  const saveAssistantConfig = async () => {
-    try {
-      const response = await authenticatedFetch('/assistant-config', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ config: assistantConfig }),
-      });
-
-      if (response.ok) {
-        setIsConfigSaved(true);
-        setTimeout(() => setIsConfigSaved(false), 2000);
-      } else {
-        throw new Error('Error al guardar configuración');
-      }
-    } catch (error) {
-      console.error('Error guardando configuración:', error);
-    }
-  };
-
-  const saveUserConfig = async () => {
-    try {
-      // Validar contraseñas si se están cambiando
-      if (userConfig.newPassword) {
-        if (userConfig.newPassword.length < 6) {
-          alert('La nueva contraseña debe tener al menos 6 caracteres');
-          return;
-        }
-        if (userConfig.newPassword !== userConfig.confirmPassword) {
-          alert('Las contraseñas no coinciden');
-          return;
-        }
-
-        // Implementar cambio de contraseña
-        const response = await authenticatedFetch(`${getApiBase()}/change-password`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            newPassword: userConfig.newPassword
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al cambiar contraseña');
-        }
-      }
-
-      // Guardar configuración del asistente (que incluye la memoria)
-      await saveAssistantConfig();
-
-      // Limpiar campos de contraseña después de guardar
-      setUserConfig(prev => ({
-        ...prev,
-        newPassword: '',
-        confirmPassword: ''
-      }));
-
-      setShowUserProfileModal(false);
-      setShowPasswordFields(false);
-
-      alert('Configuración guardada exitosamente' + (userConfig.newPassword ? ' y contraseña actualizada' : ''));
-    } catch (error) {
-      console.error('Error guardando configuración de usuario:', error);
-      alert('Error al guardar: ' + error.message);
-    }
-  };
-
-  // Efecto para actualizar userConfig cuando el usuario se carga
-  useEffect(() => {
-    if (user) {
-      setUserConfig(prev => ({
-        ...prev,
-        name: user.name || '',
-        email: user.email || ''
-      }));
-    }
-  }, [user]);
-
-  // Efecto para cerrar dropdowns al hacer clic fuera
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
-        setShowUserDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserDropdown]);
-
   const renderAssistantView = () => {
     return (
       <div className="h-full flex flex-col overflow-hidden relative">
@@ -2381,70 +2342,9 @@ Responde siempre en español y mantén el tono configurado.`;
 
         {/* Container principal */}
         <div className="flex-1 flex overflow-hidden relative">
-          {/* Panel de Configuración Izquierdo */}
-          {showConfigPanel && (
-            <div className="w-80 mr-4 bg-gray-900 text-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-              {/* Header del menú */}
-              <div className="p-4 border-b border-gray-700">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-bold">Configuración</h3>
-                  <button
-                    onClick={() => {
-                      setShowConfigPanel(false);
-                      setSelectedConfigSection('');
-                    }}
-                    className="p-1 hover:bg-gray-700 rounded"
-                    title="Cerrar menú"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
 
-              {/* Opciones del menú */}
-              <div className="flex-1 p-4">
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setSelectedConfigSection('user')}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedConfigSection === 'user'
-                        ? 'bg-gray-700 text-white'
-                        : 'hover:bg-gray-800 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <User size={18} className="mr-3" />
-                      <div>
-                        <div className="font-medium">Usuario</div>
-                        <div className="text-xs text-gray-400">Nombre, memoria personal</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setSelectedConfigSection('assistant')}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedConfigSection === 'assistant'
-                        ? 'bg-gray-700 text-white'
-                        : 'hover:bg-gray-800 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <Bot size={18} className="mr-3" />
-                      <div>
-                        <div className="font-medium">Asistente</div>
-                        <div className="text-xs text-gray-400">Personalidad, prompt, especialidades</div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Panel de Contenido de Configuración y Chat */}
-          <>
-            {showConfigPanel && selectedConfigSection && (
+          {/* Chat Principal - Siempre visible */}
+          <div className="w-full flex flex-col overflow-hidden bg-white rounded-lg shadow-lg">
               <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
                 {/* Header del panel de contenido */}
               <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
@@ -2873,42 +2773,11 @@ Responde siempre en español y mantén el tono configurado.`;
               </div>
             </div>
           )}
-          </>
 
         </div>
       </div>
     );
   };
-
-  // Main component JSX
-  // Mostrar pantalla de carga mientras verifica autenticación
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Verificando autenticación...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Mostrar loading mientras se verifica la autenticación
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Mostrar pantalla de login si no está autenticado
-  if (!isAuthenticated) {
-    return <Auth onLogin={login} />;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -2981,8 +2850,8 @@ Responde siempre en español y mantén el tono configurado.`;
             </div>
           </div>
 
-          {/* Información de usuario y logout */}
-          <div className="flex items-center space-x-4">
+          {/* Información de usuario y dropdown */}
+          <div className="flex items-center space-x-4 relative">
             <div className="hidden md:flex flex-col text-right">
               <span className="text-sm font-medium text-gray-700">
                 ¡Hola, {user?.name || 'Usuario'}!
@@ -2992,15 +2861,38 @@ Responde siempre en español y mantén el tono configurado.`;
               </span>
             </div>
 
-            <div className="relative">
-              <button
-                onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold hover:shadow-lg transition-shadow"
-                title="Menu de usuario"
-              >
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </button>
-            </div>
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold hover:shadow-lg transition-shadow"
+              title="Menú de usuario"
+            >
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </button>
+
+            {/* Dropdown del usuario */}
+            {showUserDropdown && (
+              <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 min-w-48 z-50 user-dropdown">
+                <div className="py-2">
+                  <button
+                    onClick={() => {
+                      setShowUserProfileModal(true);
+                      setShowUserDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <User size={16} className="mr-3" />
+                    Perfil
+                  </button>
+                  <button
+                    onClick={logout}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <LogOut size={16} className="mr-3" />
+                    Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3056,434 +2948,339 @@ Responde siempre en español y mantén el tono configurado.`;
       {/* Modal de Configuración del Asistente */}
       {showAssistantModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                  <Settings className="mr-2" size={24} />
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Header del modal */}
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold flex items-center">
+                  <Settings className="mr-2" size={18} />
                   Configuración del Asistente
                 </h3>
                 <button
                   onClick={() => setShowAssistantModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  title="Cerrar modal"
                 >
                   ×
                 </button>
               </div>
+            </div>
 
+            {/* Contenido scrolleable del modal */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-6">
-                {/* Nombre del asistente */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre del asistente
-                  </label>
-                  <input
-                    type="text"
-                    value={assistantConfig.assistantName}
-                    onChange={(e) => handleConfigChange('assistantName', e.target.value)}
-                    placeholder="Nombre de tu asistente"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                {/* Configuración básica del asistente */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    🤖 Asistente
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Tu nombre
+                      </label>
+                      <input
+                        type="text"
+                        value={assistantConfig.userName}
+                        onChange={(e) => handleConfigChange('userName', e.target.value)}
+                        placeholder="¿Cómo te gustaría que te llame?"
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Nombre del Asistente
+                      </label>
+                      <input
+                        type="text"
+                        value={assistantConfig.assistantName}
+                        onChange={(e) => handleConfigChange('assistantName', e.target.value)}
+                        placeholder="¿Cómo se llama tu asistente?"
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Tu nombre */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tu nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={assistantConfig.userName}
-                    onChange={(e) => handleConfigChange('userName', e.target.value)}
-                    placeholder="¿Cómo te gustaría que te llame?"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                {/* Configuración del sistema */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    ⚙️ Sistema
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Instrucciones Base
+                      </label>
+                      <textarea
+                        value={assistantConfig.basePrompt}
+                        onChange={(e) => handleConfigChange('basePrompt', e.target.value)}
+                        placeholder="Define el rol y comportamiento de tu asistente..."
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Tono de Comunicación
+                      </label>
+                      <select
+                        value={assistantConfig.tone}
+                        onChange={(e) => handleConfigChange('tone', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="Amigable">Amigable</option>
+                        <option value="Profesional">Profesional</option>
+                        <option value="Motivador">Motivador</option>
+                        <option value="Directo">Directo</option>
+                        <option value="Casual">Casual</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Especialidades */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Especialidades
-                  </label>
-                  {assistantConfig.specialties.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {assistantConfig.specialties.map((specialty) => (
-                        <span
-                          key={specialty}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800"
-                        >
-                          {specialty}
-                          <button
-                            onClick={() => removeSpecialty(specialty)}
-                            className="ml-2 text-indigo-600 hover:text-indigo-800"
-                            title="Eliminar"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    🎯 Especialidades
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Selecciona especialidades:
+                      </label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {availableSpecialties.map(specialty => (
+                          <label key={specialty} className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              checked={assistantConfig.specialties.includes(specialty)}
+                              onChange={(e) => {
+                                const updatedSpecialties = e.target.checked
+                                  ? [...assistantConfig.specialties, specialty]
+                                  : assistantConfig.specialties.filter(s => s !== specialty);
+                                handleConfigChange('specialties', updatedSpecialties);
+                              }}
+                              className="mr-2"
+                            />
+                            {specialty}
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                  <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                    {availableSpecialties.map((specialty) => (
-                      <label
-                        key={specialty}
-                        className="flex items-center hover:bg-gray-50 p-1 rounded cursor-pointer"
-                      >
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Agregar especialidad personalizada:
+                      </label>
+                      <div className="flex gap-2">
                         <input
-                          type="checkbox"
-                          checked={assistantConfig.specialties.includes(specialty)}
-                          onChange={() => {
-                            if (assistantConfig.specialties.includes(specialty)) {
-                              removeSpecialty(specialty);
-                            } else {
-                              handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
+                          type="text"
+                          value={newCustomSpecialty}
+                          onChange={(e) => setNewCustomSpecialty(e.target.value)}
+                          placeholder="Nueva especialidad..."
+                          className="flex-1 p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => {
+                            if (newCustomSpecialty.trim()) {
+                              setAvailableSpecialties([...availableSpecialties, newCustomSpecialty.trim()]);
+                              handleConfigChange('specialties', [...assistantConfig.specialties, newCustomSpecialty.trim()]);
+                              setNewCustomSpecialty('');
                             }
                           }}
-                          className="mr-2 text-indigo-600 focus:ring-indigo-500"
+                          className="px-3 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Áreas de enfoque */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    📋 Áreas de Enfoque
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {Object.entries(assistantConfig.focusAreas).map(([area, enabled]) => (
+                      <label key={area} className="flex items-center text-sm">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => handleConfigChange('focusAreas', {
+                            ...assistantConfig.focusAreas,
+                            [area]: e.target.checked
+                          })}
+                          className="mr-2"
                         />
-                        <span className="text-sm text-gray-700">{specialty}</span>
+                        {area.charAt(0).toUpperCase() + area.slice(1)}
                       </label>
                     ))}
                   </div>
+                </div>
 
-                  {/* Especialidad personalizada */}
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      type="text"
-                      value={newCustomSpecialty}
-                      onChange={(e) => setNewCustomSpecialty(e.target.value)}
-                      placeholder="Especialidad personalizada"
-                      className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          addCustomSpecialty();
-                        }
-                      }}
-                    />
+                {/* Memoria del asistente */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    🧠 Memoria del Asistente
                     <button
-                      onClick={addCustomSpecialty}
-                      disabled={!newCustomSpecialty.trim()}
-                      className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setShowMemorySection(!showMemorySection)}
+                      className="ml-2 text-xs text-blue-500 hover:text-blue-700"
                     >
-                      +
+                      {showMemorySection ? 'Ocultar' : 'Mostrar'}
                     </button>
-                  </div>
-                </div>
+                  </h4>
 
-                {/* Prompt del sistema */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prompt del sistema
-                  </label>
-                  <textarea
-                    value={assistantConfig.systemPrompt}
-                    onChange={(e) => handleConfigChange('systemPrompt', e.target.value)}
-                    placeholder="Define la personalidad y comportamiento de tu asistente..."
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-vertical"
-                    rows={4}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Este prompt define cómo se comportará tu asistente en las conversaciones.
-                  </p>
+                  {showMemorySection && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(assistantConfig.memory).map(([key, value]) => (
+                        <div key={key}>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                          </label>
+                          <textarea
+                            value={value}
+                            onChange={(e) => handleConfigChange('memory', {
+                              ...assistantConfig.memory,
+                              [key]: e.target.value
+                            })}
+                            placeholder={`Información sobre ${key}...`}
+                            className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                            rows={2}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                {/* Tono */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tono de conversación
-                  </label>
-                  <select
-                    value={assistantConfig.tone}
-                    onChange={(e) => handleConfigChange('tone', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="Motivador">Motivador</option>
-                    <option value="Profesional">Profesional</option>
-                    <option value="Amigable">Amigable</option>
-                    <option value="Directo">Directo</option>
-                  </select>
-                </div>
-
               </div>
+            </div>
 
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  onClick={() => setShowAssistantModal(false)}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    saveAssistantConfig();
-                    setShowAssistantModal(false);
-                  }}
-                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 flex items-center"
-                >
-                  <Save className="mr-1" size={16} />
-                  Guardar
-                </button>
-              </div>
+            {/* Footer del modal con botones */}
+            <div className="border-t border-gray-200 p-4 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowAssistantModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveAssistantConfig}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  isConfigSaved
+                    ? 'bg-green-500 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                <div className="flex items-center">
+                  {isConfigSaved ? <CheckCircle2 className="mr-2" size={16} /> : <Save className="mr-2" size={16} />}
+                  {isConfigSaved ? 'Guardado!' : 'Guardar'}
+                </div>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Dropdown de Usuario */}
-      {showUserDropdown && (
-        <div className="fixed top-16 right-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50 user-dropdown">
-          <div className="p-2">
-            <button
-              onClick={() => {
-                setShowUserDropdown(false);
-                setShowUserProfileModal(true);
-              }}
-              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center"
-            >
-              <User className="mr-2" size={16} />
-              Perfil
-            </button>
-            <button
-              onClick={() => {
-                setShowUserDropdown(false);
-                logout();
-              }}
-              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center"
-            >
-              <LogOut className="mr-2" size={16} />
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Perfil de Usuario */}
+      {/* Modal de Configuración de Usuario */}
       {showUserProfileModal && (
-        <>
-          <style jsx>{`
-            @keyframes fadeIn {
-              from {
-                opacity: 0;
-                transform: translateY(-10px);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-          `}</style>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                  <User className="mr-2" size={24} />
-                  Configuración de Usuario
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden">
+            {/* Header del modal */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold flex items-center">
+                  <User className="mr-2" size={18} />
+                  Perfil de Usuario
                 </h3>
                 <button
                   onClick={() => setShowUserProfileModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                  title="Cerrar modal"
                 >
                   ×
                 </button>
               </div>
+            </div>
 
-              <div className="space-y-4">
-                {/* Nombre editable */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={userConfig.name}
-                    onChange={(e) => setUserConfig(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* Email solo lectura */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={userConfig.email}
-                    disabled
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Cambiar contraseña - Expandible */}
-                <div>
-                  <div
-                    onClick={() => setShowPasswordFields(!showPasswordFields)}
-                    className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 cursor-pointer">
-                        Cambiar contraseña (opcional)
-                      </label>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Actualizar contraseña de acceso
-                      </p>
-                    </div>
-                    <div className={`transform transition-transform duration-200 ${showPasswordFields ? 'rotate-180' : ''}`}>
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {showPasswordFields && (
-                    <div className="mt-3 space-y-3" style={{
-                      animation: 'fadeIn 0.3s ease-in-out'
-                    }}>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
-                        <div className="relative">
-                          <input
-                            type={showNewPassword ? 'text' : 'password'}
-                            value={userConfig.newPassword}
-                            onChange={(e) => setUserConfig(prev => ({ ...prev, newPassword: e.target.value }))}
-                            placeholder="Mínimo 6 caracteres"
-                            className="w-full p-2 pr-8 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar nueva contraseña</label>
-                        <div className="relative">
-                          <input
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            value={userConfig.confirmPassword}
-                            onChange={(e) => setUserConfig(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                            placeholder="Repite la nueva contraseña"
-                            className="w-full p-2 pr-8 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                          >
-                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {userConfig.newPassword && userConfig.confirmPassword && userConfig.newPassword !== userConfig.confirmPassword && (
-                        <p className="text-red-500 text-xs">Las contraseñas no coinciden</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Memoria a largo plazo - Expandible */}
-                <div>
-                  <div
-                    onClick={() => setShowMemoryFields(!showMemoryFields)}
-                    className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 cursor-pointer">
-                        Memoria a largo plazo (opcional)
-                      </label>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Ayuda al asistente a conocerte mejor
-                      </p>
-                    </div>
-                    <div className={`transform transition-transform duration-200 ${showMemoryFields ? 'rotate-180' : ''}`}>
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {showMemoryFields && (
-                    <div className="mt-3 space-y-3" style={{
-                      animation: 'fadeIn 0.3s ease-in-out'
-                    }}>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Rasgos de personalidad</label>
-                        <textarea
-                          value={assistantConfig.memory.personalityTraits}
-                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, personalityTraits: e.target.value})}
-                          placeholder="Ej: Soy una persona analítica y organizada..."
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                          rows={2}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Qué te motiva</label>
-                        <textarea
-                          value={assistantConfig.memory.motivationalTriggers}
-                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, motivationalTriggers: e.target.value})}
-                          placeholder="Ej: Me motivan los desafíos, reconocimiento..."
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                          rows={2}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Estilo de aprendizaje</label>
-                        <textarea
-                          value={assistantConfig.memory.learningStyle}
-                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, learningStyle: e.target.value})}
-                          placeholder="Ej: Aprendo mejor con ejemplos prácticos..."
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                          rows={2}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Prioridades actuales</label>
-                        <textarea
-                          value={assistantConfig.memory.currentPriorities}
-                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, currentPriorities: e.target.value})}
-                          placeholder="Ej: Enfocarme en proyectos de desarrollo web..."
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                          rows={2}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+            {/* Contenido del modal */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={userConfig.name}
+                  onChange={(e) => setUserConfig(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Tu nombre"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  onClick={() => setShowUserProfileModal(false)}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    saveUserConfig();
-                    setShowUserProfileModal(false);
-                  }}
-                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 flex items-center"
-                >
-                  <Save className="mr-1" size={16} />
-                  Guardar
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={userConfig.email}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">El email no se puede cambiar</p>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nueva Contraseña
+                </label>
+                <input
+                  type="password"
+                  value={userConfig.newPassword}
+                  onChange={(e) => setUserConfig(prev => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="Dejar vacío para no cambiar"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Memoria a Largo Plazo
+                </label>
+                <textarea
+                  value={userConfig.longTermMemory}
+                  onChange={(e) => setUserConfig(prev => ({ ...prev, longTermMemory: e.target.value }))}
+                  placeholder="Información personal que quieras que el asistente recuerde sobre ti, tus objetivos, preferencias, contexto importante..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            {/* Footer del modal */}
+            <div className="border-t border-gray-200 p-4 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowUserProfileModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveUserConfig}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              >
+                Guardar
+              </button>
             </div>
           </div>
         </div>
-        </>
       )}
+      </div>
+      </div>
+      </div>
+      </div>
     </div>
   );
 };

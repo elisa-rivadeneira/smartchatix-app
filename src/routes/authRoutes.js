@@ -466,6 +466,54 @@ router.post('/project-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Cambiar contraseña del usuario
+router.put('/change-password', (req, res, next) => {
+  console.log('🔐 [CHANGE-PASSWORD] Ruta alcanzada, ejecutando middleware...');
+  authenticateToken(req, res, next);
+}, async (req, res) => {
+  console.log('🔐 [CHANGE-PASSWORD] Iniciando cambio de contraseña');
+  console.log('📦 Body recibido:', req.body);
+  console.log('👤 Usuario autenticado:', req.user);
+
+  try {
+    const { newPassword } = req.body;
+    const userId = req.user.userId;
+
+    // Validar nueva contraseña
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        error: 'La nueva contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    // Cambiar contraseña en la base de datos
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const query = `UPDATE users SET password = ? WHERE id = ?`;
+
+    userDB.db.run(query, [hashedPassword, userId], function(err) {
+      if (err) {
+        console.error('Error actualizando contraseña:', err);
+        return res.status(500).json({ error: 'Error al actualizar contraseña' });
+      }
+
+      console.log(`✅ Contraseña actualizada para usuario: ${req.user.email}`);
+
+      res.json({
+        success: true,
+        message: 'Contraseña actualizada exitosamente'
+      });
+    });
+
+  } catch (error) {
+    console.error('Error en cambio de contraseña:', error);
+    res.status(500).json({
+      error: 'Error al cambiar contraseña'
+    });
+  }
+});
+
 // Guardar mensaje de chat
 router.post('/chat-messages', authenticateToken, async (req, res) => {
   try {
