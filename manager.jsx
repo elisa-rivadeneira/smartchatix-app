@@ -124,6 +124,19 @@ const PersonalCoachAssistant = () => {
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedConfigSection, setSelectedConfigSection] = useState('');
+
+  // Estados para dropdown del usuario y modales
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showAssistantModal, setShowAssistantModal] = useState(false);
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+
+  // Estados para configuración del usuario
+  const [userConfig, setUserConfig] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    newPassword: '',
+    longTermMemory: ''
+  });
   const messagesEndRef = useRef(null);
 
   // Estados para funciones de voz
@@ -2259,7 +2272,7 @@ Responde siempre en español y mantén el tono configurado.`;
             </p>
           </div>
           <button
-            onClick={() => setShowConfigPanel(!showConfigPanel)}
+            onClick={() => setShowAssistantModal(true)}
             className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
             title="Configurar asistente"
           >
@@ -2269,70 +2282,9 @@ Responde siempre en español y mantén el tono configurado.`;
 
         {/* Container principal */}
         <div className="flex-1 flex overflow-hidden relative">
-          {/* Panel de Configuración Izquierdo */}
-          {showConfigPanel && (
-            <div className="w-80 mr-4 bg-gray-900 text-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-              {/* Header del menú */}
-              <div className="p-4 border-b border-gray-700">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-bold">Configuración</h3>
-                  <button
-                    onClick={() => {
-                      setShowConfigPanel(false);
-                      setSelectedConfigSection('');
-                    }}
-                    className="p-1 hover:bg-gray-700 rounded"
-                    title="Cerrar menú"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
 
-              {/* Opciones del menú */}
-              <div className="flex-1 p-4">
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setSelectedConfigSection('user')}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedConfigSection === 'user'
-                        ? 'bg-gray-700 text-white'
-                        : 'hover:bg-gray-800 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <User size={18} className="mr-3" />
-                      <div>
-                        <div className="font-medium">Usuario</div>
-                        <div className="text-xs text-gray-400">Nombre, memoria personal</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setSelectedConfigSection('assistant')}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedConfigSection === 'assistant'
-                        ? 'bg-gray-700 text-white'
-                        : 'hover:bg-gray-800 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <Bot size={18} className="mr-3" />
-                      <div>
-                        <div className="font-medium">Asistente</div>
-                        <div className="text-xs text-gray-400">Personalidad, prompt, especialidades</div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Panel de Contenido de Configuración y Chat */}
-          <>
-            {showConfigPanel && selectedConfigSection && (
+          {/* Chat Principal - Siempre visible */}
+          <div className="w-full flex flex-col overflow-hidden bg-white rounded-lg shadow-lg">
               <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
                 {/* Header del panel de contenido */}
               <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
@@ -2869,8 +2821,8 @@ Responde siempre en español y mantén el tono configurado.`;
             </div>
           </div>
 
-          {/* Información de usuario y logout */}
-          <div className="flex items-center space-x-4">
+          {/* Información de usuario y dropdown */}
+          <div className="flex items-center space-x-4 relative">
             <div className="hidden md:flex flex-col text-right">
               <span className="text-sm font-medium text-gray-700">
                 ¡Hola, {user?.name || 'Usuario'}!
@@ -2880,17 +2832,38 @@ Responde siempre en español y mantén el tono configurado.`;
               </span>
             </div>
 
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </div>
-
             <button
-              onClick={logout}
-              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Cerrar sesión"
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold hover:shadow-lg transition-shadow"
+              title="Menú de usuario"
             >
-              <LogOut size={20} />
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </button>
+
+            {/* Dropdown del usuario */}
+            {showUserDropdown && (
+              <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 min-w-48 z-50">
+                <div className="py-2">
+                  <button
+                    onClick={() => {
+                      setShowUserProfileModal(true);
+                      setShowUserDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <User size={16} className="mr-3" />
+                    Perfil
+                  </button>
+                  <button
+                    onClick={logout}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <LogOut size={16} className="mr-3" />
+                    Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
