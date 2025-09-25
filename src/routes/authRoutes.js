@@ -1,8 +1,44 @@
 const express = require('express');
 const UserDatabase = require('../database/userDatabase');
+const fs = require('fs');
+const path = require('path');
 
 const router = express.Router();
 const userDB = new UserDatabase();
+
+// Función para guardar logs de autenticación
+const logAuth = (level, message, details = {}) => {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    details
+  };
+
+  const logFile = path.join(__dirname, '../../auth_logs.json');
+  let logs = [];
+
+  try {
+    if (fs.existsSync(logFile)) {
+      logs = JSON.parse(fs.readFileSync(logFile, 'utf8'));
+    }
+  } catch (error) {
+    console.error('Error leyendo auth_logs.json:', error);
+  }
+
+  logs.push(logEntry);
+
+  // Mantener solo los últimos 100 logs
+  if (logs.length > 100) {
+    logs = logs.slice(-100);
+  }
+
+  try {
+    fs.writeFileSync(logFile, JSON.stringify(logs, null, 2));
+  } catch (error) {
+    console.error('Error escribiendo auth_logs.json:', error);
+  }
+};
 
 // Middleware para verificar autenticación
 const authenticateToken = async (req, res, next) => {
@@ -17,6 +53,11 @@ const authenticateToken = async (req, res, next) => {
 
   if (!token) {
     console.log(`❌ Sin token - respondiendo 401`);
+    logAuth('WARNING', 'Intento de acceso sin token', {
+      url: req.url,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
 
@@ -27,6 +68,13 @@ const authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     console.log(`❌ Error verificando token: ${error.message}`);
+    logAuth('ERROR', 'Error verificando token', {
+      error: error.message,
+      url: req.url,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      token: token ? token.substring(0, 20) + '...' : 'none'
+    });
     return res.status(403).json({ error: error.message });
   }
 };
@@ -88,11 +136,28 @@ router.post('/login', async (req, res) => {
   console.log(`🔒 Password recibido: ${req.body.password ? 'SÍ' : 'NO'}`);
   console.log(`📦 Body completo: ${JSON.stringify(req.body, null, 2)}`);
 
+  // Log del intento
+  logAuth('INFO', 'Intento de login', {
+    email: req.body.email,
+    isMobile,
+    ip: req.ip,
+    userAgent,
+    hasPassword: !!req.body.password,
+    timestamp
+  });
+
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       console.log(`❌ Faltan credenciales - email: ${!!email}, password: ${!!password}`);
+      logAuth('WARNING', 'Login fallido - credenciales incompletas', {
+        email: email || 'missing',
+        hasEmail: !!email,
+        hasPassword: !!password,
+        ip: req.ip,
+        isMobile
+      });
       return res.status(400).json({
         error: 'Email y contraseña son requeridos'
       });
@@ -102,6 +167,16 @@ router.post('/login', async (req, res) => {
     const result = await userDB.loginUser(email, password);
     console.log(`✅ Login exitoso para: ${email}`);
     console.log(`🎫 Token generado: ${result.token.substring(0, 20)}...`);
+
+    // Log del login exitoso
+    logAuth('SUCCESS', 'Login exitoso', {
+      email,
+      userId: result.user.id,
+      isMobile,
+      ip: req.ip,
+      userAgent,
+      tokenPrefix: result.token.substring(0, 20) + '...'
+    });
 
     res.json({
       success: true,
@@ -114,6 +189,17 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.log(`❌ Error en login: ${error.message}`);
     console.log(`🔍 Stack trace: ${error.stack}`);
+
+    // Log del error de login
+    logAuth('ERROR', 'Login fallido', {
+      email: req.body.email,
+      error: error.message,
+      stack: error.stack,
+      isMobile,
+      ip: req.ip,
+      userAgent
+    });
+
     res.status(401).json({
       error: error.message || 'Credenciales inválidas'
     });

@@ -1,0 +1,27 @@
+[
+  {
+    "timestamp": "2025-09-25T13:22:31.767Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "test@test.com",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "hasPassword": false,
+      "timestamp": "2025-09-25T13:22:31.766Z"
+    }
+  },
+  {
+    "timestamp": "2025-09-25T13:22:31.768Z",
+    "level": "WARNING",
+    "message": "Login fallido - credenciales incompletas",
+    "details": {
+      "email": "test@test.com",
+      "hasEmail": true,
+      "hasPassword": false,
+      "ip": "127.0.0.1",
+      "isMobile": false
+    }
+  }
+]
