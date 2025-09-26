@@ -2920,53 +2920,14 @@ Responde siempre en español y mantén el tono configurado.`;
             <div className="relative w-12 h-12 flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-20 animate-pulse"></div>
             <div className="relative flex items-center justify-center">
-              {/* Logo SmartChatix - Fiel a la imagen original */}
-              <svg width="44" height="24" viewBox="0 0 100 55" className="drop-shadow-lg">
-                <defs>
-                  <linearGradient id="leftLoop" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#1E40AF" />
-                    <stop offset="50%" stopColor="#3B82F6" />
-                    <stop offset="100%" stopColor="#06B6D4" />
-                  </linearGradient>
-                  <linearGradient id="rightLoop" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#F59E0B" />
-                    <stop offset="50%" stopColor="#EF4444" />
-                    <stop offset="100%" stopColor="#EC4899" />
-                  </linearGradient>
-                  <linearGradient id="heartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#FF6B9D" />
-                    <stop offset="100%" stopColor="#F97316" />
-                  </linearGradient>
-                </defs>
-
-                {/* Lado izquierdo del infinito - Azul */}
-                <path
-                  d="M 15 27.5 C 15 20, 20 12, 30 12 C 35 12, 40 15, 45 20 C 47 22, 48 24, 50 27.5 C 48 31, 47 33, 45 35 C 40 40, 35 43, 30 43 C 20 43, 15 35, 15 27.5 Z"
-                  fill="url(#leftLoop)"
-                  opacity="0.9"
-                />
-
-                {/* Lado derecho del infinito - Rosa/Naranja */}
-                <path
-                  d="M 50 27.5 C 52 24, 53 22, 55 20 C 60 15, 65 12, 70 12 C 80 12, 85 20, 85 27.5 C 85 35, 80 43, 70 43 C 65 43, 60 40, 55 35 C 53 33, 52 31, 50 27.5 Z"
-                  fill="url(#rightLoop)"
-                  opacity="0.9"
-                />
-
-                {/* Unión central brillante */}
-                <ellipse cx="50" cy="27.5" rx="8" ry="6" fill="white" opacity="0.3"/>
-
-                {/* Corazón central pequeño */}
-                <path
-                  d="M 50 24 C 48.5 22, 46 22, 46 25 C 46 27, 50 30, 50 30 C 50 30, 54 27, 54 25 C 54 22, 51.5 22, 50 24 Z"
-                  fill="url(#heartGrad)"
-                  opacity="0.95"
-                />
-
-                {/* Reflejos sutiles */}
-                <ellipse cx="35" cy="20" rx="6" ry="3" fill="white" opacity="0.2"/>
-                <ellipse cx="65" cy="35" rx="6" ry="3" fill="white" opacity="0.2"/>
-              </svg>
+              {/* Logo SmartChatix - Oficial */}
+              <img
+                src="/smartchatix_logo.svg"
+                alt="SmartChatix Logo"
+                width="44"
+                height="24"
+                className="drop-shadow-lg"
+              />
             </div>
           </div>
 
