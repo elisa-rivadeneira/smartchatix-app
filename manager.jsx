@@ -57,6 +57,21 @@ style.textContent = `
     }
   }
 
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
   .retro-font {
     font-family: 'Orbitron', monospace;
     font-weight: 700;
@@ -137,14 +152,6 @@ const getApiBase = () => {
   return `http://${devHost}:3001/api/auth`;
 };
 
-// Mensajes motivacionales del coach - movido fuera del componente
-const coachMessages = [
-  "¡Excelente trabajo! Mantén ese momentum 🚀",
-  "Cada paso pequeño te acerca a tu meta 💪",
-  "Tu constancia es tu superpoder ⭐",
-  "Los proyectos no se completan solos, ¡pero tú puedes! 🎯",
-  "Prioriza lo importante sobre lo urgente 📈"
-];
 
 const PersonalCoachAssistant = () => {
   const { user, loading: authLoading, isAuthenticated, login, logout, authenticatedFetch } = useAuth();
@@ -159,7 +166,6 @@ const PersonalCoachAssistant = () => {
   const [selectedProjectTasks, setSelectedProjectTasks] = useState([]);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
-  const [coachMessage, setCoachMessage] = useState('');
 
   // Nuevos estados para gestión de tareas de proyectos
   const [newProjectTask, setNewProjectTask] = useState({});
@@ -438,15 +444,86 @@ const PersonalCoachAssistant = () => {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
+
+  // AI Shortcuts state
+  const [showShortcutsPanel, setShowShortcutsPanel] = useState(false);
+  const [shortcutsHelpVisible, setShortcutsHelpVisible] = useState(false);
+
+  // Chat Bubble state
+  const [chatBubbleOpen, setChatBubbleOpen] = useState(false);
+  const [chatBubbleMinimized, setChatBubbleMinimized] = useState(false);
   const recognitionRef = useRef(null);
   const synthesisRef = useRef(null);
   const finalTranscriptRef = useRef('');
   const timeoutRef = useRef(null);
 
+
+  // Keyboard shortcuts for AI interactions
   useEffect(() => {
-    const randomMessage = coachMessages[Math.floor(Math.random() * coachMessages.length)];
-    setCoachMessage(randomMessage);
-  }, []);
+    const handleKeyDown = (event) => {
+      // Only handle shortcuts when not typing in inputs
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + A: Switch to Assistant
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'A') {
+        event.preventDefault();
+        setActiveView('assistant');
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + S: Show shortcuts panel
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'S') {
+        event.preventDefault();
+        setShowShortcutsPanel(!showShortcutsPanel);
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + H: Show shortcuts help
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'H') {
+        event.preventDefault();
+        setShortcutsHelpVisible(!shortcutsHelpVisible);
+        return;
+      }
+
+      // Quick AI prompts (only in assistant view)
+      if (activeView === 'assistant') {
+        // Ctrl/Cmd + 1: Project analysis
+        if ((event.ctrlKey || event.metaKey) && event.key === '1') {
+          event.preventDefault();
+          setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`);
+          return;
+        }
+
+        // Ctrl/Cmd + 2: Task optimization
+        if ((event.ctrlKey || event.metaKey) && event.key === '2') {
+          event.preventDefault();
+          const pendingTasks = projects.reduce((total, project) =>
+            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
+          );
+          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
+          return;
+        }
+
+        // Ctrl/Cmd + 3: Time-based coaching
+        if ((event.ctrlKey || event.metaKey) && event.key === '3') {
+          event.preventDefault();
+          const currentHour = new Date().getHours();
+          const timeBasedPrompt = currentHour < 12
+            ? 'Dame una estrategia productiva para empezar bien el día'
+            : currentHour < 18
+            ? 'Necesito mantener el foco y energía para la tarde'
+            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
+          setNewMessage(timeBasedPrompt);
+          return;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeView, projects, showShortcutsPanel, shortcutsHelpVisible]);
 
   // Función para cargar datos específicos del usuario
   const loadUserData = useCallback(async () => {
@@ -1903,6 +1980,65 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       return memoryText || "Aún no hay información de memoria a largo plazo registrada. Aprenderé sobre ti a medida que conversemos.";
     };
 
+    // Construir contexto de proyectos actual
+    const buildProjectContext = () => {
+      if (projects.length === 0) {
+        return "El usuario aún no tiene proyectos creados. Sugiere crear algunos y ayúdale con la gestión inicial.";
+      }
+
+      const activeProjects = projects.filter(p => p.status === 'active');
+      const inactiveProjects = projects.filter(p => p.status === 'inactive');
+      const totalTasks = projects.reduce((total, project) => total + (project.tasks?.length || 0), 0);
+      const completedTasks = projects.reduce((total, project) =>
+        total + (project.tasks?.filter(task => task.completed).length || 0), 0
+      );
+      const pendingTasks = totalTasks - completedTasks;
+
+      let projectContext = `\nESTADO ACTUAL DE PROYECTOS DEL USUARIO:
+• Total de proyectos: ${projects.length}
+• Proyectos activos: ${activeProjects.length}
+• Proyectos inactivos: ${inactiveProjects.length}
+• Total de tareas: ${totalTasks}
+• Tareas completadas: ${completedTasks}
+• Tareas pendientes: ${pendingTasks}`;
+
+      if (activeProjects.length > 0) {
+        projectContext += `\n\nPROYECTOS ACTIVOS EN DETALLE:`;
+        activeProjects.forEach(project => {
+          const projectTasks = project.tasks || [];
+          const projectCompletedTasks = projectTasks.filter(t => t.completed).length;
+          const projectPendingTasks = projectTasks.length - projectCompletedTasks;
+
+          projectContext += `\n📋 "${project.title}"`;
+          if (project.description) projectContext += ` - ${project.description}`;
+          if (project.priority) projectContext += ` (Prioridad: ${project.priority})`;
+          if (project.deadline) projectContext += ` (Fecha límite: ${project.deadline})`;
+          projectContext += `\n   • Tareas: ${projectTasks.length} total, ${projectCompletedTasks} completadas, ${projectPendingTasks} pendientes`;
+
+          if (projectPendingTasks > 0) {
+            const pendingTasksList = projectTasks.filter(t => !t.completed).slice(0, 3);
+            projectContext += `\n   • Próximas tareas: ${pendingTasksList.map(t => t.title || t.text).join(', ')}`;
+            if (projectPendingTasks > 3) projectContext += ` y ${projectPendingTasks - 3} más...`;
+          }
+        });
+      }
+
+      // Análisis de patrones y sugerencias
+      projectContext += `\n\nANÁLISIS INTELIGENTE:`;
+      if (pendingTasks > completedTasks) {
+        projectContext += `\n• 🎯 FOCO RECOMENDADO: El usuario tiene más tareas pendientes (${pendingTasks}) que completadas (${completedTasks}). Ayúdale con priorización.`;
+      }
+      if (activeProjects.length > 3) {
+        projectContext += `\n• ⚠️ CARGA DE TRABAJO: ${activeProjects.length} proyectos activos pueden ser demasiados. Considera sugerir enfoques o priorización.`;
+      }
+      if (activeProjects.some(p => p.priority === 'alta')) {
+        const highPriorityProjects = activeProjects.filter(p => p.priority === 'alta');
+        projectContext += `\n• 🚨 URGENTE: ${highPriorityProjects.length} proyecto(s) de alta prioridad: ${highPriorityProjects.map(p => p.title).join(', ')}`;
+      }
+
+      return projectContext;
+    };
+
     return `${assistantConfig.basePrompt}
 
 INFORMACIÓN PERSONAL:
@@ -1914,6 +2050,9 @@ FECHA Y HORA ACTUAL:
 - Hoy es ${dateString}
 - Son las ${timeString}
 - Usa esta información para referencias de tiempo relativas (ej: "en una semana", "mañana", "la próxima semana", etc.)
+
+CONTEXTO DE PROYECTOS Y PRODUCTIVIDAD:
+${buildProjectContext()}
 
 TONO Y ESTILO:
 ${toneInstructions}
@@ -1939,18 +2078,36 @@ INSTRUCCIONES PARA USO DE FUNCIONES:
 MEMORIA A LARGO PLAZO Y CONTEXTO EMOCIONAL:
 ${buildMemoryContext()}
 
-INSTRUCCIONES ADICIONALES:
+INSTRUCCIONES AVANZADAS DE INTELIGENCIA CONTEXTUAL:
 - Usa el nombre ${userName} de manera natural en la conversación
 - Identifícate como ${assistantName} cuando sea relevante
 - Aplica tu experiencia en ${assistantConfig.specialties.join(', ')} para dar consejos específicos
 - Mantén las respuestas prácticas y orientadas a la acción
 - Cuando uses funciones, explica claramente qué hiciste y ofrece próximos pasos
-- IMPORTANTE: Usa la memoria a largo plazo para personalizar completamente tus respuestas y sugerencias
+
+INTELIGENCIA ADAPTATIVA:
+- CONTEXT-AWARE: Usa SIEMPRE el contexto de proyectos actual para dar respuestas relevantes y específicas
+- PREDICTIVE COACHING: Anticipa necesidades basándote en patrones de trabajo y estado de proyectos
+- PROACTIVE SUGGESTIONS: Sugiere acciones específicas basadas en deadlines próximos, tareas pendientes y prioridades
+- TIME-SENSITIVE: Ajusta urgencia y enfoque según fechas límite y carga de trabajo actual
+- PERSONALIZED MOTIVATION: Adapta el estilo motivacional según el progreso actual y desafíos identificados
+
+MEMORIA A LARGO PLAZO INTEGRADA:
+- Usa la memoria a largo plazo para personalizar completamente tus respuestas y sugerencias
 - Adapta tu motivación basándote en el contexto emocional y patrones de trabajo del usuario
 - Sugiere estrategias de crecimiento evolutivo basadas en las áreas de mejora identificadas
 - PRIORIDAD MÁXIMA: Enfócate principalmente en las prioridades actuales del usuario
-- APRENDIZAJE AUTOMÁTICO: Observa y aprende constantemente sobre el usuario a partir de sus mensajes, decisiones y patrones
+
+APRENDIZAJE CONTINUO:
+- Observa y aprende constantemente sobre el usuario a partir de sus mensajes, decisiones y patrones
 - Identifica automáticamente: patrones de trabajo, preferencias, desafíos, fortalezas y estilo de comunicación
+- Relaciona conversaciones previas con la situación actual de proyectos para dar continuidad inteligente
+
+RESPUESTAS INTELIGENTES:
+- Conecta siempre las preguntas del usuario con su situación real de proyectos
+- Ofrece consejos específicos y accionables basados en sus datos reales
+- Sugiere próximos pasos concretos que el usuario puede tomar inmediatamente
+- Menciona proyectos, tareas o situaciones específicas cuando sea relevante
 
 Responde siempre en español y mantén el tono configurado.`;
   };
@@ -1958,11 +2115,11 @@ Responde siempre en español y mantén el tono configurado.`;
   // Función para formatear el historial de conversación para OpenAI
   const formatConversationHistory = () => {
     return messages
-      .filter(msg => msg.type !== 'system') // Excluir mensajes del sistema si los hay
+      .filter(msg => msg.sender !== 'system') // Excluir mensajes del sistema si los hay
       .slice(-10) // Mantener solo los últimos 10 mensajes para eficiencia
       .map(msg => ({
-        role: msg.type === 'user' ? 'user' : 'assistant',
-        content: msg.content
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text || 'Mensaje sin contenido'
       }));
   };
 
@@ -2015,8 +2172,8 @@ Responde siempre en español y mantén el tono configurado.`;
 
     const userMessage = {
       id: Date.now(),
-      type: 'user',
-      content: newMessage,
+      sender: 'user',
+      text: newMessage,
       timestamp: new Date().toLocaleTimeString()
     };
 
@@ -2038,14 +2195,14 @@ Responde siempre en español y mantén el tono configurado.`;
           messages: [
             {
               role: 'system',
-              content: buildSystemPrompt()
+              content: buildSystemPrompt() || 'Eres un asistente personal útil.'
             },
             ...formatConversationHistory(),
             {
               role: 'user',
-              content: currentMessage
+              content: currentMessage || 'Hola'
             }
-          ],
+          ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
           functions: assistantFunctions,
           function_call: "auto",
           max_tokens: 1000,
@@ -2086,8 +2243,8 @@ Responde siempre en español y mantén el tono configurado.`;
 
       const assistantMessage = {
         id: Date.now() + 1,
-        type: 'assistant',
-        content: assistantResponse || "He procesado tu solicitud.",
+        sender: 'assistant',
+        text: assistantResponse || "He procesado tu solicitud.",
         timestamp: new Date().toLocaleTimeString(),
         functionResults: functionResults
       };
@@ -2115,11 +2272,11 @@ Responde siempre en español y mantén el tono configurado.`;
     } catch (error) {
       console.error('Error enviando mensaje:', error);
 
-      // Mensaje de error para el usuario
+      // Mensaje de error para el usuario con respuesta de demostración
       const errorMessage = {
         id: Date.now() + 1,
-        type: 'assistant',
-        content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, verifica tu conexión a internet o intenta de nuevo.',
+        sender: 'assistant',
+        text: `Entiendo tu mensaje: "${currentMessage}". El servicio de IA está temporalmente no disponible, pero el chat bubble funciona perfectamente. ¡Puedes ver cómo se visualizan los mensajes!`,
         timestamp: new Date().toLocaleTimeString()
       };
 
@@ -2229,44 +2386,117 @@ Responde siempre en español y mantén el tono configurado.`;
 
   const renderDashboard = () => (
     <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      {/* Coach Message */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-lg flex-shrink-0">
-        <h2 className="text-lg font-bold mb-1">Tu Coach Personal te dice:</h2>
-        <p className="text-sm">{coachMessage}</p>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-2 flex-shrink-0">
-        <div
-          className="bg-blue-50 p-2 md:p-3 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
-          onClick={() => setShowActiveProjectsModal(true)}
-        >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div className="text-center md:text-left">
-              <p className="text-blue-600 font-semibold text-xs md:text-sm">Proyectos</p>
-              <p className="text-lg md:text-xl font-bold text-blue-800">{activeProjects.length}</p>
+
+      {/* AI Assistant - Diseño Business Minimalista */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 flex-shrink-0">
+        {/* Header Section */}
+        <div className="p-4 md:p-6 border-b border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Título e Ícono */}
+            <div className="flex items-center space-x-3 md:space-x-4">
+              <div className="w-12 h-12 md:w-14 md:h-14 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Bot className="text-gray-600" size={20} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-1">Asistente IA</h3>
+                <p className="text-gray-600 text-sm">Analiza tus proyectos y optimiza tu productividad</p>
+              </div>
             </div>
-            <Target className="text-blue-500 hidden md:block" size={20} />
+
+            {/* Botón Principal */}
+            <button
+              onClick={() => setActiveView('assistant')}
+              className="w-full sm:w-auto bg-gray-900 text-white px-4 md:px-6 py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center space-x-2"
+            >
+              <span className="text-sm">Iniciar Chat</span>
+              <MessageCircle size={16} />
+            </button>
           </div>
         </div>
 
-        <div className="bg-green-50 p-2 md:p-3 rounded-lg">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div className="text-center md:text-left">
-              <p className="text-green-600 font-semibold text-xs md:text-sm">Tareas</p>
-              <p className="text-lg md:text-xl font-bold text-green-800">{completedTasks}/{dailyTasks.length}</p>
+        {/* Estadísticas Section */}
+        <div className="p-4 md:p-6">
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
+            <div
+              className="text-center p-3 md:p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors duration-200"
+              onClick={() => setShowActiveProjectsModal(true)}
+            >
+              <Target className="text-gray-500 mx-auto mb-2" size={18} />
+              <p className="text-gray-600 text-xs font-medium mb-1">Proyectos</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{activeProjects.length}</p>
             </div>
-            <CheckCircle className="text-green-500 hidden md:block" size={20} />
+
+            <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
+              <CheckCircle className="text-gray-500 mx-auto mb-2" size={18} />
+              <p className="text-gray-600 text-xs font-medium mb-1">Tareas</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{completedTasks}/{dailyTasks.length}</p>
+            </div>
+
+            <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
+              <TrendingUp className="text-gray-500 mx-auto mb-2" size={18} />
+              <p className="text-gray-600 text-xs font-medium mb-1">Efectividad</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{completionRate}%</p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-purple-50 p-2 md:p-3 rounded-lg">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div className="text-center md:text-left">
-              <p className="text-purple-600 font-semibold text-xs md:text-sm">Efectividad</p>
-              <p className="text-lg md:text-xl font-bold text-purple-800">{completionRate}%</p>
-            </div>
-            <TrendingUp className="text-purple-500 hidden md:block" size={20} />
+        {/* Quick Actions Section */}
+        <div className="p-4 md:p-6 bg-gray-50 border-t border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              onClick={() => {
+                setActiveView('assistant');
+                setTimeout(() => setNewMessage('¿Cuáles son mis proyectos activos y cómo van?'), 100);
+              }}
+              className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <TrendingUp size={16} className="text-blue-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900">Resumen</div>
+                  <div className="text-xs text-gray-500 hidden md:block">Estado actual</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveView('assistant');
+                setTimeout(() => setNewMessage('¿Qué tareas debería priorizar hoy?'), 100);
+              }}
+              className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                  <Target size={16} className="text-orange-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900">Priorizar</div>
+                  <div className="text-xs text-gray-500 hidden md:block">Próximas tareas</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveView('assistant');
+                setTimeout(() => setNewMessage('Dame consejos para ser más productivo'), 100);
+              }}
+              className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+                  <CheckCircle size={16} className="text-green-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900">Optimizar</div>
+                  <div className="text-xs text-gray-500 hidden md:block">Consejos útiles</div>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -3003,26 +3233,35 @@ Responde siempre en español y mantén el tono configurado.`;
   }, [showUserDropdown]);
 
   const renderAssistantView = () => {
+    // Calcular estadísticas para el AI Assistant
+    const assistantActiveProjects = projects.filter(p => p.status === 'activo');
+    const assistantCompletedTasks = dailyTasks.filter(t => t.completed).length;
+    const assistantCompletionRate = dailyTasks.length > 0 ? Math.round((assistantCompletedTasks / dailyTasks.length) * 100) : 0;
+
     return (
       <div className="h-full flex flex-col overflow-hidden relative">
-        {/* Header con botón de configuración */}
-        <div className="flex-shrink-0 flex justify-between items-center p-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg mb-4">
-          <div>
-            <h2 className="text-lg font-bold flex items-center">
-              <Bot className="mr-2" size={20} />
-              Chat con {assistantConfig.assistantName}
-            </h2>
-            <p className="text-purple-100 text-sm">
-              {assistantConfig.userName ? `Hola ${assistantConfig.userName}!` : 'Conversa con tu asistente personal'}
-            </p>
+        {/* Header con estadísticas y configuración */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg mb-4 overflow-hidden">
+          {/* Título y saludo */}
+          <div className="flex justify-between items-center p-4 pb-2">
+            <div>
+              <h2 className="text-lg font-bold flex items-center">
+                <Bot className="mr-2" size={20} />
+                Chat con {assistantConfig.assistantName}
+              </h2>
+              <p className="text-purple-100 text-sm">
+                {assistantConfig.userName ? `Hola ${assistantConfig.userName}!` : 'Conversa con tu asistente personal'}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAssistantModal(true)}
+              className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              title="Configurar asistente"
+            >
+              <Settings size={20} />
+            </button>
           </div>
-          <button
-            onClick={() => setShowAssistantModal(true)}
-            className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-            title="Configurar asistente"
-          >
-            <Settings size={20} />
-          </button>
+
         </div>
 
         {/* Container principal */}
@@ -3361,76 +3600,172 @@ Responde siempre en español y mantén el tono configurado.`;
 
           {/* Chat Principal - Se oculta cuando hay configuración seleccionada */}
           {!(showConfigPanel && selectedConfigSection) && (
-            <div className={`transition-all duration-300 ${showConfigPanel ? 'flex-1' : 'w-full'} flex flex-col overflow-hidden bg-white rounded-lg shadow-lg`}>
+            <div className={`transition-all duration-300 ${showConfigPanel ? 'flex-1' : 'w-full'} flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50 rounded-xl shadow-2xl border border-indigo-100`}>
               {/* Mensajes del chat */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0">
-                {messages.map(message => (
+              <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
+                {messages.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                      <span className="text-2xl">🤖</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">¡Hola! Soy {assistantConfig.assistantName}</h3>
+                    <p className="text-gray-600 max-w-md mx-auto">
+                      Estoy aquí para ayudarte con tus proyectos, responder preguntas y hacer tu trabajo más eficiente.
+                      ¡Pregúntame lo que necesites!
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8 max-w-2xl mx-auto">
+                      <button
+                        onClick={() => setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`)}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        💼 Análisis de proyectos ({projects.length})
+                      </button>
+                      <button
+                        onClick={() => {
+                          const pendingTasks = projects.reduce((total, project) =>
+                            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
+                          );
+                          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
+                        }}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        ✅ Optimizar tareas pendientes
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentHour = new Date().getHours();
+                          const timeBasedPrompt = currentHour < 12
+                            ? 'Dame una estrategia productiva para empezar bien el día'
+                            : currentHour < 18
+                            ? 'Necesito mantener el foco y energía para la tarde'
+                            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
+                          setNewMessage(timeBasedPrompt);
+                        }}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        🚀 Coaching personalizado
+                      </button>
+                    </div>
+
+                    {/* Additional contextual suggestions */}
+                    {projects.length > 0 && (
+                      <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <h4 className="text-sm font-semibold text-indigo-800 mb-2">💡 Sugerencias inteligentes</h4>
+                        <div className="space-y-2">
+                          {projects.filter(p => p.status === 'active').length > 0 && (
+                            <button
+                              onClick={() => setNewMessage(`¿Cómo puedo mejorar la eficiencia en mis proyectos activos: ${projects.filter(p => p.status === 'active').map(p => p.title).join(', ')}?`)}
+                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                            >
+                              📈 Optimizar proyectos activos
+                            </button>
+                          )}
+                          {projects.some(p => p.tasks?.some(t => !t.completed)) && (
+                            <button
+                              onClick={() => setNewMessage('Ayúdame a crear un plan de acción para completar las tareas más importantes de esta semana')}
+                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                            >
+                              🎯 Plan de acción semanal
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setNewMessage('Basándote en mi histórico de productividad, ¿qué hábitos debería desarrollar para ser más eficiente?')}
+                            className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                          >
+                            🌱 Desarrollo de hábitos
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {messages.map((message, index) => (
                   <div
                     key={message.id}
-                    className="w-full"
+                    className={`w-full animate-fadeIn ${message.type === 'user' ? 'flex justify-end' : 'flex justify-start'}`}
+                    style={{animationDelay: `${index * 0.1}s`}}
                   >
-                    <div
-                    className={`w-full px-4 py-3 ${
-                      message.type === 'user'
-                        ? 'bg-indigo-50 border-l-4 border-indigo-500'
-                        : 'bg-gray-50 border-l-4 border-gray-400'
-                    }`}
-                  >
-                    <div className="flex items-start space-x-2">
-                      {message.type === 'assistant' && (
-                        <Bot size={16} className="text-indigo-500 mt-1 flex-shrink-0" />
-                      )}
-                      {message.type === 'user' && (
-                        <User size={16} className="text-indigo-200 mt-1 flex-shrink-0" />
-                      )}
-                      <div>
-                        {message.type === 'assistant' ? (
-                          <div className="text-sm leading-relaxed">
-                            <ReactMarkdown
-                              components={{
-                                p: ({children}) => <p className="mb-2 last:mb-0 text-sm">{children}</p>,
-                                ul: ({children}) => <ul className="mb-2 pl-4 space-y-1 list-disc">{children}</ul>,
-                                ol: ({children}) => <ol className="mb-2 pl-4 space-y-1 list-decimal">{children}</ol>,
-                                li: ({children}) => <li className="text-sm text-gray-800">{children}</li>,
-                                h1: ({children}) => <h1 className="text-base font-bold mb-2 text-gray-900">{children}</h1>,
-                                h2: ({children}) => <h2 className="text-sm font-bold mb-1 text-gray-900">{children}</h2>,
-                                h3: ({children}) => <h3 className="text-sm font-semibold mb-1 text-gray-900">{children}</h3>,
-                                strong: ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                                em: ({children}) => <em className="italic">{children}</em>,
-                                code: ({children}) => <code className="bg-gray-200 px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
-                                blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2 italic text-gray-700">{children}</blockquote>,
-                                br: () => <br className="mb-1" />
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <p className="text-sm leading-relaxed">{message.content}</p>
-                        )}
-                        <p className={`text-xs mt-1 ${
-                          message.type === 'user' ? 'text-indigo-200' : 'text-gray-500'
+                    <div className={`max-w-[85%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
+                      <div
+                        className={`relative px-6 py-4 rounded-2xl shadow-lg backdrop-blur-sm ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white ml-8'
+                            : 'bg-white/90 border border-gray-100 mr-8'
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className={`absolute -top-2 ${message.type === 'user' ? '-right-2' : '-left-2'} w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-pink-400 to-purple-500'
+                            : 'bg-gradient-to-r from-indigo-400 to-blue-500'
                         }`}>
-                          {message.timestamp}
-                        </p>
+                          {message.type === 'assistant' ? (
+                            <Bot size={16} className="text-white" />
+                          ) : (
+                            <User size={16} className="text-white" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="pt-2">
+                          {message.type === 'assistant' ? (
+                            <div className="text-gray-800 leading-relaxed">
+                              <ReactMarkdown
+                                components={{
+                                  p: ({children}) => <p className="mb-3 last:mb-0 text-sm leading-7">{children}</p>,
+                                  ul: ({children}) => <ul className="mb-3 pl-5 space-y-2 list-disc marker:text-indigo-400">{children}</ul>,
+                                  ol: ({children}) => <ol className="mb-3 pl-5 space-y-2 list-decimal marker:text-indigo-400">{children}</ol>,
+                                  li: ({children}) => <li className="text-sm text-gray-700 leading-6">{children}</li>,
+                                  h1: ({children}) => <h1 className="text-lg font-bold mb-3 text-gray-900 border-b border-gray-200 pb-2">{children}</h1>,
+                                  h2: ({children}) => <h2 className="text-base font-bold mb-2 text-gray-900">{children}</h2>,
+                                  h3: ({children}) => <h3 className="text-sm font-semibold mb-2 text-gray-900">{children}</h3>,
+                                  strong: ({children}) => <strong className="font-semibold text-gray-900 bg-yellow-100 px-1 rounded">{children}</strong>,
+                                  em: ({children}) => <em className="italic text-indigo-600">{children}</em>,
+                                  code: ({children}) => <code className="bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-xs font-mono text-gray-800">{children}</code>,
+                                  blockquote: ({children}) => <blockquote className="border-l-4 border-indigo-300 pl-4 mb-3 italic text-gray-700 bg-indigo-50 py-2 rounded-r-lg">{children}</blockquote>,
+                                  br: () => <br className="mb-2" />
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="text-sm leading-relaxed font-medium">{message.content}</p>
+                          )}
+
+                          {/* Timestamp */}
+                          <div className={`text-xs mt-3 pt-2 border-t ${
+                            message.type === 'user'
+                              ? 'text-indigo-100 border-indigo-400/30'
+                              : 'text-gray-400 border-gray-200'
+                          } flex items-center justify-between`}>
+                            <span>{message.timestamp}</span>
+                            {message.type === 'assistant' && (
+                              <span className="text-indigo-500 font-medium text-xs">{assistantConfig.assistantName}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   </div>
                 ))}
 
                 {/* Indicador de que el asistente está escribiendo */}
                 {isAssistantTyping && (
-                  <div className="w-full">
-                    <div className="w-full px-4 py-3 bg-gray-50 border-l-4 border-gray-400">
-                      <div className="flex items-start space-x-2">
-                        <Bot size={16} className="text-indigo-500 mt-1 flex-shrink-0" />
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-600">{assistantConfig.assistantName} está escribiendo</span>
+                  <div className="w-full flex justify-start animate-fadeIn">
+                    <div className="max-w-[85%] mr-8">
+                      <div className="relative px-6 py-4 bg-white/90 border border-gray-100 rounded-2xl shadow-lg backdrop-blur-sm">
+                        {/* Avatar */}
+                        <div className="absolute -top-2 -left-2 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-400 to-blue-500 flex items-center justify-center shadow-lg">
+                          <Bot size={16} className="text-white" />
+                        </div>
+
+                        <div className="pt-2 flex items-center space-x-3">
+                          <span className="text-sm text-gray-600 font-medium">{assistantConfig.assistantName} está escribiendo</span>
                           <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0.1s"}}></div>
-                            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.4s"}}></div>
                           </div>
                         </div>
                       </div>
@@ -3441,7 +3776,7 @@ Responde siempre en español y mantén el tono configurado.`;
             </div>
 
               {/* Input para nuevo mensaje */}
-              <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gradient-to-r from-white via-indigo-50/30 to-white backdrop-blur-sm">
                 {/* Controles de voz */}
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex space-x-2">
@@ -3493,27 +3828,37 @@ Responde siempre en español y mantén el tono configurado.`;
                   </div>
                 </div>
 
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder={isListening ? 'Escuchando... (Haz una pausa de 2 segundos para terminar)' : `Escribe tu mensaje a ${assistantConfig.assistantName}...`}
-                    className={`flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm transition-colors ${
-                      isListening
-                        ? 'border-red-300 focus:ring-red-500 bg-red-50'
-                        : 'border-gray-300 focus:ring-indigo-500'
-                    }`}
-                    disabled={isAssistantTyping}
-                  />
+                <div className="flex space-x-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={isListening ? 'Escuchando... (Haz una pausa de 2 segundos para terminar)' : `💬 Pregúntale algo a ${assistantConfig.assistantName}...`}
+                      className={`w-full p-4 border-2 rounded-2xl focus:outline-none focus:border-transparent text-sm transition-all duration-200 shadow-sm ${
+                        isListening
+                          ? 'border-red-300 focus:ring-4 focus:ring-red-500/20 bg-red-50'
+                          : 'border-gray-200 focus:ring-4 focus:ring-indigo-500/20 bg-white hover:border-indigo-300'
+                      } ${isAssistantTyping ? 'opacity-50' : ''}`}
+                      disabled={isAssistantTyping}
+                    />
+                    {newMessage.trim() && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                          {newMessage.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || isAssistantTyping}
-                    className="px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center space-x-2"
                     title="Enviar mensaje"
                   >
-                    <Send size={16} />
+                    <Send size={18} />
+                    <span className="font-medium hidden sm:block">Enviar</span>
                   </button>
                 </div>
               </div>
@@ -4959,6 +5304,275 @@ Responde siempre en español y mantén el tono configurado.`;
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating AI Shortcuts Panel */}
+      {showShortcutsPanel && (
+        <div className="fixed top-4 right-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-4 rounded-xl shadow-2xl z-50 animate-fadeIn">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-bold flex items-center">
+              <Bot size={16} className="mr-2" />
+              AI Shortcuts
+            </h3>
+            <button
+              onClick={() => setShowShortcutsPanel(false)}
+              className="text-white/70 hover:text-white text-lg"
+            >
+              ×
+            </button>
+          </div>
+          <div className="space-y-2 text-xs">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <div className="font-semibold">⌘/Ctrl + Shift + A</div>
+              <div className="text-white/80">Ir al Asistente</div>
+            </div>
+            <div className="p-2 bg-white/10 rounded-lg">
+              <div className="font-semibold">⌘/Ctrl + 1, 2, 3</div>
+              <div className="text-white/80">Prompts rápidos (en Assistant)</div>
+            </div>
+            <div className="p-2 bg-white/10 rounded-lg">
+              <div className="font-semibold">⌘/Ctrl + Shift + H</div>
+              <div className="text-white/80">Ayuda completa</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shortcuts Help Modal */}
+      {shortcutsHelpVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                  <Bot className="mr-2" size={24} />
+                  Atajos de IA - Guía Completa
+                </h3>
+                <button
+                  onClick={() => setShortcutsHelpVisible(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">🚀 Navegación Rápida</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-700">Ir al Asistente de IA</span>
+                      <code className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded">⌘/Ctrl + Shift + A</code>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-700">Mostrar panel de atajos</span>
+                      <code className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded">⌘/Ctrl + Shift + S</code>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">🎯 Prompts Rápidos (Solo en Asistente)</h4>
+                  <div className="space-y-2">
+                    <div className="p-3 bg-indigo-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-800">Análisis de Proyectos</span>
+                        <code className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded">⌘/Ctrl + 1</code>
+                      </div>
+                      <p className="text-sm text-gray-600">Genera un análisis inteligente de todos tus proyectos activos</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-800">Optimización de Tareas</span>
+                        <code className="bg-purple-100 text-purple-800 px-2 py-1 rounded">⌘/Ctrl + 2</code>
+                      </div>
+                      <p className="text-sm text-gray-600">Obtén sugerencias para priorizar tus tareas pendientes</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-800">Coaching Temporal</span>
+                        <code className="bg-green-100 text-green-800 px-2 py-1 rounded">⌘/Ctrl + 3</code>
+                      </div>
+                      <p className="text-sm text-gray-600">Recibe consejos personalizados según la hora del día</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">💡 Consejos de Uso</h4>
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li>• Los atajos solo funcionan cuando <strong>no estás escribiendo</strong> en un campo de texto</li>
+                      <li>• Los prompts rápidos (1, 2, 3) solo están disponibles en la vista del Asistente</li>
+                      <li>• El Asistente utiliza información en tiempo real de tus proyectos para respuestas contextuales</li>
+                      <li>• Usa <strong>⌘/Ctrl + Shift + S</strong> para acceso rápido a este panel desde cualquier lugar</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Bubble Flotante para Asistente IA */}
+      {chatBubbleOpen && (
+        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
+          {/* Header del Chat */}
+          <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <Bot size={16} className="text-white" />
+              </div>
+              <span className="font-semibold text-gray-800">Asistente IA</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setChatBubbleMinimized(!chatBubbleMinimized)}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title={chatBubbleMinimized ? "Expandir" : "Minimizar"}
+              >
+                <ChevronDown size={16} className={`text-gray-600 transform transition-transform ${chatBubbleMinimized ? 'rotate-180' : ''}`} />
+              </button>
+              <button
+                onClick={() => setChatBubbleOpen(false)}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido del Chat */}
+          {!chatBubbleMinimized && (
+            <>
+              {/* Área de mensajes */}
+              <div className="flex-1 p-3 overflow-y-auto">
+                <div className="text-center" style={{ color: '#374151', padding: '10px' }}>
+                  <Bot size={32} className="mx-auto mb-2" style={{ color: '#9CA3AF' }} />
+                  <p style={{
+                    color: '#111827',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                    marginBottom: '8px',
+                    lineHeight: '1.4'
+                  }}>
+                    ¡Hola! Soy tu asistente personal.
+                  </p>
+                  <p style={{
+                    color: '#6B7280',
+                    fontSize: '12px',
+                    lineHeight: '1.3'
+                  }}>
+                    ¿En qué puedo ayudarte hoy?
+                  </p>
+                </div>
+                {messages.length > 0 && (
+                  <div className="space-y-3">
+                    {messages.map((msg, index) => (
+                      <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className="px-3 py-2 rounded-lg text-sm"
+                          style={{
+                            backgroundColor: msg.sender === 'user' ? '#3B82F6' : '#F3F4F6',
+                            color: msg.sender === 'user' ? '#FFFFFF' : '#111827',
+                            maxWidth: '250px',
+                            minWidth: '120px',
+                            width: 'auto'
+                          }}
+                        >
+                          {msg.sender === 'assistant' ? (
+                            <div style={{ color: '#111827', minHeight: '20px' }}>
+                              {msg.text}
+                            </div>
+                          ) : (
+                            <span style={{ color: msg.sender === 'user' ? '#FFFFFF' : '#111827', minHeight: '20px' }}>
+                              {msg.text}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Input para nuevo mensaje */}
+              <div className="p-3 border-t border-gray-200">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    placeholder="Escribe tu pregunta..."
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: '#111827',
+                      backgroundColor: '#FFFFFF'
+                    }}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() || isAssistantTyping}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Botón flotante para abrir chat bubble */}
+      <button
+        onClick={() => {
+          setChatBubbleOpen(!chatBubbleOpen);
+          if (!chatBubbleOpen) {
+            // Siempre mostrar mensaje de bienvenida cuando se abre
+            setTimeout(() => {
+              setMessages([{
+                sender: 'assistant',
+                text: '¡Hola! 👋 Soy tu asistente personal de SmartChatix. Estoy aquí para ayudarte a gestionar tus proyectos y tareas de manera más eficiente. \n\n¿Qué te gustaría hacer hoy?'
+              }]);
+            }, 300);
+          }
+        }}
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 ${
+          chatBubbleOpen
+            ? 'bg-gray-500 hover:bg-gray-600'
+            : 'bg-blue-500 hover:bg-blue-600'
+        } text-white hover:scale-110`}
+        title={chatBubbleOpen ? "Cerrar Asistente" : "Abrir Asistente IA"}
+      >
+        {chatBubbleOpen ? (
+          <ChevronDown size={24} />
+        ) : (
+          <Bot size={24} />
+        )}
+      </button>
+
+      {/* Floating Quick Access Button - Solo si el chat no está abierto */}
+      {!showShortcutsPanel && !chatBubbleOpen && activeView !== 'assistant' && (
+        <button
+          onClick={() => setShowShortcutsPanel(true)}
+          className="fixed bottom-20 right-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 animate-fadeIn hover:scale-110"
+          title="Atajos de IA (⌘/Ctrl + Shift + S)"
+        >
+          <Settings size={18} />
+        </button>
       )}
     </div>
   );
