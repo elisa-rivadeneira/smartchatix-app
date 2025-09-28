@@ -821,6 +821,12 @@ const PersonalCoachAssistant = () => {
         // Calcular progreso como promedio de los porcentajes de todas las tareas
         const totalProgress = project.tasks.reduce((sum, task) => sum + task.progress, 0);
         const averageProgress = Math.round(totalProgress / project.tasks.length);
+
+        // Actualizar también el selectedProject si es el mismo proyecto
+        if (selectedProject && selectedProject.id === projectId) {
+          setSelectedProject(prev => ({ ...prev, progress: averageProgress }));
+        }
+
         return prevProjects.map(p =>
           p.id === projectId ? { ...p, progress: averageProgress } : p
         );
@@ -880,28 +886,45 @@ const PersonalCoachAssistant = () => {
   };
 
 
-  const deleteProjectTask = (projectId, taskId) => {
-    // Eliminar de proyecto
-    setProjects(projects.map(project => {
-      if (project.id === projectId) {
-        const updatedTasks = project.tasks.filter(task => task.id !== taskId);
-        return { ...project, tasks: updatedTasks };
+  const deleteProjectTask = async (projectId, taskId) => {
+    try {
+      // Eliminar de la base de datos primero
+      const deleteUrl = `${getApiBase()}/project-tasks/${taskId}`;
+      console.log('🗑️ Eliminando tarea con URL:', deleteUrl);
+      const response = await authenticatedFetch(deleteUrl, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        console.error('Error eliminando tarea del servidor');
+        return;
       }
-      return project;
-    }));
 
-    // Eliminar de tareas diarias si existe
-    setDailyTasks(dailyTasks.filter(task =>
-      !(task.projectId === projectId && task.projectTaskId === taskId)
-    ));
+      // Si la eliminación del servidor fue exitosa, actualizar el estado local
+      // Eliminar de proyecto
+      setProjects(projects.map(project => {
+        if (project.id === projectId) {
+          const updatedTasks = project.tasks.filter(task => task.id !== taskId);
+          return { ...project, tasks: updatedTasks };
+        }
+        return project;
+      }));
 
-    // Actualizar selectedProject si está abierto en el modal
-    if (selectedProject && selectedProject.id === projectId) {
-      const updatedTasks = selectedProject.tasks.filter(task => task.id !== taskId);
-      setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      // Eliminar de tareas diarias si existe
+      setDailyTasks(dailyTasks.filter(task =>
+        !(task.projectId === projectId && task.projectTaskId === taskId)
+      ));
+
+      // Actualizar selectedProject si está abierto en el modal
+      if (selectedProject && selectedProject.id === projectId) {
+        const updatedTasks = selectedProject.tasks.filter(task => task.id !== taskId);
+        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      }
+
+      updateProjectProgressFromTasks(projectId);
+    } catch (error) {
+      console.error('Error eliminando tarea:', error);
     }
-
-    updateProjectProgressFromTasks(projectId);
   };
 
   // Función para actualizar el porcentaje de progreso de una tarea
@@ -3881,67 +3904,33 @@ Responde siempre en español y mantén el tono configurado.`;
                 </div>
               </div>
 
-              {/* Editor de progreso manual */}
+              {/* Información de progreso automático */}
               <div style={{
                 marginTop: '15px',
                 padding: '12px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
                 borderRadius: '8px'
               }}>
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  gap: '8px',
                   marginBottom: '8px'
                 }}>
-                  <label style={{
+                  <span style={{
                     fontSize: '14px',
                     fontWeight: '500',
-                    color: '#374151',
-                    minWidth: '120px'
+                    color: '#1e40af'
                   }}>
-                    Progreso manual:
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={selectedProject?.progress || 0}
-                    onChange={(e) => {
-                      const newProgress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                      updateProjectProgress(selectedProject.id, newProgress);
-                    }}
-                    style={{
-                      width: '80px',
-                      padding: '6px 8px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'center'
-                    }}
-                  />
-                  <span style={{ fontSize: '14px', color: '#6b7280' }}>%</span>
-                  <button
-                    onClick={() => updateProjectProgress(selectedProject.id, 100)}
-                    style={{
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Completar
-                  </button>
+                    📊 Progreso automático: {selectedProject?.progress || 0}%
+                  </span>
                 </div>
                 <div style={{
                   fontSize: '12px',
-                  color: '#6b7280'
+                  color: '#1e40af'
                 }}>
-                  Ajusta manualmente el progreso del proyecto o márcalo como completado
+                  El progreso se calcula automáticamente como el promedio del progreso de todas las tareas
                 </div>
               </div>
             </div>

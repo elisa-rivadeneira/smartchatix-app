@@ -466,6 +466,47 @@ router.post('/project-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Eliminar tarea de proyecto
+router.delete('/project-tasks/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM project_tasks WHERE id = ? AND user_id = ?';
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('Error verificando tarea:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+
+      // Eliminar la tarea
+      const deleteQuery = 'DELETE FROM project_tasks WHERE id = ? AND user_id = ?';
+      userDB.db.run(deleteQuery, [taskId, userId], function(deleteErr) {
+        if (deleteErr) {
+          console.error('Error eliminando tarea:', deleteErr);
+          return res.status(500).json({ error: 'Error al eliminar tarea' });
+        }
+
+        res.json({
+          success: true,
+          message: 'Tarea eliminada exitosamente'
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('Error en eliminación de tarea:', error);
+    res.status(500).json({
+      error: 'Error al eliminar tarea'
+    });
+  }
+});
+
 // Cambiar contraseña del usuario
 router.put('/change-password', (req, res, next) => {
   console.log('🔐 [CHANGE-PASSWORD] Ruta alcanzada, ejecutando middleware...');
