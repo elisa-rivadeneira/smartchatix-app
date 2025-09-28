@@ -2298,120 +2298,243 @@ Responde siempre en español y mantén el tono configurado.`;
     return (
       <div className="h-full flex flex-col space-y-6 overflow-hidden">
         {/* Header */}
-        <div className="flex-shrink-0 flex justify-between items-center">
+        <div className="flex-shrink-0">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Mis Proyectos</h1>
             <p className="text-gray-600 mt-1">Gestiona y organiza todos tus proyectos</p>
           </div>
-          <button
-            onClick={() => setShowCreateProject(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-          >
-            <Plus size={20} />
-            <span>Nuevo Proyecto</span>
-          </button>
         </div>
 
         {/* Projects Grid */}
         <div className="flex-1 overflow-y-auto">
           {projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-              <Target size={64} className="mb-4 text-gray-300" />
-              <h3 className="text-xl font-semibold mb-2">No tienes proyectos aún</h3>
-              <p className="text-center mb-6">Crea tu primer proyecto para comenzar a organizar tus tareas</p>
-              <button
-                onClick={() => setShowCreateProject(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
-              >
-                <Plus size={20} />
-                <span>Crear Primer Proyecto</span>
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map(project => (
-                <div
-                  key={project.id}
-                  onClick={() => {
-                    setSelectedProject(project);
-                    setShowProjectDetailModal(true);
-                  }}
-                  className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 hover:bg-blue-50/30"
-                >
-                  {/* Project Header */}
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {project.title}
-                      </h3>
-                      <div className="flex items-center space-x-3 text-sm">
-                        {/* Estado */}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
-                          project.status === 'activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          <span className={`w-2 h-2 rounded-full ${
-                            project.status === 'activo' ? 'bg-green-500' : 'bg-gray-400'
-                          }`}></span>
-                          {project.status === 'activo' ? 'Activo' : 'Inactivo'}
-                        </span>
-
-                        {/* Prioridad */}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          project.priority === 'alta' ? 'bg-red-100 text-red-800' :
-                          project.priority === 'media' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {project.priority === 'alta' ? '🔴 Alta' :
-                           project.priority === 'media' ? '🟡 Media' : '🟢 Baja'}
-                        </span>
+            <div className="space-y-8">
+              {/* Mensaje cuando no hay proyectos */}
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Proyectos Activos</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Card para Nuevo Proyecto */}
+                  <div
+                    onClick={() => setShowCreateProject(true)}
+                    className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 flex flex-col items-center justify-center min-h-[200px] group"
+                  >
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                        <Plus size={24} className="text-blue-600" />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-lg font-semibold text-gray-700 mb-1">Crear tu primer proyecto</h3>
+                        <p className="text-sm text-gray-500">Haz click para comenzar</p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Project Description */}
-                  {project.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {project.description}
-                    </p>
-                  )}
-
-                  {/* Project Stats */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">Tareas:</span>
-                      <span className="font-medium">
-                        {project.tasks?.filter(t => t.completed).length || 0} / {project.tasks?.length || 0}
-                      </span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full transition-all duration-300"
-                        style={{
-                          backgroundColor: (project.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
-                          width: `${project.progress || 0}%`,
-                        }}
-                      ></div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">Progreso:</span>
-                      <span className="font-medium">{project.progress || 0}%</span>
-                    </div>
-
-                    {/* Deadline */}
-                    {project.deadline && (
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-500">Fecha límite:</span>
-                        <span className="font-medium text-orange-600">
-                          {new Date(project.deadline).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
-              ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Proyectos Activos */}
+              {(() => {
+                const activeProjects = projects.filter(p => p.status === 'activo');
+                const inactiveProjects = projects.filter(p => p.status !== 'activo');
+
+                return (
+                  <>
+                    {/* Sección de Proyectos Activos */}
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-4">Proyectos Activos</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {activeProjects.map(project => (
+                          <div
+                            key={project.id}
+                            onClick={() => {
+                              setSelectedProject(project);
+                              setShowProjectDetailModal(true);
+                            }}
+                            className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 hover:bg-blue-50/30"
+                          >
+                            {/* Project Header */}
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                                  {project.title}
+                                </h3>
+                                <div className="flex items-center space-x-3 text-sm">
+                                  {/* Estado */}
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                                    project.status === 'activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    <span className={`w-2 h-2 rounded-full ${
+                                      project.status === 'activo' ? 'bg-green-500' : 'bg-gray-400'
+                                    }`}></span>
+                                    {project.status === 'activo' ? 'Activo' : 'Inactivo'}
+                                  </span>
+
+                                  {/* Prioridad */}
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    project.priority === 'alta' ? 'bg-red-100 text-red-800' :
+                                    project.priority === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}>
+                                    {project.priority === 'alta' ? '🔴 Alta' :
+                                     project.priority === 'media' ? '🟡 Media' : '🟢 Baja'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Project Description */}
+                            {project.description && (
+                              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                                {project.description}
+                              </p>
+                            )}
+
+                            {/* Project Stats */}
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Tareas:</span>
+                                <span className="font-medium">
+                                  {project.tasks?.filter(t => t.completed).length || 0} / {project.tasks?.length || 0}
+                                </span>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{
+                                    backgroundColor: (project.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
+                                    width: `${project.progress || 0}%`,
+                                  }}
+                                ></div>
+                              </div>
+
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Progreso:</span>
+                                <span className="font-medium">{project.progress || 0}%</span>
+                              </div>
+
+                              {/* Deadline */}
+                              {project.deadline && (
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-500">Fecha límite:</span>
+                                  <span className="font-medium text-orange-600">
+                                    {new Date(project.deadline).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Card para Nuevo Proyecto */}
+                        <div
+                          onClick={() => setShowCreateProject(true)}
+                          className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 flex flex-col items-center justify-center min-h-[200px] group"
+                        >
+                          <div className="flex flex-col items-center space-y-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                              <Plus size={24} className="text-blue-600" />
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-lg font-semibold text-gray-700 mb-1">Nuevo Proyecto</h3>
+                              <p className="text-sm text-gray-500">Haz click para crear un proyecto</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sección de Proyectos Inactivos */}
+                    {inactiveProjects.length > 0 && (
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Proyectos Inactivos</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {inactiveProjects.map(project => (
+                            <div
+                              key={project.id}
+                              onClick={() => {
+                                setSelectedProject(project);
+                                setShowProjectDetailModal(true);
+                              }}
+                              className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-gray-400 opacity-75 hover:opacity-100"
+                            >
+                              {/* Project Header */}
+                              <div className="flex justify-between items-start mb-4">
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-semibold text-gray-700 mb-2 line-clamp-2">
+                                    {project.title}
+                                  </h3>
+                                  <div className="flex items-center space-x-3 text-sm">
+                                    {/* Estado */}
+                                    <span className="px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 bg-gray-100 text-gray-600">
+                                      <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                      Inactivo
+                                    </span>
+
+                                    {/* Prioridad */}
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      project.priority === 'alta' ? 'bg-red-100 text-red-800' :
+                                      project.priority === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-green-100 text-green-800'
+                                    }`}>
+                                      {project.priority === 'alta' ? '🔴 Alta' :
+                                       project.priority === 'media' ? '🟡 Media' : '🟢 Baja'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Project Description */}
+                              {project.description && (
+                                <p className="text-gray-500 text-sm mb-4 line-clamp-3">
+                                  {project.description}
+                                </p>
+                              )}
+
+                              {/* Project Stats */}
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-500">Tareas:</span>
+                                  <span className="font-medium text-gray-600">
+                                    {project.tasks?.filter(t => t.completed).length || 0} / {project.tasks?.length || 0}
+                                  </span>
+                                </div>
+
+                                {/* Progress Bar */}
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="h-2 rounded-full transition-all duration-300 bg-gray-400"
+                                    style={{
+                                      width: `${project.progress || 0}%`,
+                                    }}
+                                  ></div>
+                                </div>
+
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-500">Progreso:</span>
+                                  <span className="font-medium text-gray-600">{project.progress || 0}%</span>
+                                </div>
+
+                                {/* Deadline */}
+                                {project.deadline && (
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">Fecha límite:</span>
+                                    <span className="font-medium text-gray-600">
+                                      {new Date(project.deadline).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
