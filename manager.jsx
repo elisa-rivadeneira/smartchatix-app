@@ -2344,16 +2344,25 @@ Responde siempre en español y mantén el tono configurado.`;
                       <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                         {project.title}
                       </h3>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          project.status === 'active' ? 'bg-green-100 text-green-800' :
-                          project.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
-                          project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
+                      <div className="flex items-center space-x-3 text-sm">
+                        {/* Estado */}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                          project.status === 'activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                         }`}>
-                          {project.status === 'active' ? 'Activo' :
-                           project.status === 'paused' ? 'Pausado' :
-                           project.status === 'completed' ? 'Completado' : 'Inactivo'}
+                          <span className={`w-2 h-2 rounded-full ${
+                            project.status === 'activo' ? 'bg-green-500' : 'bg-gray-400'
+                          }`}></span>
+                          {project.status === 'activo' ? 'Activo' : 'Inactivo'}
+                        </span>
+
+                        {/* Prioridad */}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          project.priority === 'alta' ? 'bg-red-100 text-red-800' :
+                          project.priority === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {project.priority === 'alta' ? '🔴 Alta' :
+                           project.priority === 'media' ? '🟡 Media' : '🟢 Baja'}
                         </span>
                       </div>
                     </div>
@@ -3826,114 +3835,190 @@ Responde siempre en español y mantén el tono configurado.`;
 
             {/* Estadísticas básicas */}
             <div style={{
-              padding: '20px',
-              backgroundColor: '#f9fafb',
+              padding: '16px 20px',
+              backgroundColor: '#f8fafc',
               borderRadius: '8px',
-              marginBottom: '25px',
+              marginBottom: '20px',
               border: '1px solid #e5e7eb'
             }}>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                marginBottom: '15px',
-                color: '#374151'
-              }}>
-                Estadísticas del Proyecto
-              </h3>
+              {/* Información compacta en una línea */}
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                gap: '15px'
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px'
               }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    color: '#3b82f6',
-                    marginBottom: '5px'
-                  }}>
-                    {selectedProject?.tasks?.length || 0}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    Total de Tareas
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    color: '#10b981',
-                    marginBottom: '5px'
-                  }}>
-                    {selectedProject?.tasks?.filter(t => t.completed).length || 0}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    Completadas
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '24px',
-                    fontWeight: 'bold',
-                    color: '#8b5cf6',
-                    marginBottom: '5px'
-                  }}>
-                    {selectedProject?.progress || 0}%
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    Progreso
-                  </div>
-                </div>
-              </div>
-
-              {/* Barra de progreso */}
-              <div style={{ marginTop: '15px' }}>
-                <div style={{
-                  width: '100%',
-                  height: '8px',
-                  backgroundColor: '#e5e7eb',
-                  borderRadius: '4px',
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    height: '100%',
-                    backgroundColor: (selectedProject?.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
-                    width: `${selectedProject?.progress || 0}%`,
-                    transition: 'width 0.3s ease'
-                  }} />
-                </div>
-              </div>
-
-              {/* Información de progreso automático */}
-              <div style={{
-                marginTop: '15px',
-                padding: '12px',
-                backgroundColor: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                borderRadius: '8px'
-              }}>
+                {/* Stats compactos - izquierda */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '8px'
+                  gap: '20px',
+                  flex: '1'
                 }}>
-                  <span style={{
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e40af'
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}>
-                    📊 Progreso automático: {selectedProject?.progress || 0}%
-                  </span>
+                    <span style={{
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      color: '#3b82f6'
+                    }}>
+                      {selectedProject?.tasks?.length || 0}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#6b7280'
+                    }}>
+                      tareas
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      color: '#10b981'
+                    }}>
+                      {selectedProject?.tasks?.filter(t => t.completed).length || 0}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#6b7280'
+                    }}>
+                      hechas
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <div style={{
+                      width: '32px',
+                      height: '4px',
+                      backgroundColor: '#e5e7eb',
+                      borderRadius: '2px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        backgroundColor: (selectedProject?.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
+                        width: `${selectedProject?.progress || 0}%`,
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: '#374151'
+                    }}>
+                      {selectedProject?.progress || 0}%
+                    </span>
+                  </div>
                 </div>
+
+                {/* Controles - derecha */}
                 <div style={{
-                  fontSize: '12px',
-                  color: '#1e40af'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
                 }}>
-                  El progreso se calcula automáticamente como el promedio del progreso de todas las tareas
+                  <select
+                    value={selectedProject?.priority || 'media'}
+                    onChange={async (e) => {
+                      const newPriority = e.target.value;
+                      setSelectedProject(prev => ({ ...prev, priority: newPriority }));
+
+                      try {
+                        await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                          method: 'PUT',
+                          body: JSON.stringify({
+                            project: { priority: newPriority }
+                          })
+                        });
+                      } catch (error) {
+                        console.error('Error actualizando prioridad:', error);
+                      }
+
+                      setProjects(projects.map(project =>
+                        project.id === selectedProject?.id
+                          ? { ...project, priority: newPriority }
+                          : project
+                      ));
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="baja">🟢 Baja</option>
+                    <option value="media">🟡 Media</option>
+                    <option value="alta">🔴 Alta</option>
+                  </select>
+
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedProject?.status === 'activo'}
+                      onChange={async (e) => {
+                        const newStatus = e.target.checked ? 'activo' : 'inactivo';
+                        setSelectedProject(prev => ({ ...prev, status: newStatus }));
+
+                        try {
+                          await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                              project: { status: newStatus }
+                            })
+                          });
+                        } catch (error) {
+                          console.error('Error actualizando estado:', error);
+                        }
+
+                        setProjects(projects.map(project =>
+                          project.id === selectedProject?.id
+                            ? { ...project, status: newStatus }
+                            : project
+                        ));
+                      }}
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        accentColor: '#10b981'
+                      }}
+                    />
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: '500',
+                      color: selectedProject?.status === 'activo' ? '#10b981' : '#6b7280'
+                    }}>
+                      {selectedProject?.status === 'activo' ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </label>
                 </div>
               </div>
+
+
             </div>
+
 
             {/* Lista de tareas */}
             {selectedProject?.tasks && selectedProject.tasks.length > 0 && (

@@ -466,6 +466,61 @@ router.post('/project-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar proyecto
+router.put('/projects/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { project } = req.body;
+    const userId = req.user.userId;
+
+    // Verificar que el proyecto pertenece al usuario
+    const projectQuery = 'SELECT * FROM user_projects WHERE id = ? AND user_id = ?';
+    userDB.db.get(projectQuery, [projectId, userId], (err, existingProject) => {
+      if (err) {
+        console.error('Error verificando proyecto:', err);
+        return res.status(500).json({ error: 'Error al verificar proyecto' });
+      }
+
+      if (!existingProject) {
+        return res.status(404).json({ error: 'Proyecto no encontrado' });
+      }
+
+      // Actualizar el proyecto
+      const updateQuery = `
+        UPDATE user_projects
+        SET title = ?, description = ?, priority = ?, status = ?, progress = ?
+        WHERE id = ? AND user_id = ?
+      `;
+
+      userDB.db.run(updateQuery, [
+        project.title || existingProject.title,
+        project.description !== undefined ? project.description : existingProject.description,
+        project.priority || existingProject.priority,
+        project.status || existingProject.status,
+        project.progress !== undefined ? project.progress : existingProject.progress,
+        projectId,
+        userId
+      ], function(updateErr) {
+        if (updateErr) {
+          console.error('Error actualizando proyecto:', updateErr);
+          return res.status(500).json({ error: 'Error al actualizar proyecto' });
+        }
+
+        res.json({
+          success: true,
+          message: 'Proyecto actualizado exitosamente'
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('Error en actualización de proyecto:', error);
+    res.status(500).json({
+      error: 'Error al actualizar proyecto'
+    });
+  }
+});
+
 // Eliminar tarea de proyecto
 router.delete('/project-tasks/:taskId', authenticateToken, async (req, res) => {
   try {
