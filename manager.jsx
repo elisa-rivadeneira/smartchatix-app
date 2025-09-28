@@ -2076,37 +2076,37 @@ Responde siempre en español y mantén el tono configurado.`;
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
+      <div className="grid grid-cols-3 gap-2 flex-shrink-0">
         <div
-          className="bg-blue-50 p-3 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+          className="bg-blue-50 p-2 md:p-3 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
           onClick={() => setShowActiveProjectsModal(true)}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-600 font-semibold text-sm">Proyectos Activos</p>
-              <p className="text-xl font-bold text-blue-800">{activeProjects.length}</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="text-center md:text-left">
+              <p className="text-blue-600 font-semibold text-xs md:text-sm">Proyectos</p>
+              <p className="text-lg md:text-xl font-bold text-blue-800">{activeProjects.length}</p>
             </div>
-            <Target className="text-blue-500" size={24} />
+            <Target className="text-blue-500 hidden md:block" size={20} />
           </div>
         </div>
 
-        <div className="bg-green-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-600 font-semibold text-sm">Tareas de Hoy</p>
-              <p className="text-xl font-bold text-green-800">{completedTasks}/{dailyTasks.length}</p>
+        <div className="bg-green-50 p-2 md:p-3 rounded-lg">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="text-center md:text-left">
+              <p className="text-green-600 font-semibold text-xs md:text-sm">Tareas</p>
+              <p className="text-lg md:text-xl font-bold text-green-800">{completedTasks}/{dailyTasks.length}</p>
             </div>
-            <CheckCircle className="text-green-500" size={24} />
+            <CheckCircle className="text-green-500 hidden md:block" size={20} />
           </div>
         </div>
 
-        <div className="bg-purple-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-600 font-semibold text-sm">Efectividad</p>
-              <p className="text-xl font-bold text-purple-800">{completionRate}%</p>
+        <div className="bg-purple-50 p-2 md:p-3 rounded-lg">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="text-center md:text-left">
+              <p className="text-purple-600 font-semibold text-xs md:text-sm">Efectividad</p>
+              <p className="text-lg md:text-xl font-bold text-purple-800">{completionRate}%</p>
             </div>
-            <TrendingUp className="text-purple-500" size={24} />
+            <TrendingUp className="text-purple-500 hidden md:block" size={20} />
           </div>
         </div>
       </div>
@@ -3383,7 +3383,11 @@ Responde siempre en español y mantén el tono configurado.`;
             }}>
               SMARTCHATIX
             </h1>
-            <p className="text-sm miami-glow synthwave-font font-light -mt-1">
+            <p className="text-sm synthwave-font font-light -mt-1" style={{
+              color: '#f8f9fa',
+              textShadow: '0 0 3px rgba(255, 255, 255, 0.2)',
+              opacity: 0.9
+            }}>
               ◢ DIGITAL ASSISTANT ◤
             </p>
             </div>
