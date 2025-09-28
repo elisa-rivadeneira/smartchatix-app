@@ -250,11 +250,171 @@ const PersonalCoachAssistant = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isConfigSaved, setIsConfigSaved] = useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+
+  // Función para obtener estilos del theme
+  const getThemeStyles = (theme) => {
+    switch (theme) {
+      case 'retro':
+        return {
+          background: `
+            radial-gradient(ellipse at top, #ff00ff22 0%, transparent 70%),
+            radial-gradient(ellipse at bottom, #00ffff22 0%, transparent 70%),
+            linear-gradient(180deg, #0a0014 0%, #1a0033 50%, #2a1458 100%)
+          `,
+          className: 'retro-grid synthwave-font'
+        };
+      case 'minimal':
+        return {
+          background: `
+            linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%),
+            radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)
+          `,
+          className: 'synthwave-font'
+        };
+      case 'brutalist':
+        return {
+          background: 'linear-gradient(45deg, #ffffff 25%, #f8f9fa 25%, #f8f9fa 50%, #ffffff 50%, #ffffff 75%, #f8f9fa 75%)',
+          backgroundSize: '60px 60px',
+          className: 'data-grid system-font'
+        };
+      case 'colorful':
+        return {
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+          backgroundSize: '400% 400%',
+          animation: 'gradientShift 15s ease infinite',
+          className: 'synthwave-font'
+        };
+      default:
+        return {
+          background: `
+            radial-gradient(ellipse at top, #ff00ff22 0%, transparent 70%),
+            radial-gradient(ellipse at bottom, #00ffff22 0%, transparent 70%),
+            linear-gradient(180deg, #0a0014 0%, #1a0033 50%, #2a1458 100%)
+          `,
+          className: 'retro-grid synthwave-font'
+        };
+    }
+  };
+
+  // Función para obtener estilos del header según el theme
+  const getHeaderStyles = (theme) => {
+    switch (theme) {
+      case 'retro':
+        return {
+          background: 'linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9))',
+          borderBottom: '3px solid #ff00ff',
+          className: 'neon-border',
+          titleStyle: {
+            background: 'linear-gradient(90deg, #00ffff 0%, #ff00ff 25%, #ffff00 50%, #ff00ff 75%, #00ffff 100%)',
+            backgroundSize: '200% 100%',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            color: 'transparent',
+            WebkitTextFillColor: 'transparent',
+            animation: 'retroWave 4s ease-in-out infinite',
+            letterSpacing: '0.15em',
+            // Fallback en caso de que el clip no funcione
+            textShadow: '0 0 20px rgba(0, 255, 255, 0.5)'
+          },
+          subtitleStyle: {
+            color: '#f8f9fa',
+            textShadow: '0 0 3px rgba(255, 255, 255, 0.2)',
+            opacity: 0.9
+          },
+          userStyle: {
+            color: '#00ffff',
+            textShadow: '0 0 10px #00ffff'
+          },
+          emailStyle: {
+            color: '#ff00ff',
+            textShadow: '0 0 8px #ff00ff'
+          }
+        };
+      case 'minimal':
+        return {
+          background: 'rgba(255, 255, 255, 0.25)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderBottom: 'none',
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+          className: 'glass-morphism',
+          titleStyle: {
+            color: '#667eea',
+            textShadow: '0 1px 2px rgba(102, 126, 234, 0.3)'
+          },
+          subtitleStyle: {
+            color: '#64748b',
+            fontWeight: 'light'
+          },
+          userStyle: {
+            color: '#374151',
+            fontWeight: 'medium'
+          },
+          emailStyle: {
+            color: '#6b7280',
+            fontWeight: 'light'
+          }
+        };
+      case 'brutalist':
+        return {
+          background: '#000000',
+          color: '#00ff80',
+          borderBottom: '4px solid #ff0080',
+          className: 'terminal-font',
+          titleStyle: {
+            color: '#ff0080',
+            textShadow: '2px 2px 0px #000000',
+            letterSpacing: '0.1em'
+          },
+          subtitleStyle: {
+            color: '#00ff80',
+            fontWeight: '700'
+          },
+          userStyle: {
+            color: '#ffff00',
+            fontWeight: '700'
+          },
+          emailStyle: {
+            color: '#00ff80'
+          }
+        };
+      case 'colorful':
+        return {
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+          className: '',
+          titleStyle: {
+            color: 'white',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+          },
+          subtitleStyle: {
+            color: 'rgba(255, 255, 255, 0.8)'
+          },
+          userStyle: {
+            color: 'white'
+          },
+          emailStyle: {
+            color: 'rgba(255, 255, 255, 0.7)'
+          }
+        };
+      default:
+        return {
+          background: 'linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9))',
+          borderBottom: '3px solid #ff00ff',
+          className: 'neon-border'
+        };
+    }
+  };
   const [showConfigPanel, setShowConfigPanel] = useState(false);
   const [selectedConfigSection, setSelectedConfigSection] = useState('');
 
   // Estados para modales y dropdown
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    return localStorage.getItem('smartchatix-theme') || 'retro';
+  });
   const [showAssistantModal, setShowAssistantModal] = useState(false);
   const [showUserProfileModal, setShowUserProfileModal] = useState(false);
   const [showMemoryFields, setShowMemoryFields] = useState(false);
@@ -2770,6 +2930,11 @@ Responde siempre en español y mantén el tono configurado.`;
     }
   }, [user]);
 
+  // Efecto para persistir el theme
+  useEffect(() => {
+    localStorage.setItem('smartchatix-theme', currentTheme);
+  }, [currentTheme]);
+
   // Efecto para cerrar dropdowns al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -3344,19 +3509,24 @@ Responde siempre en español y mantén el tono configurado.`;
     return <Auth onLogin={login} />;
   }
 
+  const themeStyles = getThemeStyles(currentTheme);
+  const headerStyles = getHeaderStyles(currentTheme);
+
   return (
-    <div className="min-h-screen flex flex-col retro-grid synthwave-font" style={{
-      background: `
-        radial-gradient(ellipse at top, #ff00ff22 0%, transparent 70%),
-        radial-gradient(ellipse at bottom, #00ffff22 0%, transparent 70%),
-        linear-gradient(180deg, #0a0014 0%, #1a0033 50%, #2a1458 100%)
-      `,
+    <div className={`min-h-screen flex flex-col ${themeStyles.className}`} style={{
+      background: themeStyles.background,
+      backgroundSize: themeStyles.backgroundSize,
+      animation: themeStyles.animation,
       position: 'relative',
       overflow: 'hidden'
     }}>
-      <div className="flex-shrink-0 px-6 py-4 neon-border" style={{
-        background: 'linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9))',
-        borderBottom: '3px solid #ff00ff',
+      <div className={`flex-shrink-0 px-6 py-4 ${headerStyles.className || ''}`} style={{
+        background: headerStyles.background,
+        backdropFilter: headerStyles.backdropFilter,
+        border: headerStyles.border,
+        borderBottom: headerStyles.borderBottom,
+        boxShadow: headerStyles.boxShadow,
+        color: headerStyles.color,
         position: 'relative'
       }}>
         <div className="flex items-center justify-between">
@@ -3364,7 +3534,17 @@ Responde siempre en español y mantén el tono configurado.`;
           <div className="flex items-center space-x-3">
             {/* Logo de SmartChatix */}
             <div className="relative flex items-center justify-center">
-            <div className="w-14 h-14 cyber-logo flex items-center justify-center p-2 mr-4">
+            <div className={`${currentTheme === 'brutalist' ? 'w-10 h-10 md:w-14 md:h-14' : 'w-14 h-14'} flex items-center justify-center ${currentTheme === 'brutalist' ? 'p-1 md:p-2' : 'p-2'} mr-4 ${
+              currentTheme === 'retro' ? 'cyber-logo' :
+              currentTheme === 'minimal' ? 'bg-white/50 rounded-xl backdrop-blur-sm soft-shadow' :
+              currentTheme === 'brutalist' ? 'brutalist-card bg-white' :
+              'bg-white/50 rounded-xl backdrop-blur-sm'
+            }`} style={{
+              animation: currentTheme === 'retro' ? 'retroWave 6s ease-in-out infinite' :
+                        currentTheme === 'minimal' ? 'floatSoft 4s ease-in-out infinite' :
+                        currentTheme === 'brutalist' ? 'glitchEffect 7s infinite reverse' :
+                        'floatSoft 4s ease-in-out infinite'
+            }}>
               {/* Logo SmartChatix - Oficial */}
               <img
                 src="/smartchatix_logo.svg"
@@ -3378,35 +3558,26 @@ Responde siempre en español y mantén el tono configurado.`;
 
           {/* Nombre y slogan */}
           <div className="flex flex-col">
-            <h1 className="text-2xl md:text-3xl retro-font chrome-text" style={{
-              letterSpacing: '0.15em'
-            }}>
-              SMARTCHATIX
+            <h1 className={`text-2xl md:text-3xl font-bold ${currentTheme === 'brutalist' ? 'terminal-font' : currentTheme === 'minimal' ? 'system-font' : 'retro-font'}`} style={headerStyles.titleStyle}>
+              {currentTheme === 'brutalist' ? '> SMARTCHATIX_' : 'SMARTCHATIX'}
             </h1>
-            <p className="text-sm synthwave-font font-light -mt-1" style={{
-              color: '#f8f9fa',
-              textShadow: '0 0 3px rgba(255, 255, 255, 0.2)',
-              opacity: 0.9
-            }}>
-              ◢ DIGITAL ASSISTANT ◤
+            <p className={`text-sm font-light -mt-1 ${currentTheme === 'brutalist' ? 'terminal-font' : 'synthwave-font'}`} style={headerStyles.subtitleStyle}>
+              {currentTheme === 'brutalist' ? '[SYSTEM_READY] assistant.exe' : '◢ DIGITAL ASSISTANT ◤'}
             </p>
             </div>
           </div>
 
           {/* Información de usuario y logout */}
           <div className="flex items-center space-x-4">
-            <div className="hidden md:flex flex-col text-right retro-font">
-              <span className="text-sm font-bold" style={{
-                color: '#00ffff',
-                textShadow: '0 0 10px #00ffff'
-              }}>
-                ◥ {user?.name || 'GUEST'} ◤
+            <div className={`hidden md:flex flex-col text-right ${currentTheme === 'brutalist' ? 'terminal-font' : currentTheme === 'minimal' ? 'system-font' : 'retro-font'}`}>
+              <span className="text-sm font-bold" style={headerStyles.userStyle}>
+                {currentTheme === 'brutalist' ? `USER: ${(user?.name || 'GUEST').toUpperCase()}` :
+                 currentTheme === 'minimal' ? `${user?.name || 'Usuario'}` :
+                 `◥ ${user?.name || 'GUEST'} ◤`}
               </span>
-              <span className="text-xs" style={{
-                color: '#ff00ff',
-                textShadow: '0 0 8px #ff00ff'
-              }}>
-                {user?.email || 'guest@retro.net'}
+              <span className="text-xs" style={headerStyles.emailStyle}>
+                {currentTheme === 'brutalist' ? `[${user?.email || 'anonymous@localhost'}]` :
+                 user?.email || (currentTheme === 'retro' ? 'guest@retro.net' : 'guest@app.com')}
               </span>
             </div>
 
@@ -3662,6 +3833,25 @@ Responde siempre en español y mantén el tono configurado.`;
               <User className="mr-2" size={16} />
               Perfil
             </button>
+
+            {/* Selector de Theme */}
+            <div className="px-3 py-2 border-t border-gray-100">
+              <div className="flex items-center mb-1">
+                <Settings className="mr-1" size={12} />
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Theme</label>
+              </div>
+              <select
+                value={currentTheme}
+                onChange={(e) => setCurrentTheme(e.target.value)}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="retro">🌆 Retro Synthwave</option>
+                <option value="minimal">✨ Minimal Elegante</option>
+                <option value="brutalist">⚡ Brutalist Tech</option>
+                <option value="colorful">🌈 Colorful Gradient</option>
+              </select>
+            </div>
+
             <button
               onClick={() => {
                 setShowUserDropdown(false);
