@@ -2605,8 +2605,16 @@ Responde siempre en español y mantén el tono configurado.`;
         {/* Header */}
         <div className="flex-shrink-0">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mis Proyectos</h1>
-            <p className="text-gray-600 mt-1">Gestiona y organiza todos tus proyectos</p>
+            <h1 className={`text-2xl font-bold ${
+              currentTheme === 'minimal' || currentTheme === 'brutalist'
+                ? 'text-gray-900'
+                : 'text-white'
+            }`}>Mis Proyectos</h1>
+            <p className={`mt-1 ${
+              currentTheme === 'minimal' || currentTheme === 'brutalist'
+                ? 'text-gray-600'
+                : 'text-gray-300'
+            }`}>Gestiona y organiza todos tus proyectos</p>
           </div>
         </div>
 
@@ -2656,7 +2664,11 @@ Responde siempre en español y mantén el tono configurado.`;
                               setSelectedProject(project);
                               setShowProjectDetailModal(true);
                             }}
-                            className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 hover:bg-blue-50/30"
+                            className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 ${
+                              currentTheme === 'minimal' || currentTheme === 'brutalist'
+                                ? 'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-indigo-300'
+                                : 'bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-lg border border-white/50 shadow-lg hover:from-white hover:to-white/95 hover:border-white/80 hover:shadow-2xl hover:backdrop-blur-xl'
+                            }`}
                           >
                             {/* Project Header */}
                             <div className="flex justify-between items-start mb-4">
@@ -2763,7 +2775,11 @@ Responde siempre en español y mantén el tono configurado.`;
                                 setSelectedProject(project);
                                 setShowProjectDetailModal(true);
                               }}
-                              className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-gray-400 opacity-75 hover:opacity-100"
+                              className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 ${
+                                currentTheme === 'minimal' || currentTheme === 'brutalist'
+                                  ? 'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-indigo-300'
+                                  : 'bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-lg border border-white/50 shadow-lg hover:from-white hover:to-white/95 hover:border-white/80 hover:shadow-2xl hover:backdrop-blur-xl'
+                              }`}
                             >
                               {/* Project Header */}
                               <div className="flex justify-between items-start mb-4">
@@ -2938,7 +2954,7 @@ Responde siempre en español y mantén el tono configurado.`;
   // Efecto para cerrar dropdowns al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
+      if (showUserDropdown && !event.target.closest('.user-dropdown') && !event.target.closest('.user-button')) {
         setShowUserDropdown(false);
       }
     };
@@ -3584,7 +3600,7 @@ Responde siempre en español y mantén el tono configurado.`;
             <div className="relative">
               <button
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold hover:shadow-lg transition-shadow"
+                className="user-button w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold hover:shadow-lg transition-shadow"
                 title="Menu de usuario"
               >
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
