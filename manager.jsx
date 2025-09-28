@@ -4497,6 +4497,15 @@ Responde siempre en español y mantén el tono configurado.`;
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   onClick={() => {
+                    // Verificar si el proyecto está activo y tiene tareas
+                    const isActive = selectedProject.status === 'activo';
+                    const hasTasks = selectedProject.tasks && selectedProject.tasks.length > 0;
+
+                    if (isActive && hasTasks) {
+                      alert('No puedes eliminar un proyecto activo que tiene tareas. Puedes cambiarlo a inactivo primero o eliminar todas sus tareas.');
+                      return;
+                    }
+
                     if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
                       deleteProject(selectedProject.id);
                       setShowProjectDetailModal(false);
