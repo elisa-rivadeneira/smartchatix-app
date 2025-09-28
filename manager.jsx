@@ -4,6 +4,123 @@ import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
 
+// Estilos CSS para diseño retro-futurista años 80 synthwave
+const style = document.createElement('style');
+style.textContent = `
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;800&display=swap');
+
+  @keyframes neonGlow {
+    0%, 100% {
+      text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff, 0 0 20px #ff00ff;
+    }
+    50% {
+      text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff;
+    }
+  }
+
+  @keyframes retroWave {
+    0% {
+      transform: translateY(0px);
+      background-position: 0% 50%;
+    }
+    50% {
+      transform: translateY(-10px);
+      background-position: 100% 50%;
+    }
+    100% {
+      transform: translateY(0px);
+      background-position: 0% 50%;
+    }
+  }
+
+  @keyframes synthPulse {
+    0%, 100% {
+      box-shadow:
+        0 0 20px rgba(255, 0, 255, 0.5),
+        0 0 40px rgba(255, 0, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    }
+    50% {
+      box-shadow:
+        0 0 30px rgba(0, 255, 255, 0.5),
+        0 0 60px rgba(0, 255, 255, 0.3),
+        inset 0 0 30px rgba(255, 0, 255, 0.1);
+    }
+  }
+
+  @keyframes gridFlow {
+    0% {
+      background-position: 0 0, 0 0;
+    }
+    100% {
+      background-position: 100px 0, 0 100px;
+    }
+  }
+
+  .retro-font {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+  }
+
+  .synthwave-font {
+    font-family: 'Exo 2', sans-serif;
+  }
+
+  .neon-border {
+    border: 2px solid #ff00ff;
+    border-radius: 8px;
+    background: linear-gradient(45deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
+    backdrop-filter: blur(10px);
+    animation: synthPulse 3s ease-in-out infinite;
+  }
+
+  .retro-grid::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+      linear-gradient(rgba(255, 0, 255, 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: gridFlow 20s linear infinite;
+    z-index: -2;
+    pointer-events: none;
+  }
+
+  .chrome-text {
+    background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: retroWave 4s ease-in-out infinite;
+  }
+
+  .miami-glow {
+    color: #ff00ff;
+    text-shadow:
+      0 0 5px #ff00ff,
+      0 0 10px #ff00ff,
+      0 0 15px #ff00ff,
+      0 0 20px #ff00ff,
+      0 0 35px #ff00ff;
+    animation: neonGlow 2s ease-in-out infinite alternate;
+  }
+
+  .cyber-logo {
+    background: linear-gradient(135deg, #ff00ff, #00ffff);
+    border-radius: 50%;
+    box-shadow:
+      0 0 20px rgba(255, 0, 255, 0.6),
+      0 0 40px rgba(0, 255, 255, 0.4),
+      inset 0 0 20px rgba(255, 255, 255, 0.2);
+    animation: retroWave 6s ease-in-out infinite;
+  }
+`;
+document.head.appendChild(style);
+
 // Configuración dinámica de API
 const getApiBase = () => {
   const hostname = window.location.hostname;
@@ -3193,7 +3310,11 @@ Responde siempre en español y mantén el tono configurado.`;
   // Mostrar pantalla de carga mientras verifica autenticación
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite'
+      }}>
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Verificando autenticación...</p>
@@ -3205,7 +3326,11 @@ Responde siempre en español y mantén el tono configurado.`;
   // Mostrar loading mientras se verifica la autenticación
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite'
+      }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Cargando...</p>
@@ -3220,15 +3345,26 @@ Responde siempre en español y mantén el tono configurado.`;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="flex-shrink-0 px-4 py-3 border-b bg-white shadow-sm">
+    <div className="min-h-screen flex flex-col retro-grid synthwave-font" style={{
+      background: `
+        radial-gradient(ellipse at top, #ff00ff22 0%, transparent 70%),
+        radial-gradient(ellipse at bottom, #00ffff22 0%, transparent 70%),
+        linear-gradient(180deg, #0a0014 0%, #1a0033 50%, #2a1458 100%)
+      `,
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div className="flex-shrink-0 px-6 py-4 neon-border" style={{
+        background: 'linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9))',
+        borderBottom: '3px solid #ff00ff',
+        position: 'relative'
+      }}>
         <div className="flex items-center justify-between">
           {/* Logo y Nombre juntos */}
           <div className="flex items-center space-x-3">
             {/* Logo de SmartChatix */}
-            <div className="relative w-12 h-12 flex items-center justify-center">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-20 animate-pulse"></div>
             <div className="relative flex items-center justify-center">
+            <div className="w-14 h-14 cyber-logo flex items-center justify-center p-2 mr-4">
               {/* Logo SmartChatix - Oficial */}
               <img
                 src="/smartchatix_logo.svg"
@@ -3242,23 +3378,31 @@ Responde siempre en español y mantén el tono configurado.`;
 
           {/* Nombre y slogan */}
           <div className="flex flex-col">
-            <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              SmartChatix
+            <h1 className="text-2xl md:text-3xl retro-font chrome-text" style={{
+              letterSpacing: '0.15em'
+            }}>
+              SMARTCHATIX
             </h1>
-            <p className="text-xs md:text-sm text-gray-600 -mt-1">
-              Tu asistente inteligente para el éxito
+            <p className="text-sm miami-glow synthwave-font font-light -mt-1">
+              ◢ DIGITAL ASSISTANT ◤
             </p>
             </div>
           </div>
 
           {/* Información de usuario y logout */}
           <div className="flex items-center space-x-4">
-            <div className="hidden md:flex flex-col text-right">
-              <span className="text-sm font-medium text-gray-700">
-                ¡Hola, {user?.name || 'Usuario'}!
+            <div className="hidden md:flex flex-col text-right retro-font">
+              <span className="text-sm font-bold" style={{
+                color: '#00ffff',
+                textShadow: '0 0 10px #00ffff'
+              }}>
+                ◥ {user?.name || 'GUEST'} ◤
               </span>
-              <span className="text-xs text-gray-500">
-                {user?.email}
+              <span className="text-xs" style={{
+                color: '#ff00ff',
+                textShadow: '0 0 8px #ff00ff'
+              }}>
+                {user?.email || 'guest@retro.net'}
               </span>
             </div>
 
