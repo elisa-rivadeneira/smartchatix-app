@@ -2602,21 +2602,6 @@ Responde siempre en español y mantén el tono configurado.`;
   const renderProjectsView = () => {
     return (
       <div className="h-full flex flex-col space-y-6 overflow-hidden">
-        {/* Header */}
-        <div className="flex-shrink-0">
-          <div>
-            <h1 className={`text-2xl font-bold ${
-              currentTheme === 'minimal' || currentTheme === 'brutalist'
-                ? 'text-gray-900'
-                : 'text-white'
-            }`}>Mis Proyectos</h1>
-            <p className={`mt-1 ${
-              currentTheme === 'minimal' || currentTheme === 'brutalist'
-                ? 'text-gray-600'
-                : 'text-gray-300'
-            }`}>Gestiona y organiza todos tus proyectos</p>
-          </div>
-        </div>
 
         {/* Projects Grid */}
         <div className="flex-1 overflow-y-auto">
@@ -2624,20 +2609,38 @@ Responde siempre en español y mantén el tono configurado.`;
             <div className="space-y-8">
               {/* Mensaje cuando no hay proyectos */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Proyectos Activos</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="mb-6">
+                  <h2 className={`text-xl font-semibold mb-2 flex items-center gap-3 ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-900'
+                      : 'text-white bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent'
+                  }`}>
+                    <div className={`w-2 h-8 rounded-full ${
+                      currentTheme === 'minimal' || currentTheme === 'brutalist'
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-b from-emerald-400 to-cyan-400'
+                    }`}></div>
+                    Proyectos Activos
+                  </h2>
+                  <p className={`text-sm ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-600'
+                      : 'text-gray-300'
+                  }`}>Gestiona y organiza todos tus proyectos en curso</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
                   {/* Card para Nuevo Proyecto */}
                   <div
                     onClick={() => setShowCreateProject(true)}
-                    className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 flex flex-col items-center justify-center min-h-[200px] group"
+                    className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-2xl transition-all duration-300 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 hover:scale-105 hover:-translate-y-2 flex flex-col items-center justify-center min-h-[200px] group"
                   >
                     <div className="flex flex-col items-center space-y-4">
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                         <Plus size={24} className="text-blue-600" />
                       </div>
                       <div className="text-center">
-                        <h3 className="text-lg font-semibold text-gray-700 mb-1">Crear tu primer proyecto</h3>
-                        <p className="text-sm text-gray-500">Haz click para comenzar</p>
+                        <h3 className="text-lg font-semibold mb-1 text-gray-700 group-hover:text-white transition-colors">Crear tu primer proyecto</h3>
+                        <p className="text-sm text-gray-500 group-hover:text-gray-200 transition-colors">Haz click para comenzar</p>
                       </div>
                     </div>
                   </div>
@@ -2655,8 +2658,26 @@ Responde siempre en español y mantén el tono configurado.`;
                   <>
                     {/* Sección de Proyectos Activos */}
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">Proyectos Activos</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="mb-6">
+                  <h2 className={`text-xl font-semibold mb-2 flex items-center gap-3 ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-900'
+                      : 'text-white bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent'
+                  }`}>
+                    <div className={`w-2 h-8 rounded-full ${
+                      currentTheme === 'minimal' || currentTheme === 'brutalist'
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-b from-emerald-400 to-cyan-400'
+                    }`}></div>
+                    Proyectos Activos
+                  </h2>
+                  <p className={`text-sm ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-600'
+                      : 'text-gray-300'
+                  }`}>Gestiona y organiza todos tus proyectos en curso</p>
+                </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
                         {activeProjects.map(project => (
                           <div
                             key={project.id}
@@ -2667,7 +2688,7 @@ Responde siempre en español y mantén el tono configurado.`;
                             className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 ${
                               currentTheme === 'minimal' || currentTheme === 'brutalist'
                                 ? 'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-indigo-300'
-                                : 'bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-lg border border-white/50 shadow-lg hover:from-white hover:to-white/95 hover:border-white/80 hover:shadow-2xl hover:backdrop-blur-xl'
+                                : 'bg-white border border-gray-200/50 shadow-lg backdrop-blur-none hover:shadow-2xl hover:border-gray-300 hover:scale-105 hover:-translate-y-2'
                             }`}
                           >
                             {/* Project Header */}
@@ -2748,15 +2769,15 @@ Responde siempre en español y mantén el tono configurado.`;
                         {/* Card para Nuevo Proyecto */}
                         <div
                           onClick={() => setShowCreateProject(true)}
-                          className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 flex flex-col items-center justify-center min-h-[200px] group"
+                          className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-2xl transition-all duration-300 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 hover:scale-105 hover:-translate-y-2 flex flex-col items-center justify-center min-h-[200px] group"
                         >
                           <div className="flex flex-col items-center space-y-4">
                             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                               <Plus size={24} className="text-blue-600" />
                             </div>
                             <div className="text-center">
-                              <h3 className="text-lg font-semibold text-gray-700 mb-1">Nuevo Proyecto</h3>
-                              <p className="text-sm text-gray-500">Haz click para crear un proyecto</p>
+                              <h3 className="text-lg font-semibold mb-1 text-gray-700 group-hover:text-white transition-colors">Nuevo Proyecto</h3>
+                              <p className="text-sm text-gray-500 group-hover:text-gray-200 transition-colors">Haz click para crear un proyecto</p>
                             </div>
                           </div>
                         </div>
@@ -2766,8 +2787,26 @@ Responde siempre en español y mantén el tono configurado.`;
                     {/* Sección de Proyectos Inactivos */}
                     {inactiveProjects.length > 0 && (
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Proyectos Inactivos</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="mb-6">
+                          <h2 className={`text-xl font-semibold mb-2 flex items-center gap-3 ${
+                            currentTheme === 'minimal' || currentTheme === 'brutalist'
+                              ? 'text-gray-900'
+                              : 'text-white bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent'
+                          }`}>
+                            <div className={`w-2 h-8 rounded-full ${
+                              currentTheme === 'minimal' || currentTheme === 'brutalist'
+                                ? 'bg-orange-500'
+                                : 'bg-gradient-to-b from-orange-400 to-red-400'
+                            }`}></div>
+                            Proyectos Inactivos
+                          </h2>
+                          <p className={`text-sm ${
+                            currentTheme === 'minimal' || currentTheme === 'brutalist'
+                              ? 'text-gray-600'
+                              : 'text-gray-300'
+                          }`}>Proyectos pausados o en espera de revisión</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
                           {inactiveProjects.map(project => (
                             <div
                               key={project.id}
@@ -2778,7 +2817,7 @@ Responde siempre en español y mantén el tono configurado.`;
                               className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 ${
                                 currentTheme === 'minimal' || currentTheme === 'brutalist'
                                   ? 'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-indigo-300'
-                                  : 'bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-lg border border-white/50 shadow-lg hover:from-white hover:to-white/95 hover:border-white/80 hover:shadow-2xl hover:backdrop-blur-xl'
+                                  : 'bg-white border border-gray-200/50 shadow-lg backdrop-blur-none hover:shadow-2xl hover:border-gray-300 hover:scale-105 hover:-translate-y-2'
                               }`}
                             >
                               {/* Project Header */}
