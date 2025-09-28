@@ -24,7 +24,8 @@
       "Bash(netstat:*)",
       "Bash(kill:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

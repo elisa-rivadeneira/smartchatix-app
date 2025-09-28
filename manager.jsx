@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff } from 'lucide-react';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
@@ -39,6 +39,8 @@ const PersonalCoachAssistant = () => {
   const [editingTaskText, setEditingTaskText] = useState('');
   const [newDailyTask, setNewDailyTask] = useState('');
   const [selectedProjectForTask, setSelectedProjectForTask] = useState('');
+  const [selectedProjectTasks, setSelectedProjectTasks] = useState([]);
+  const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const [coachMessage, setCoachMessage] = useState('');
 
@@ -53,6 +55,14 @@ const PersonalCoachAssistant = () => {
   const [editingProjectTitleText, setEditingProjectTitleText] = useState('');
   const [editingProjectDescriptionId, setEditingProjectDescriptionId] = useState(null);
   const [editingProjectDescriptionText, setEditingProjectDescriptionText] = useState('');
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [expandedProjectTasks, setExpandedProjectTasks] = useState({});
+  const [showActiveProjectsModal, setShowActiveProjectsModal] = useState(false);
+  const [showProjectDetailModal, setShowProjectDetailModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [projectToChangeStatus, setProjectToChangeStatus] = useState(null);
+  const [newTaskText, setNewTaskText] = useState('');
 
   // Estados para el asistente
   const [assistantConfig, setAssistantConfig] = useState({
@@ -423,6 +433,7 @@ const PersonalCoachAssistant = () => {
             // Actualizar estado local con el proyecto guardado
             setProjects([...projects, { ...data.project, tasks: [] }]);
             setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+            setShowCreateProject(false);
           }
         }
       } catch (error) {
@@ -438,6 +449,7 @@ const PersonalCoachAssistant = () => {
         };
         setProjects([...projects, project]);
         setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+        setShowCreateProject(false);
       }
     }
   };
@@ -448,12 +460,21 @@ const PersonalCoachAssistant = () => {
     ));
   };
 
-  const toggleProjectStatus = (projectId) => {
-    setProjects(projects.map(project =>
-      project.id === projectId 
-        ? { ...project, status: project.status === 'activo' ? 'pausado' : 'activo' }
-        : project
-    ));
+  const openStatusModal = (project) => {
+    setProjectToChangeStatus(project);
+    setShowStatusModal(true);
+  };
+
+  const changeProjectStatus = (newStatus) => {
+    if (projectToChangeStatus) {
+      setProjects(projects.map(project =>
+        project.id === projectToChangeStatus.id
+          ? { ...project, status: newStatus }
+          : project
+      ));
+      setShowStatusModal(false);
+      setProjectToChangeStatus(null);
+    }
   };
 
   const archiveProject = (projectId) => {
@@ -544,6 +565,20 @@ const PersonalCoachAssistant = () => {
     setEditingProjectDescriptionText('');
   };
 
+  // Función para expandir/colapsar tareas del proyecto
+  const toggleProjectTasks = (projectId) => {
+    setExpandedProjectTasks(prev => ({
+      ...prev,
+      [projectId]: !prev[projectId]
+    }));
+  };
+
+  // Función para abrir modal de detalle de proyecto
+  const openProjectDetail = (project) => {
+    setSelectedProject(project);
+    setShowProjectDetailModal(true);
+  };
+
 
   // Funciones para gestión de tareas de proyectos
   const addProjectTask = async (projectId) => {
@@ -590,6 +625,14 @@ const PersonalCoachAssistant = () => {
               return updatedProjects;
             });
 
+            // También actualizar selectedProject si el modal está abierto para este proyecto
+            if (selectedProject && selectedProject.id === projectId) {
+              setSelectedProject(prev => ({
+                ...prev,
+                tasks: [...prev.tasks, { ...task, id: data.task.id }]
+              }));
+            }
+
             setNewProjectTask(prev => ({ ...prev, [projectId]: '' }));
           }
         }
@@ -623,6 +666,14 @@ const PersonalCoachAssistant = () => {
           }
           return updatedProjects;
         });
+
+        // También actualizar selectedProject si el modal está abierto para este proyecto (fallback)
+        if (selectedProject && selectedProject.id === projectId) {
+          setSelectedProject(prev => ({
+            ...prev,
+            tasks: [...prev.tasks, task]
+          }));
+        }
 
         setNewProjectTask(prev => ({ ...prev, [projectId]: '' }));
       }
@@ -659,6 +710,50 @@ const PersonalCoachAssistant = () => {
     updateProjectProgressFromTasks(projectId);
   };
 
+  const toggleProjectTaskCompletion = (projectId, taskId, completed) => {
+    setProjects(projects.map(project => {
+      if (project.id === projectId) {
+        const updatedTasks = project.tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              completed: completed,
+              progress: completed ? 100 : task.progress
+            };
+          }
+          return task;
+        });
+        return { ...project, tasks: updatedTasks };
+      }
+      return project;
+    }));
+
+    // Sincronizar con tareas diarias
+    setDailyTasks(dailyTasks.map(task => {
+      if (task.projectId === projectId && task.projectTaskId === taskId) {
+        return { ...task, completed: completed };
+      }
+      return task;
+    }));
+
+    // Actualizar selectedProject si está abierto en el modal
+    if (selectedProject && selectedProject.id === projectId) {
+      const updatedTasks = selectedProject.tasks.map(task => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            completed: completed,
+            progress: completed ? 100 : task.progress
+          };
+        }
+        return task;
+      });
+      setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+    }
+
+    updateProjectProgressFromTasks(projectId);
+  };
+
   const addProjectTaskToDaily = (projectId, task) => {
     const existingDailyTask = dailyTasks.find(dt =>
       dt.projectId === projectId && dt.projectTaskId === task.id
@@ -674,6 +769,12 @@ const PersonalCoachAssistant = () => {
         projectTaskId: task.id
       };
       setDailyTasks([...dailyTasks, dailyTask]);
+
+      // Actualizar la lista de tareas disponibles si es el proyecto seleccionado
+      if (selectedProjectForTask && selectedProjectForTask === projectId) {
+        const updatedTasks = selectedProjectTasks.filter(t => t.id !== task.id);
+        setSelectedProjectTasks(updatedTasks);
+      }
     }
   };
 
@@ -756,6 +857,16 @@ const PersonalCoachAssistant = () => {
         }
         return task;
       }));
+
+      // Actualizar selectedProject si está abierto en el modal
+      if (selectedProject && selectedProject.id === editingProjectId) {
+        const updatedTasks = selectedProject.tasks.map(task =>
+          task.id === editingProjectTaskId
+            ? { ...task, title: editingProjectTaskText.trim() }
+            : task
+        );
+        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      }
     }
     setEditingProjectId(null);
     setEditingProjectTaskId(null);
@@ -767,6 +878,7 @@ const PersonalCoachAssistant = () => {
     setEditingProjectTaskId(null);
     setEditingProjectTaskText('');
   };
+
 
   const deleteProjectTask = (projectId, taskId) => {
     // Eliminar de proyecto
@@ -782,6 +894,12 @@ const PersonalCoachAssistant = () => {
     setDailyTasks(dailyTasks.filter(task =>
       !(task.projectId === projectId && task.projectTaskId === taskId)
     ));
+
+    // Actualizar selectedProject si está abierto en el modal
+    if (selectedProject && selectedProject.id === projectId) {
+      const updatedTasks = selectedProject.tasks.filter(task => task.id !== taskId);
+      setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+    }
 
     updateProjectProgressFromTasks(projectId);
   };
@@ -816,6 +934,144 @@ const PersonalCoachAssistant = () => {
     }));
 
     updateProjectProgressFromTasks(projectId);
+
+    // Actualizar también el proyecto seleccionado para el modal
+    if (selectedProject && selectedProject.id === projectId) {
+      const updatedTasks = selectedProject.tasks.map(task => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            progress: progressValue,
+            completed: progressValue === 100
+          };
+        }
+        return task;
+      });
+
+      const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+      const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
+
+      setSelectedProject({ ...selectedProject, tasks: updatedTasks, progress: averageProgress });
+    }
+  };
+
+  const startEditingTaskName = (taskId, currentName) => {
+    setEditingProjectTaskId(taskId);
+    setEditingProjectTaskText(currentName);
+  };
+
+  const saveTaskName = () => {
+    if (editingProjectTaskId && editingProjectTaskText.trim()) {
+      setProjects(projects.map(project => ({
+        ...project,
+        tasks: project.tasks.map(task =>
+          task.id === editingProjectTaskId
+            ? { ...task, text: editingProjectTaskText.trim(), title: editingProjectTaskText.trim() }
+            : task
+        )
+      })));
+
+      // También actualizar selectedProject si es el que estamos editando
+      if (selectedProject) {
+        const updatedTasks = selectedProject.tasks.map(task =>
+          task.id === editingProjectTaskId
+            ? { ...task, text: editingProjectTaskText.trim(), title: editingProjectTaskText.trim() }
+            : task
+        );
+        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      }
+
+      setEditingProjectTaskId(null);
+      setEditingProjectTaskText('');
+    }
+  };
+
+  const cancelEditingTaskName = () => {
+    setEditingProjectTaskId(null);
+    setEditingProjectTaskText('');
+  };
+
+  const addTaskFromModal = async (projectId) => {
+    if (newTaskText && newTaskText.trim()) {
+      try {
+        const task = {
+          title: newTaskText.trim(),
+          text: newTaskText.trim(),
+          description: '',
+          completed: false,
+          progress: 0,
+          createdAt: new Date().toLocaleDateString(),
+          id: Date.now() // Temporary ID
+        };
+
+        // Actualizar estado local inmediatamente
+        setProjects(prevProjects => {
+          const updatedProjects = prevProjects.map(project =>
+            project.id === projectId
+              ? { ...project, tasks: [...project.tasks, task] }
+              : project
+          );
+          return updatedProjects;
+        });
+
+        // También actualizar selectedProject si es el que estamos editando
+        if (selectedProject && selectedProject.id === projectId) {
+          setSelectedProject({
+            ...selectedProject,
+            tasks: [...selectedProject.tasks, task]
+          });
+        }
+
+        // Limpiar el input
+        setNewTaskText('');
+
+        // Opcional: guardar en base de datos en segundo plano
+        try {
+          const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
+            method: 'POST',
+            body: JSON.stringify({
+              projectId: projectId,
+              task: task
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            // Actualizar con el ID real de la base de datos
+            if (data.success && data.task.id !== task.id) {
+              setProjects(prevProjects => {
+                return prevProjects.map(project =>
+                  project.id === projectId
+                    ? {
+                        ...project,
+                        tasks: project.tasks.map(t =>
+                          t.id === task.id ? { ...t, id: data.task.id } : t
+                        )
+                      }
+                    : project
+                );
+              });
+
+              if (selectedProject && selectedProject.id === projectId) {
+                setSelectedProject({
+                  ...selectedProject,
+                  tasks: selectedProject.tasks.map(t =>
+                    t.id === task.id ? { ...t, id: data.task.id } : t
+                  )
+                });
+              }
+            }
+          }
+        } catch (dbError) {
+          console.error('Error saving to database:', dbError);
+          // La tarea ya está en el estado local, así que no hay problema
+        }
+
+      } catch (error) {
+        console.error('Error adding task:', error);
+        alert('Error al agregar la tarea');
+      }
+    }
   };
 
   // Funciones para el asistente
@@ -1653,7 +1909,10 @@ Responde siempre en español y mantén el tono configurado.`;
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
-        <div className="bg-blue-50 p-3 rounded-lg">
+        <div
+          className="bg-blue-50 p-3 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+          onClick={() => setShowActiveProjectsModal(true)}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-600 font-semibold text-sm">Proyectos Activos</p>
@@ -1693,44 +1952,10 @@ Responde siempre en español y mantén el tono configurado.`;
             Enfoque de Hoy
           </h3>
 
-          {/* Add Daily Task Input */}
-          <div className="space-y-2 mb-3 flex-shrink-0">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newDailyTask}
-                onChange={(e) => setNewDailyTask(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    addDailyTask();
-                  }
-                }}
-                placeholder="Agregar nueva tarea para hoy..."
-                className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-              <button
-                onClick={addDailyTask}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex items-center"
-              >
-                +
-              </button>
-            </div>
-            <select
-              value={selectedProjectForTask}
-              onChange={(e) => setSelectedProjectForTask(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="">Sin asignar a proyecto</option>
-              {projects.filter(p => p.status === 'activo').map(project => (
-                <option key={project.id} value={project.id}>
-                  📋 {project.title}
-                </option>
-              ))}
-            </select>
-          </div>
 
-          <div className="space-y-2 flex-1 overflow-y-auto">
-          {dailyTasks.map(task => {
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="space-y-2 flex-1 overflow-y-auto">
+            {dailyTasks.map(task => {
             const project = task.projectId ? getProjectById(task.projectId) : null;
             return (
               <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
@@ -1811,456 +2036,356 @@ Responde siempre en español y mantén el tono configurado.`;
               </div>
             );
           })}
-        </div>
-        </div>
+            </div>
 
-        {/* Right Column - Project Summary */}
-        <div className="w-full lg:w-80 bg-white border rounded-lg p-4 flex flex-col overflow-hidden">
-          <h3 className="text-lg font-semibold mb-3 flex items-center flex-shrink-0">
-            <Target className="mr-2 text-blue-500" size={18} />
-            Tareas de Proyectos
-          </h3>
-          <div className="space-y-3 flex-1 overflow-y-auto">
-            {activeProjects.map(project => {
-              const pendingTasks = project.tasks.filter(t => !t.completed && !dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === t.id));
-              if (pendingTasks.length === 0) return null;
+            {/* Add Task Button - Minimalist - At Bottom like Trello */}
+            <div className="mt-3 flex-shrink-0">
+              {!showAddTaskForm ? (
+                <button
+                  onClick={() => setShowAddTaskForm(true)}
+                  className="w-full bg-gray-100 text-gray-600 px-4 py-2.5 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex items-center justify-center border-2 border-dashed border-gray-300 hover:border-gray-400 transition-all duration-200"
+                >
+                  <Plus size={16} className="mr-2" />
+                  Añadir tarea
+                </button>
+              ) : (
+                <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  {/* Selector de proyecto */}
+                  <select
+                    value={selectedProjectForTask}
+                    onChange={(e) => {
+                      const projectId = e.target.value;
+                      setSelectedProjectForTask(projectId);
+                      if (projectId) {
+                        const project = projects.find(p => p.id === projectId);
 
-              return (
-                <div key={project.id} className="border rounded-lg p-3">
-                  <h4 className="font-medium text-gray-800 mb-2 flex items-center text-sm">
-                    <span className={`w-2 h-2 rounded-full mr-2 ${(getProjectColor(project.id) || 'bg-blue-100').replace('text-', 'bg-').split(' ')[0]}`}></span>
-                    {project.title}
-                  </h4>
-                  <div className="space-y-1">
-                    {pendingTasks.slice(0, 3).map(task => (
-                      <div key={task.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
-                        <span className="flex-1 truncate">{task.title}</span>
-                        <button
-                          onClick={() => addProjectTaskToDaily(project.id, task)}
-                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center ml-2"
-                        >
-                          +
-                        </button>
-                      </div>
+                        // Filtrar tareas que NO están completadas Y NO están en el enfoque diario
+                        const availableTasks = project?.tasks?.filter(task => {
+                          // 1. Verificar que la tarea no esté completada
+                          const isNotCompleted = !task.completed && task.completed !== "true" && task.completed !== 1;
+                          const progressLessThan100 = (task.progress || 0) < 100;
+                          const taskIncomplete = isNotCompleted || progressLessThan100;
+
+                          // 2. Verificar que la tarea NO esté en el enfoque diario
+                          const notInDailyFocus = !dailyTasks.some(dt =>
+                            dt.projectId === project.id && dt.projectTaskId === task.id
+                          );
+
+                          // Solo mostrar si está incompleta Y no está en el enfoque diario
+                          return taskIncomplete && notInDailyFocus;
+                        }) || [];
+                        setSelectedProjectTasks(availableTasks);
+                      } else {
+                        setSelectedProjectTasks([]);
+                      }
+                    }}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="">Crear nueva tarea personal</option>
+                    {projects.filter(p => p.status === 'activo').map(project => (
+                      <option key={project.id} value={project.id}>
+                        📋 {project.title}
+                      </option>
                     ))}
-                    {pendingTasks.length > 3 && (
-                      <p className="text-xs text-gray-500 text-center py-1">
-                        +{pendingTasks.length - 3} más
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+                  </select>
 
-  const renderProjectsView = () => (
-    <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      <div className="bg-white border rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Crear Nuevo Proyecto</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Nombre del proyecto"
-            value={newProject.title}
-            onChange={(e) => setNewProject({...newProject, title: e.target.value})}
-            className="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          
-          <select
-            value={newProject.priority}
-            onChange={(e) => setNewProject({...newProject, priority: e.target.value})}
-            className="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="baja">Prioridad Baja</option>
-            <option value="media">Prioridad Media</option>
-            <option value="alta">Prioridad Alta</option>
-          </select>
-          
-          <input
-            type="date"
-            value={newProject.deadline}
-            onChange={(e) => setNewProject({...newProject, deadline: e.target.value})}
-            className="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          
-          <button
-            onClick={addProject}
-            className="bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 flex items-center justify-center"
-          >
-            <Plus size={16} className="mr-1" /> Crear Proyecto
-          </button>
-        </div>
-        
-        <textarea
-          placeholder="Descripción del proyecto (opcional)"
-          value={newProject.description}
-          onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-          className="w-full mt-4 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          rows="3"
-        />
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-4">
-        {projects.map(project => (
-          <div key={project.id} className="bg-white border rounded-lg p-4">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  {/* Título editable */}
-                  {editingProjectTitleId === project.id ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="text"
-                        value={editingProjectTitleText}
-                        onChange={(e) => setEditingProjectTitleText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveProjectTitle();
-                          if (e.key === 'Escape') cancelEditingProjectTitle();
-                        }}
-                        className="text-lg font-semibold px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-                        autoFocus
-                      />
-                      <button
-                        onClick={saveProjectTitle}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Save size={16} />
-                      </button>
-                      <button
-                        onClick={cancelEditingProjectTitle}
-                        className="text-gray-600 hover:text-gray-800"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-1">
-                      <h4 className="text-lg font-semibold">{project.title}</h4>
-                      <button
-                        onClick={() => startEditingProjectTitle(project.id, project.title)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
-                  )}
-
-                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(project.priority)}`}>
-                    {project.priority.toUpperCase()}
-                  </span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    project.status === 'activo' ? 'bg-green-100 text-green-800' :
-                    project.status === 'pausado' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.status.toUpperCase()}
-                  </span>
-                </div>
-                {/* Descripción editable */}
-                <div className="mb-2">
-                  {editingProjectDescriptionId === project.id ? (
-                    <div className="flex items-start gap-2">
-                      <textarea
-                        value={editingProjectDescriptionText}
-                        onChange={(e) => setEditingProjectDescriptionText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.ctrlKey) saveProjectDescription();
-                          if (e.key === 'Escape') cancelEditingProjectDescription();
-                        }}
-                        placeholder="Descripción del proyecto..."
-                        className="flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        rows="2"
-                        autoFocus
-                      />
-                      <div className="flex flex-col gap-1">
-                        <button
-                          onClick={saveProjectDescription}
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          <Save size={14} />
-                        </button>
-                        <button
-                          onClick={cancelEditingProjectDescription}
-                          className="text-gray-600 hover:text-gray-800"
-                        >
-                          ✕
-                        </button>
+                  {/* Tareas disponibles del proyecto */}
+                  {selectedProjectForTask && selectedProjectTasks.length > 0 && (
+                    <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                      <h4 className="text-sm font-medium text-blue-700 mb-2">
+                        Tareas disponibles del proyecto:
+                      </h4>
+                      <div className="space-y-1 max-h-24 overflow-y-auto">
+                        {selectedProjectTasks.map(task => (
+                          <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded border text-xs">
+                            <span className="flex-1 truncate text-gray-700">📋 {task.title}</span>
+                            <button
+                              onClick={() => {
+                                addProjectTaskToDaily(selectedProjectForTask, task);
+                                setShowAddTaskForm(false);
+                                setSelectedProjectForTask('');
+                                setSelectedProjectTasks([]);
+                              }}
+                              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                            >
+                              + Agregar
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-start gap-2">
-                      <p className="text-gray-600 text-sm flex-1">
-                        {project.description || 'Sin descripción'}
-                      </p>
-                      <button
-                        onClick={() => startEditingProjectDescription(project.id, project.description)}
-                        className="text-blue-600 hover:text-blue-800 mt-0.5"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
                   )}
-                </div>
 
-                {/* Fecha límite editable */}
-                <div className="flex items-center gap-2 text-sm">
-                  {editingProjectDeadlineId === project.id ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">Fecha límite:</span>
-                      <input
-                        type="date"
-                        value={editingProjectDeadlineText}
-                        onChange={(e) => setEditingProjectDeadlineText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveProjectDeadline();
-                          if (e.key === 'Escape') cancelEditingProjectDeadline();
-                        }}
-                        className="px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <button
-                        onClick={saveProjectDeadline}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Save size={14} />
-                      </button>
-                      <button
-                        onClick={cancelEditingProjectDeadline}
-                        className="text-gray-600 hover:text-gray-800"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">
-                        Fecha límite: {project.deadline || 'Sin fecha límite'}
-                      </span>
-                      <button
-                        onClick={() => startEditingProjectDeadline(project.id, project.deadline)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <div className="flex justify-between text-sm mb-1">
-                <span>Progreso (promedio de {project.tasks.length} tareas)</span>
-                <span>{project.progress}% • {project.tasks.filter(t => t.completed).length}/{project.tasks.length} completadas</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className={`h-3 rounded-full transition-all ${
-                    project.progress === 100 ? 'bg-green-500' :
-                    project.progress >= 75 ? 'bg-blue-500' :
-                    project.progress >= 50 ? 'bg-yellow-500' :
-                    project.progress >= 25 ? 'bg-orange-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Gestión de Tareas del Proyecto */}
-            <div className="mb-4 border-t pt-4">
-              <h5 className="font-medium text-gray-700 mb-3 flex items-center">
-                <CheckCircle size={16} className="mr-2" />
-                Tareas del Proyecto
-              </h5>
-
-              {/* Agregar nueva tarea */}
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Nueva tarea del proyecto..."
-                  value={newProjectTask[project.id] || ''}
-                  onChange={(e) => setNewProjectTask(prev => ({ ...prev, [project.id]: e.target.value }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') addProjectTask(project.id);
-                  }}
-                  className="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={() => addProjectTask(project.id)}
-                  disabled={!newProjectTask[project.id]?.trim()}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
-                >
-                  <Plus size={14} className="mr-1" />
-                  Agregar
-                </button>
-              </div>
-
-              {/* Lista de tareas */}
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {project.tasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
-                    <div className="flex items-center flex-1">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => toggleProjectTask(project.id, task.id)}
-                        className="mr-3"
-                      />
-                      <div className="flex-1">
-                        {editingProjectTaskId === task.id && editingProjectId === project.id ? (
-                          <input
-                            type="text"
-                            value={editingProjectTaskText}
-                            onChange={(e) => setEditingProjectTaskText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEditedProjectTask();
-                              if (e.key === 'Escape') cancelEditingProjectTask();
-                            }}
-                            onBlur={saveEditedProjectTask}
-                            className="w-full p-1 border rounded text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                          />
-                        ) : (
-                          <>
-                            <span className={`text-sm font-medium ${
-                              task.completed ? 'line-through text-gray-500' : 'text-gray-800'
-                            }`}>
-                              {task.title}
-                            </span>
-                            <div className="flex items-center mt-1">
-                              <div className="flex-1 mr-2">
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className={`h-2 rounded-full transition-all ${
-                                      task.progress === 100 ? 'bg-green-500' :
-                                      task.progress >= 75 ? 'bg-blue-500' :
-                                      task.progress >= 50 ? 'bg-yellow-500' :
-                                      task.progress >= 25 ? 'bg-orange-500' : 'bg-red-500'
-                                    }`}
-                                    style={{ width: `${task.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={task.progress}
-                                onChange={(e) => updateTaskProgress(project.id, task.id, e.target.value)}
-                                className="w-16 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                title="Porcentaje de avance"
-                              />
-                              <span className="text-xs text-gray-500 ml-1">%</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {editingProjectTaskId === task.id && editingProjectId === project.id ? (
-                        <>
-                          <button
-                            onClick={saveEditedProjectTask}
-                            className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
-                            title="Guardar"
-                          >
-                            <CheckCircle size={14} />
-                          </button>
-                          <button
-                            onClick={cancelEditingProjectTask}
-                            className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                            title="Cancelar"
-                          >
-                            ✕
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => addProjectTaskToDaily(project.id, task)}
-                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded text-xs"
-                            title="Agregar al enfoque diario"
-                            disabled={dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === task.id)}
-                          >
-                            {dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === task.id) ? '✓' : '+'}
-                          </button>
-                          <button
-                            onClick={() => startEditingProjectTask(project.id, task.id, task.title)}
-                            className="text-yellow-500 hover:text-yellow-700 hover:bg-yellow-50 p-1 rounded"
-                            title="Editar tarea"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                          <button
-                            onClick={() => deleteProjectTask(project.id, task.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                            title="Eliminar tarea"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </>
-                      )}
-                    </div>
+                  {/* Input para nueva tarea */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newDailyTask}
+                      onChange={(e) => setNewDailyTask(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          addDailyTask();
+                          setShowAddTaskForm(false);
+                          setSelectedProjectForTask('');
+                          setSelectedProjectTasks([]);
+                        }
+                      }}
+                      placeholder={selectedProjectForTask ? "Nombre de la nueva tarea del proyecto..." : "Nombre de la nueva tarea personal..."}
+                      className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        addDailyTask();
+                        setShowAddTaskForm(false);
+                        setSelectedProjectForTask('');
+                        setSelectedProjectTasks([]);
+                      }}
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm"
+                    >
+                      Crear
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddTaskForm(false);
+                        setSelectedProjectForTask('');
+                        setSelectedProjectTasks([]);
+                        setNewDailyTask('');
+                      }}
+                      className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm"
+                    >
+                      Cancelar
+                    </button>
                   </div>
-                ))}
-                {project.tasks.length === 0 && (
-                  <p className="text-gray-500 text-sm italic py-2">No hay tareas aún. ¡Agrega la primera!</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => toggleProjectStatus(project.id)}
-                className={`flex items-center px-3 py-1 rounded text-sm ${
-                  project.status === 'activo' 
-                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                }`}
-              >
-                <Play size={14} className="mr-1" />
-                {project.status === 'activo' ? 'Pausar' : 'Reanudar'}
-              </button>
-              
-              <input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="% progreso"
-                onChange={(e) => updateProjectProgress(project.id, parseInt(e.target.value) || 0)}
-                className="px-3 py-1 border rounded text-sm w-24"
-              />
-              
-              <button
-                onClick={() => archiveProject(project.id)}
-                className="flex items-center px-3 py-1 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded text-sm"
-              >
-                <Archive size={14} className="mr-1" />
-                Completar
-              </button>
-
-              {/* Botón de eliminar - solo visible si no tiene tareas */}
-              {project.tasks.length === 0 && (
-                <button
-                  onClick={() => deleteProject(project.id)}
-                  className="flex items-center px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-sm"
-                  title="Eliminar proyecto (solo disponible sin tareas)"
-                >
-                  <Trash2 size={14} className="mr-1" />
-                  Eliminar
-                </button>
+                </div>
               )}
             </div>
           </div>
-        ))}
+        </div>
+
       </div>
+
+      {/* Modal de Proyectos Activos */}
+      {showActiveProjectsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">Proyectos Activos</h3>
+                  <p className="text-blue-100 text-sm">Gestiona y revisa el progreso de tus proyectos</p>
+                </div>
+                <button
+                  onClick={() => setShowActiveProjectsModal(false)}
+                  className="text-white hover:text-blue-200 transition-colors text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
+
+            <div className="space-y-4">
+              {activeProjects.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No tienes proyectos activos en este momento</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeProjects.map(project => (
+                    <div
+                      key={project.id}
+                      className="bg-white border-2 border-gray-100 rounded-xl p-6 hover:border-blue-300 hover:shadow-lg cursor-pointer transition-all duration-200 transform hover:scale-[1.02]"
+                      onClick={() => openProjectDetail(project)}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="text-xl font-bold text-gray-900 flex-1">{project.title}</h4>
+                        <span className={`ml-3 px-3 py-1 text-xs font-semibold rounded-full ${getPriorityColor(project.priority)}`}>
+                          {project.priority.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {project.description && (
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
+                      )}
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 flex items-center">
+                            <CheckCircle size={16} className="mr-2 text-blue-500" />
+                            {project.tasks?.length || 0} tareas
+                          </span>
+                          <span className="font-semibold text-blue-600">
+                            {project.progress || 0}% completado
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${project.progress || 0}%` }}
+                          />
+                        </div>
+
+                        {project.deadline && (
+                          <div className="flex items-center text-sm text-gray-500">
+                            <Calendar size={16} className="mr-2" />
+                            Fecha límite: {project.deadline}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <span className="text-xs text-gray-400 italic">Click para ver detalles</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">
+                  {activeProjects.length} proyecto{activeProjects.length !== 1 ? 's' : ''} activo{activeProjects.length !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => {
+                    setShowActiveProjectsModal(false);
+                    setActiveView('projects');
+                  }}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg flex items-center"
+                >
+                  <Target size={16} className="mr-2" />
+                  Ver todos los proyectos
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
+
+  // TODO: Add renderProjectsView function back after fixing main structure
+
+  const renderProjectsView = () => {
+    return (
+      <div className="h-full flex flex-col space-y-6 overflow-hidden">
+        {/* Header */}
+        <div className="flex-shrink-0 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Mis Proyectos</h1>
+            <p className="text-gray-600 mt-1">Gestiona y organiza todos tus proyectos</p>
+          </div>
+          <button
+            onClick={() => setShowCreateProject(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <Plus size={20} />
+            <span>Nuevo Proyecto</span>
+          </button>
+        </div>
+
+        {/* Projects Grid */}
+        <div className="flex-1 overflow-y-auto">
+          {projects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500">
+              <Target size={64} className="mb-4 text-gray-300" />
+              <h3 className="text-xl font-semibold mb-2">No tienes proyectos aún</h3>
+              <p className="text-center mb-6">Crea tu primer proyecto para comenzar a organizar tus tareas</p>
+              <button
+                onClick={() => setShowCreateProject(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Plus size={20} />
+                <span>Crear Primer Proyecto</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map(project => (
+                <div
+                  key={project.id}
+                  onClick={() => {
+                    setSelectedProject(project);
+                    setShowProjectDetailModal(true);
+                  }}
+                  className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 hover:bg-blue-50/30"
+                >
+                  {/* Project Header */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                        {project.title}
+                      </h3>
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          project.status === 'active' ? 'bg-green-100 text-green-800' :
+                          project.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
+                          project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {project.status === 'active' ? 'Activo' :
+                           project.status === 'paused' ? 'Pausado' :
+                           project.status === 'completed' ? 'Completado' : 'Inactivo'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Project Description */}
+                  {project.description && (
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                      {project.description}
+                    </p>
+                  )}
+
+                  {/* Project Stats */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500">Tareas:</span>
+                      <span className="font-medium">
+                        {project.tasks?.filter(t => t.completed).length || 0} / {project.tasks?.length || 0}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all duration-300"
+                        style={{
+                          backgroundColor: (project.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
+                          width: `${project.progress || 0}%`,
+                        }}
+                      ></div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500">Progreso:</span>
+                      <span className="font-medium">{project.progress || 0}%</span>
+                    </div>
+
+                    {/* Deadline */}
+                    {project.deadline && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Fecha límite:</span>
+                        <span className="font-medium text-orange-600">
+                          {new Date(project.deadline).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Funciones para los modales
   const saveAssistantConfig = async () => {
@@ -2280,7 +2405,8 @@ Responde siempre en español y mantén el tono configurado.`;
         throw new Error('Error al guardar configuración');
       }
     } catch (error) {
-      console.error('Error guardando configuración:', error);
+      console.error('Error al guardar configuración:', error);
+      alert('Error al guardar la configuración');
     }
   };
 
@@ -3444,6 +3570,678 @@ Responde siempre en español y mantén el tono configurado.`;
           </div>
         </div>
         </>
+      )}
+
+      {/* Modal para crear nuevo proyecto */}
+      {showCreateProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Crear Nuevo Proyecto</h3>
+                <button
+                  onClick={() => setShowCreateProject(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre del proyecto
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Desarrollo de aplicación móvil"
+                    value={newProject.title}
+                    onChange={(e) => setNewProject({...newProject, title: e.target.value})}
+                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descripción (opcional)
+                  </label>
+                  <textarea
+                    placeholder="Describe brevemente el proyecto..."
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows="3"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Prioridad
+                    </label>
+                    <select
+                      value={newProject.priority}
+                      onChange={(e) => setNewProject({...newProject, priority: e.target.value})}
+                      className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="baja">Baja</option>
+                      <option value="media">Media</option>
+                      <option value="alta">Alta</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fecha límite (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={newProject.deadline}
+                      onChange={(e) => setNewProject({...newProject, deadline: e.target.value})}
+                      className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowCreateProject(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    addProject();
+                    setShowCreateProject(false);
+                  }}
+                  disabled={!newProject.title.trim()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
+                >
+                  <Plus size={16} className="mr-1" />
+                  Crear Proyecto
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de detalle del proyecto */}
+      {showProjectDetailModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999999,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowProjectDetailModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '10px',
+              padding: '30px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header con título y botón de cierre */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '25px',
+              borderBottom: '1px solid #e5e7eb',
+              paddingBottom: '15px'
+            }}>
+              {editingProjectTitleId === selectedProject?.id ? (
+                <input
+                  type="text"
+                  value={editingProjectTitleText}
+                  onChange={(e) => setEditingProjectTitleText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      saveProjectTitle();
+                    } else if (e.key === 'Escape') {
+                      cancelEditingProjectTitle();
+                    }
+                  }}
+                  style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    margin: 0,
+                    color: '#1f2937',
+                    border: '2px solid #3b82f6',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    background: 'white',
+                    width: '100%'
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h2 style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    margin: 0,
+                    color: '#1f2937'
+                  }}>
+                    {selectedProject?.title || 'Proyecto'}
+                  </h2>
+                  <button
+                    onClick={() => startEditingProjectTitle(selectedProject.id, selectedProject.title)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      color: '#6b7280',
+                      borderRadius: '4px'
+                    }}
+                    title="Editar título"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => setShowProjectDetailModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '5px',
+                  borderRadius: '5px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Descripción del proyecto */}
+            {selectedProject?.description && (
+              <div style={{ marginBottom: '25px' }}>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  marginBottom: '10px',
+                  color: '#374151'
+                }}>
+                  Descripción
+                </h3>
+                <p style={{
+                  fontSize: '16px',
+                  color: '#6b7280',
+                  lineHeight: '1.6',
+                  margin: 0
+                }}>
+                  {selectedProject?.description}
+                </p>
+              </div>
+            )}
+
+            {/* Estadísticas básicas */}
+            <div style={{
+              padding: '20px',
+              backgroundColor: '#f9fafb',
+              borderRadius: '8px',
+              marginBottom: '25px',
+              border: '1px solid #e5e7eb'
+            }}>
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                marginBottom: '15px',
+                color: '#374151'
+              }}>
+                Estadísticas del Proyecto
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                gap: '15px'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    color: '#3b82f6',
+                    marginBottom: '5px'
+                  }}>
+                    {selectedProject?.tasks?.length || 0}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    Total de Tareas
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    color: '#10b981',
+                    marginBottom: '5px'
+                  }}>
+                    {selectedProject?.tasks?.filter(t => t.completed).length || 0}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    Completadas
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    color: '#8b5cf6',
+                    marginBottom: '5px'
+                  }}>
+                    {selectedProject?.progress || 0}%
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                    Progreso
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra de progreso */}
+              <div style={{ marginTop: '15px' }}>
+                <div style={{
+                  width: '100%',
+                  height: '8px',
+                  backgroundColor: '#e5e7eb',
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    height: '100%',
+                    backgroundColor: (selectedProject?.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
+                    width: `${selectedProject?.progress || 0}%`,
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+              </div>
+
+              {/* Editor de progreso manual */}
+              <div style={{
+                marginTop: '15px',
+                padding: '12px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '8px'
+                }}>
+                  <label style={{
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    minWidth: '120px'
+                  }}>
+                    Progreso manual:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={selectedProject?.progress || 0}
+                    onChange={(e) => {
+                      const newProgress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                      updateProjectProgress(selectedProject.id, newProgress);
+                    }}
+                    style={{
+                      width: '80px',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <span style={{ fontSize: '14px', color: '#6b7280' }}>%</span>
+                  <button
+                    onClick={() => updateProjectProgress(selectedProject.id, 100)}
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Completar
+                  </button>
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#6b7280'
+                }}>
+                  Ajusta manualmente el progreso del proyecto o márcalo como completado
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de tareas */}
+            {selectedProject?.tasks && selectedProject.tasks.length > 0 && (
+              <div style={{ marginTop: '25px' }}>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  marginBottom: '15px',
+                  color: '#374151',
+                  borderBottom: '1px solid #e5e7eb',
+                  paddingBottom: '10px'
+                }}>
+                  Tareas ({selectedProject.tasks.length})
+                </h3>
+                <div style={{
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  marginBottom: '15px'
+                }}>
+                  {selectedProject.tasks.map((task, index) => (
+                    <div
+                      key={task.id || index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '10px 12px',
+                        marginBottom: '8px',
+                        backgroundColor: task.completed ? '#f0fdf4' : '#f9fafb',
+                        border: task.completed ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        transition: 'all 0.2s ease',
+                        gap: '12px'
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => toggleProjectTaskCompletion(selectedProject.id, task.id)}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          cursor: 'pointer'
+                        }}
+                      />
+
+                      {/* Texto de la tarea */}
+                      {editingProjectTaskId === task.id ? (
+                        <input
+                          type="text"
+                          value={editingProjectTaskText}
+                          onChange={(e) => setEditingProjectTaskText(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              saveTaskName();
+                            } else if (e.key === 'Escape') {
+                              cancelEditingTaskName();
+                            }
+                          }}
+                          onBlur={saveTaskName}
+                          style={{
+                            flex: 1,
+                            fontSize: '14px',
+                            color: '#374151',
+                            border: '1px solid #3b82f6',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            background: 'white'
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          onDoubleClick={() => startEditingTaskName(task.id, task.text || task.title || '')}
+                          style={{
+                            flex: 1,
+                            fontSize: '14px',
+                            color: task.completed ? '#16a34a' : '#374151',
+                            textDecoration: task.completed ? 'line-through' : 'none',
+                            fontWeight: task.completed ? '500' : '400',
+                            cursor: 'text'
+                          }}
+                        >
+                          {task.text || task.title || 'Tarea sin título'}
+                        </span>
+                      )}
+
+                      {/* Input de progreso */}
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={task.progress || 0}
+                        onChange={(e) => {
+                          const newProgress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                          updateTaskProgress(selectedProject.id, task.id, newProgress);
+                        }}
+                        style={{
+                          width: '50px',
+                          padding: '2px 4px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          textAlign: 'center'
+                        }}
+                      />
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>%</span>
+
+                      {/* Barra de progreso mini */}
+                      <div style={{
+                        width: '60px',
+                        height: '4px',
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: '2px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          height: '100%',
+                          backgroundColor: task.completed ? '#16a34a' : '#3b82f6',
+                          width: `${task.progress || 0}%`,
+                          transition: 'width 0.3s ease'
+                        }} />
+                      </div>
+
+                      {/* Botones de acción */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {task.completed && (
+                          <CheckCircle
+                            size={16}
+                            style={{
+                              color: '#16a34a'
+                            }}
+                          />
+                        )}
+                        <button
+                          onClick={() => updateTaskProgress(selectedProject.id, task.id, 100)}
+                          style={{
+                            backgroundColor: '#16a34a',
+                            color: 'white',
+                            border: 'none',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '9px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          100%
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteProjectTask(selectedProject.id, task.id);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            color: '#ef4444',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title="Eliminar tarea"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Formulario para agregar nueva tarea */}
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  marginTop: '15px',
+                  padding: '12px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px'
+                }}>
+                  <input
+                    type="text"
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && newTaskText.trim()) {
+                        addTaskFromModal(selectedProject.id);
+                      }
+                    }}
+                    placeholder="Escribe una nueva tarea..."
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={() => addTaskFromModal(selectedProject.id)}
+                    disabled={!newTaskText.trim()}
+                    style={{
+                      backgroundColor: newTaskText.trim() ? '#3b82f6' : '#9ca3af',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      cursor: newTaskText.trim() ? 'pointer' : 'not-allowed',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Plus size={16} />
+                    Agregar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Botones de acción */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderTop: '1px solid #e5e7eb',
+              paddingTop: '20px'
+            }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
+                      deleteProject(selectedProject.id);
+                      setShowProjectDetailModal(false);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Trash2 size={16} />
+                  Eliminar Proyecto
+                </button>
+              </div>
+              <div style={{
+                fontSize: '14px',
+                color: '#6b7280',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <span>
+                  <span style={{ fontWeight: '600' }}>
+                    {selectedProject?.tasks?.filter(t => t.completed).length || 0}
+                  </span> de{' '}
+                  <span style={{ fontWeight: '600' }}>
+                    {selectedProject?.tasks?.length || 0}
+                  </span> tareas completadas
+                </span>
+              </div>
+              <button
+                onClick={() => setShowProjectDetailModal(false)}
+                style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
