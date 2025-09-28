@@ -521,6 +521,56 @@ router.put('/projects/:projectId', authenticateToken, async (req, res) => {
   }
 });
 
+// Eliminar proyecto
+router.delete('/projects/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user.userId;
+
+    // Verificar que el proyecto pertenece al usuario
+    const projectQuery = 'SELECT * FROM user_projects WHERE id = ? AND user_id = ?';
+    userDB.db.get(projectQuery, [projectId, userId], (err, existingProject) => {
+      if (err) {
+        console.error('Error verificando proyecto:', err);
+        return res.status(500).json({ error: 'Error al verificar proyecto' });
+      }
+
+      if (!existingProject) {
+        return res.status(404).json({ error: 'Proyecto no encontrado' });
+      }
+
+      // Primero eliminar todas las tareas del proyecto
+      const deleteTasksQuery = 'DELETE FROM project_tasks WHERE project_id = ? AND user_id = ?';
+      userDB.db.run(deleteTasksQuery, [projectId, userId], function(deleteTasksErr) {
+        if (deleteTasksErr) {
+          console.error('Error eliminando tareas del proyecto:', deleteTasksErr);
+          return res.status(500).json({ error: 'Error al eliminar tareas del proyecto' });
+        }
+
+        // Luego eliminar el proyecto
+        const deleteProjectQuery = 'DELETE FROM user_projects WHERE id = ? AND user_id = ?';
+        userDB.db.run(deleteProjectQuery, [projectId, userId], function(deleteProjectErr) {
+          if (deleteProjectErr) {
+            console.error('Error eliminando proyecto:', deleteProjectErr);
+            return res.status(500).json({ error: 'Error al eliminar proyecto' });
+          }
+
+          res.json({
+            success: true,
+            message: 'Proyecto eliminado exitosamente'
+          });
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('Error en eliminación de proyecto:', error);
+    res.status(500).json({
+      error: 'Error al eliminar proyecto'
+    });
+  }
+});
+
 // Eliminar tarea de proyecto
 router.delete('/project-tasks/:taskId', authenticateToken, async (req, res) => {
   try {

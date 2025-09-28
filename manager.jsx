@@ -63,6 +63,7 @@ const PersonalCoachAssistant = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [projectToChangeStatus, setProjectToChangeStatus] = useState(null);
   const [newTaskText, setNewTaskText] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState(false);
 
   // Estados para el asistente
   const [assistantConfig, setAssistantConfig] = useState({
@@ -483,14 +484,38 @@ const PersonalCoachAssistant = () => {
     ));
   };
 
-  const deleteProject = (projectId) => {
-    // Solo permitir borrar proyectos sin tareas
-    const project = projects.find(p => p.id === projectId);
-    if (project && project.tasks.length === 0) {
+  const deleteProject = async (projectId) => {
+    console.log('🔥 INICIANDO ELIMINACIÓN DE PROYECTO:', projectId);
+    try {
+      // Eliminar del backend primero
+      const deleteUrl = `${getApiBase()}/projects/${projectId}`;
+      console.log('🗑️ Eliminando proyecto con URL:', deleteUrl);
+
+      const response = await authenticatedFetch(deleteUrl, {
+        method: 'DELETE'
+      });
+
+      console.log('📡 Respuesta del servidor:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error del servidor:', errorText);
+        throw new Error(`Error al eliminar proyecto del servidor: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Respuesta exitosa del servidor:', result);
+
+      // Si la eliminación en el backend fue exitosa, actualizar el estado local
       setProjects(projects.filter(project => project.id !== projectId));
 
       // Eliminar cualquier tarea diaria vinculada a este proyecto
       setDailyTasks(dailyTasks.filter(task => task.projectId !== projectId));
+
+      console.log('✅ Proyecto eliminado exitosamente del frontend');
+    } catch (error) {
+      console.error('❌ Error eliminando proyecto:', error);
+      alert(`Error al eliminar el proyecto: ${error.message}`);
     }
   };
 
@@ -1015,6 +1040,7 @@ const PersonalCoachAssistant = () => {
   };
 
   const addTaskFromModal = async (projectId) => {
+    console.log('🎯 EJECUTANDO addTaskFromModal:', { projectId, newTaskText });
     if (newTaskText && newTaskText.trim()) {
       try {
         const task = {
@@ -1031,7 +1057,7 @@ const PersonalCoachAssistant = () => {
         setProjects(prevProjects => {
           const updatedProjects = prevProjects.map(project =>
             project.id === projectId
-              ? { ...project, tasks: [...project.tasks, task] }
+              ? { ...project, tasks: [...(project.tasks || []), task] }
               : project
           );
           return updatedProjects;
@@ -1041,12 +1067,14 @@ const PersonalCoachAssistant = () => {
         if (selectedProject && selectedProject.id === projectId) {
           setSelectedProject({
             ...selectedProject,
-            tasks: [...selectedProject.tasks, task]
+            tasks: [...(selectedProject.tasks || []), task]
           });
         }
 
-        // Limpiar el input
+        // Limpiar el input y salir del modo edición
         setNewTaskText('');
+        setIsAddingTask(false);
+        console.log('✅ Tarea agregada localmente, input limpiado');
 
         // Opcional: guardar en base de datos en segundo plano
         try {
@@ -4143,19 +4171,21 @@ Responde siempre en español y mantén el tono configurado.`;
             </div>
 
 
-            {/* Lista de tareas */}
-            {selectedProject?.tasks && selectedProject.tasks.length > 0 && (
-              <div style={{ marginTop: '25px' }}>
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '15px',
-                  color: '#374151',
-                  borderBottom: '1px solid #e5e7eb',
-                  paddingBottom: '10px'
-                }}>
-                  Tareas ({selectedProject.tasks.length})
-                </h3>
+            {/* Sección de tareas */}
+            <div style={{ marginTop: '25px' }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                marginBottom: '15px',
+                color: '#374151',
+                borderBottom: '1px solid #e5e7eb',
+                paddingBottom: '10px'
+              }}>
+                Tareas ({selectedProject?.tasks?.length || 0})
+              </h3>
+
+              {/* Lista de tareas existentes */}
+              {selectedProject?.tasks && selectedProject.tasks.length > 0 && (
                 <div style={{
                   maxHeight: '300px',
                   overflowY: 'auto',
@@ -4314,18 +4344,61 @@ Responde siempre en español y mantén el tono configurado.`;
                     </div>
                   ))}
                 </div>
+              )}
 
-                {/* Formulario para agregar nueva tarea */}
+              {/* Botón minimalista estilo Trello para agregar nueva tarea */}
+              {!isAddingTask ? (
+                <div
+                  onClick={() => {
+                    console.log('🖱️ Click en agregar tarea - activando modo edición');
+                    setIsAddingTask(true);
+                    setTimeout(() => {
+                      const input = document.getElementById('newTaskInput');
+                      if (input) {
+                        input.focus();
+                      }
+                    }, 50);
+                  }}
+                  style={{
+                    marginTop: '15px',
+                    padding: '8px 12px',
+                    borderRadius: '3px',
+                    border: '2px dashed #d1d5db',
+                    color: '#5e6c84',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: 'transparent',
+                    textAlign: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#e4e6ea';
+                    e.target.style.color = '#172b4d';
+                    e.target.style.borderColor = '#3b82f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = 'transparent';
+                    e.target.style.color = '#5e6c84';
+                    e.target.style.borderColor = '#d1d5db';
+                  }}
+                >
+                  <Plus size={14} />
+                  Agregar nueva tarea
+                </div>
+              ) : (
                 <div style={{
-                  display: 'flex',
-                  gap: '10px',
                   marginTop: '15px',
-                  padding: '12px',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px'
+                  padding: '8px',
+                  borderRadius: '3px',
+                  backgroundColor: 'white',
+                  boxShadow: '0 1px 0 rgba(9,30,66,.25)'
                 }}>
                   <input
+                    id="newTaskInput"
                     type="text"
                     value={newTaskText}
                     onChange={(e) => setNewTaskText(e.target.value)}
@@ -4333,40 +4406,85 @@ Responde siempre en español y mantén el tono configurado.`;
                       if (e.key === 'Enter' && newTaskText.trim()) {
                         addTaskFromModal(selectedProject.id);
                       }
+                      if (e.key === 'Escape') {
+                        setNewTaskText('');
+                        setIsAddingTask(false);
+                      }
                     }}
-                    placeholder="Escribe una nueva tarea..."
+                    placeholder="Introduzca un título para esta tarjeta..."
                     style={{
-                      flex: 1,
+                      width: '100%',
                       padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={() => addTaskFromModal(selectedProject.id)}
-                    disabled={!newTaskText.trim()}
-                    style={{
-                      backgroundColor: newTaskText.trim() ? '#3b82f6' : '#9ca3af',
-                      color: 'white',
                       border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      cursor: newTaskText.trim() ? 'pointer' : 'not-allowed',
+                      borderRadius: '3px',
                       fontSize: '14px',
-                      fontWeight: '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
+                      outline: 'none',
+                      resize: 'none',
+                      lineHeight: '20px',
+                      fontFamily: 'inherit'
                     }}
-                  >
-                    <Plus size={16} />
-                    Agregar
-                  </button>
+                    autoFocus
+                  />
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '8px'
+                  }}>
+                    <button
+                      onClick={() => {
+                        console.log('🖱️ Click en botón Agregar');
+                        addTaskFromModal(selectedProject.id);
+                      }}
+                      disabled={!newTaskText.trim()}
+                      style={{
+                        backgroundColor: newTaskText.trim() ? '#0ea5e9' : '#ddd',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '3px',
+                        cursor: newTaskText.trim() ? 'pointer' : 'not-allowed',
+                        fontSize: '14px',
+                        fontWeight: '400',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (newTaskText.trim()) {
+                          e.target.style.backgroundColor = '#0284c7';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (newTaskText.trim()) {
+                          e.target.style.backgroundColor = '#0ea5e9';
+                        }
+                      }}
+                    >
+                      Agregar tarea
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNewTaskText('');
+                        setIsAddingTask(false);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        color: '#6b778c',
+                        fontSize: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Cancelar"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Botones de acción */}
             <div style={{
