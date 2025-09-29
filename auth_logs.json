@@ -283,5 +283,31 @@
       "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
       "tokenPrefix": "eyJhbGciOiJIUzI1NiIs..."
     }
+  },
+  {
+    "timestamp": "2025-09-29T12:33:23.265Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "isMobile": true,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
+      "hasPassword": true,
+      "timestamp": "2025-09-29T12:33:23.265Z"
+    }
+  },
+  {
+    "timestamp": "2025-09-29T12:33:23.559Z",
+    "level": "SUCCESS",
+    "message": "Login exitoso",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "userId": "77332a54-fe8c-44fc-a03a-d7d826ce0ca4",
+      "isMobile": true,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
+      "tokenPrefix": "eyJhbGciOiJIUzI1NiIs..."
+    }
   }
 ]

@@ -445,6 +445,9 @@ const PersonalCoachAssistant = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
 
+  // AI Shortcuts state
+  const [showShortcutsPanel, setShowShortcutsPanel] = useState(false);
+  const [shortcutsHelpVisible, setShortcutsHelpVisible] = useState(false);
 
   // Chat Bubble state
   const [chatBubbleOpen, setChatBubbleOpen] = useState(false);
@@ -470,6 +473,19 @@ const PersonalCoachAssistant = () => {
         return;
       }
 
+      // Ctrl/Cmd + Shift + S: Show shortcuts panel
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'S') {
+        event.preventDefault();
+        setShowShortcutsPanel(!showShortcutsPanel);
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + H: Show shortcuts help
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'H') {
+        event.preventDefault();
+        setShortcutsHelpVisible(!shortcutsHelpVisible);
+        return;
+      }
 
       // Quick AI prompts (only in assistant view)
       if (activeView === 'assistant') {
@@ -507,7 +523,7 @@ const PersonalCoachAssistant = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [activeView, projects]);
+  }, [activeView, projects, showShortcutsPanel, shortcutsHelpVisible]);
 
   // Función para cargar datos específicos del usuario
   const loadUserData = useCallback(async () => {
@@ -2500,113 +2516,282 @@ Responde siempre en español y mantén el tono configurado.`;
     return projects.find(p => p.id === projectId);
   };
 
-  const renderDashboard = () => {
-    return (
-      <div className="h-full flex flex-col space-y-3 overflow-hidden">
-        {/* Header compacto con estadísticas - Responsive */}
-        <div className="flex-shrink-0 bg-white border border-gray-200 rounded-lg shadow-sm p-3 md:p-4">
-          <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between md:gap-4">
+  const renderDashboard = () => (
+    <div className="h-full flex flex-col space-y-4 overflow-hidden">
+
+
+      {/* AI Assistant - Diseño Business Minimalista */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 flex-shrink-0">
+        {/* Header Section */}
+        <div className="p-4 md:p-6 border-b border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Título e Ícono */}
             <div className="flex items-center space-x-3 md:space-x-4">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Target className="text-white" size={16} />
+              <div className="w-12 h-12 md:w-14 md:h-14 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Bot className="text-gray-600" size={20} />
               </div>
               <div className="flex-1">
-                <h3 className="text-base md:text-lg font-semibold text-gray-900">Enfoque de Hoy</h3>
-                <p className="text-xs md:text-sm text-gray-600 hidden sm:block">Tareas prioritarias para alcanzar tus objetivos</p>
+                <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-1">Asistente IA</h3>
+                <p className="text-gray-600 text-sm">Analiza tus proyectos y optimiza tu productividad</p>
               </div>
             </div>
 
-            {/* Estadísticas compactas - Grid responsive para móvil */}
-            <div className="flex items-center justify-between md:justify-end md:space-x-4 lg:space-x-6">
-              <div className="grid grid-cols-3 gap-4 md:gap-6 flex-1 md:flex-none md:flex md:items-center">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Proyectos</p>
-                  <p className="text-sm md:text-lg font-bold text-gray-900">{activeProjects.length}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Tareas</p>
-                  <p className="text-sm md:text-lg font-bold text-green-600">{completedTasks}/{dailyTasks.length}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Progreso</p>
-                  <p className="text-sm md:text-lg font-bold text-blue-600">{completionRate}%</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveView('assistant')}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-xs md:text-sm ml-2 md:ml-0"
-              >
-                <Bot size={14} />
-                <span className="hidden sm:inline">IA</span>
-              </button>
+            {/* Botón Principal */}
+            <button
+              onClick={() => setActiveView('assistant')}
+              className="w-full sm:w-auto bg-gray-900 text-white px-4 md:px-6 py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center space-x-2"
+            >
+              <span className="text-sm">Iniciar Chat</span>
+              <MessageCircle size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Estadísticas Section */}
+        <div className="p-4 md:p-6">
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
+            <div
+              className="text-center p-3 md:p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors duration-200"
+              onClick={() => setShowActiveProjectsModal(true)}
+            >
+              <Target className="text-gray-500 mx-auto mb-2" size={18} />
+              <p className="text-gray-600 text-xs font-medium mb-1">Proyectos</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{activeProjects.length}</p>
+            </div>
+
+            <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
+              <CheckCircle className="text-gray-500 mx-auto mb-2" size={18} />
+              <p className="text-gray-600 text-xs font-medium mb-1">Tareas</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{`${completedTasks}/${dailyTasks.length}`}</p>
+            </div>
+
+            <div className="text-center p-3 md:p-4 bg-gray-50 rounded-lg">
+              <TrendingUp className="text-gray-500 mx-auto mb-2" size={18} />
+              <p className="text-gray-600 text-xs font-medium mb-1">Efectividad</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{completionRate}%</p>
             </div>
           </div>
         </div>
 
-        {/* Contenido principal - Layout responsive */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-4 overflow-hidden">
-          {/* Panel principal de tareas - Full width en móvil */}
-          <div className="flex-1 lg:flex-[2] bg-white border rounded-lg p-3 md:p-4 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between mb-3 md:mb-4 flex-shrink-0">
-              <div className="flex items-center space-x-2 md:space-x-3">
-                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="text-green-600" size={14} />
+        {/* Quick Actions Section */}
+        <div className="p-4 md:p-6 bg-gray-50 border-t border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button
+              onClick={() => {
+                setActiveView('assistant');
+                setTimeout(() => setNewMessage('¿Cuáles son mis proyectos activos y cómo van?'), 100);
+              }}
+              className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <TrendingUp size={16} className="text-blue-600" />
                 </div>
-                <h3 className="text-base md:text-lg font-semibold text-gray-900">Tareas de Hoy</h3>
+                <div>
+                  <div className="font-medium text-sm text-gray-900">Resumen</div>
+                  <div className="text-xs text-gray-500 hidden md:block">Estado actual</div>
+                </div>
               </div>
+            </button>
 
-              <div className="flex items-center space-x-2">
-                {completionRate > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-12 md:w-20 bg-gray-200 rounded-full h-1.5 md:h-2">
-                      <div
-                        className="bg-green-500 h-1.5 md:h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${completionRate}%` }}
-                      ></div>
+            <button
+              onClick={() => {
+                setActiveView('assistant');
+                setTimeout(() => setNewMessage('¿Qué tareas debería priorizar hoy?'), 100);
+              }}
+              className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                  <Target size={16} className="text-orange-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900">Priorizar</div>
+                  <div className="text-xs text-gray-500 hidden md:block">Próximas tareas</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveView('assistant');
+                setTimeout(() => setNewMessage('Dame consejos para ser más productivo'), 100);
+              }}
+              className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+                  <CheckCircle size={16} className="text-green-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900">Optimizar</div>
+                  <div className="text-xs text-gray-500 hidden md:block">Consejos útiles</div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden">
+        {/* Left Column - Today's Focus */}
+        <div className="flex-1 bg-white border rounded-lg p-4 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between mb-3 flex-shrink-0">
+            <h3 className="text-lg font-semibold flex items-center">
+              <Calendar className="mr-2 text-blue-500" size={18} />
+              Enfoque de Hoy
+            </h3>
+            <div className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              {`${completedTasks}/${dailyTasks.length}`} completadas
+            </div>
+          </div>
+
+          {/* Organización por prioridad */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Tareas urgentes */}
+            {(() => {
+              const urgentTasks = dailyTasks.filter(task => {
+                const project = task.projectId ? getProjectById(task.projectId) : null;
+                if (!project || !project.deadline) return false;
+                const deadline = new Date(project.deadline);
+                const today = new Date();
+                const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+                return daysLeft <= 3;
+              });
+
+              const normalTasks = dailyTasks.filter(task => {
+                const project = task.projectId ? getProjectById(task.projectId) : null;
+                if (!project || !project.deadline) return true;
+                const deadline = new Date(project.deadline);
+                const today = new Date();
+                const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+                return daysLeft > 3;
+              });
+
+              return (
+                <div className="space-y-4 flex-1 overflow-y-auto">
+                  {/* Sección de tareas urgentes */}
+                  {urgentTasks.length > 0 && (
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <AlertCircle className="text-red-500 mr-2" size={16} />
+                        <h4 className="text-sm font-medium text-red-700">Urgente - Fecha límite próxima</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {urgentTasks.map(task => renderTaskItem(task, 'urgent'))}
+                      </div>
                     </div>
-                    <span className="text-xs md:text-sm font-medium text-gray-600">{completionRate}%</span>
-                  </div>
-                )}
-              </div>
-            </div>
+                  )}
 
-            {/* Lista de tareas - Optimizada para móvil */}
-            <div className="flex-1 overflow-y-auto">
-              {dailyTasks.length === 0 ? (
-                <div className="text-center py-8 md:py-12 text-gray-500">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
-                    <Plus className="text-gray-400" size={20} />
-                  </div>
-                  <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">¡Comienza tu día productivo!</h3>
-                  <p className="text-sm text-gray-500 mb-4 px-4">Agrega tus tareas prioritarias para hoy</p>
-                  <button
-                    onClick={() => setShowAddTaskForm(true)}
-                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
-                  >
-                    Agregar primera tarea
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 md:space-y-3">
-                  {dailyTasks.map(task => renderTaskItem(task))}
-                </div>
-              )}
-            </div>
+                  {/* Sección de tareas normales */}
+                  {normalTasks.length > 0 && (
+                    <div>
+                      {urgentTasks.length > 0 && (
+                        <div className="flex items-center mb-2">
+                          <Clock className="text-blue-500 mr-2" size={16} />
+                          <h4 className="text-sm font-medium text-gray-700">Otras tareas</h4>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {normalTasks.map(task => renderTaskItem(task, 'normal'))}
+                      </div>
+                    </div>
+                  )}
 
-            {/* Botón de agregar tarea - Optimizado para móvil */}
-            <div className="mt-3 md:mt-4 flex-shrink-0">
+                  {/* Mensaje cuando no hay tareas */}
+                  {dailyTasks.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Calendar className="mx-auto mb-2" size={32} />
+                      <p className="mb-2">No tienes tareas para hoy</p>
+                      <p className="text-sm">Agrega algunas tareas o usa el asistente IA para sugerencias</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Add Task Button - Minimalist - At Bottom like Trello */}
+          <div className="mt-3 flex-shrink-0">
               {!showAddTaskForm ? (
                 <button
                   onClick={() => setShowAddTaskForm(true)}
-                  className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
+                  className="w-full bg-gray-100 text-gray-600 px-4 py-2.5 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex items-center justify-center border-2 border-dashed border-gray-300 hover:border-gray-400 transition-all duration-200"
                 >
                   <Plus size={16} className="mr-2" />
-                  <span className="hidden sm:inline">Agregar nueva tarea</span>
-                  <span className="sm:hidden">Nueva tarea</span>
+                  Añadir tarea
                 </button>
               ) : (
-                <div className="space-y-3 border border-blue-200 rounded-lg p-3 md:p-4 bg-blue-50">
-                  <div className="flex flex-col sm:flex-row gap-2">
+                <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  {/* Selector de proyecto */}
+                  <select
+                    value={selectedProjectForTask}
+                    onChange={(e) => {
+                      const projectId = e.target.value;
+                      setSelectedProjectForTask(projectId);
+                      if (projectId) {
+                        const project = projects.find(p => p.id === projectId);
+
+                        // Filtrar tareas que NO están completadas Y NO están en el enfoque diario
+                        const availableTasks = project?.tasks?.filter(task => {
+                          // 1. Verificar que la tarea no esté completada
+                          const isNotCompleted = !task.completed && task.completed !== "true" && task.completed !== 1;
+                          const progressLessThan100 = (task.progress || 0) < 100;
+                          const taskIncomplete = isNotCompleted || progressLessThan100;
+
+                          // 2. Verificar que la tarea NO esté en el enfoque diario
+                          const notInDailyFocus = !dailyTasks.some(dt =>
+                            dt.projectId === project.id && dt.projectTaskId === task.id
+                          );
+
+                          // Solo mostrar si está incompleta Y no está en el enfoque diario
+                          return taskIncomplete && notInDailyFocus;
+                        }) || [];
+                        setSelectedProjectTasks(availableTasks);
+                      } else {
+                        setSelectedProjectTasks([]);
+                      }
+                    }}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="">Crear nueva tarea personal</option>
+                    {projects.filter(p => p.status === 'activo').map(project => (
+                      <option key={project.id} value={project.id}>
+                        📋 {project.title}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Tareas disponibles del proyecto */}
+                  {selectedProjectForTask && selectedProjectTasks.length > 0 && (
+                    <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                      <h4 className="text-sm font-medium text-blue-700 mb-2">
+                        Tareas disponibles del proyecto:
+                      </h4>
+                      <div className="space-y-1 max-h-24 overflow-y-auto">
+                        {selectedProjectTasks.map(task => (
+                          <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded border text-xs">
+                            <span className="flex-1 truncate text-gray-700">📋 {task.title}</span>
+                            <button
+                              onClick={() => {
+                                addProjectTaskToDaily(selectedProjectForTask, task);
+                                setShowAddTaskForm(false);
+                                setSelectedProjectForTask('');
+                                setSelectedProjectTasks([]);
+                              }}
+                              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                            >
+                              + Agregar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Input para nueva tarea */}
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       value={newDailyTask}
@@ -2615,137 +2800,46 @@ Responde siempre en español y mantén el tono configurado.`;
                         if (e.key === 'Enter') {
                           addDailyTask();
                           setShowAddTaskForm(false);
+                          setSelectedProjectForTask('');
+                          setSelectedProjectTasks([]);
                         }
                       }}
-                      placeholder="¿Qué quieres lograr hoy?"
-                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      placeholder={selectedProjectForTask ? "Nombre de la nueva tarea del proyecto..." : "Nombre de la nueva tarea personal..."}
+                      className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       autoFocus
                     />
-                    <div className="flex gap-2 sm:gap-1">
-                      <button
-                        onClick={() => {
-                          addDailyTask();
-                          setShowAddTaskForm(false);
-                        }}
-                        className="flex-1 sm:flex-none bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600 text-sm font-medium"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowAddTaskForm(false);
-                          setNewDailyTask('');
-                        }}
-                        className="flex-1 sm:flex-none bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 text-sm font-medium"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        addDailyTask();
+                        setShowAddTaskForm(false);
+                        setSelectedProjectForTask('');
+                        setSelectedProjectTasks([]);
+                      }}
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm"
+                    >
+                      Crear
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddTaskForm(false);
+                        setSelectedProjectForTask('');
+                        setSelectedProjectTasks([]);
+                        setNewDailyTask('');
+                      }}
+                      className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
-
-          {/* Panel lateral - Responsive: aparece abajo en móvil, a la derecha en desktop */}
-          <div className="flex flex-col lg:flex-1 space-y-3 lg:space-y-4">
-            {/* Insights del día */}
-            <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100 rounded-lg p-3 lg:p-4">
-              <div className="flex items-center space-x-2 mb-3">
-                <TrendingUp className="text-purple-600" size={16} />
-                <h4 className="font-semibold text-gray-900 text-sm">Tu Progreso</h4>
-              </div>
-              <div className="space-y-3">
-                {completedTasks > 0 ? (
-                  <div>
-                    <p className="text-sm text-gray-700 mb-2">
-                      ¡Vas genial! Has completado <span className="font-semibold text-purple-600">{completedTasks} tareas</span> hoy.
-                    </p>
-                    {completionRate >= 80 && (
-                      <p className="text-xs text-green-600 font-medium">🎉 ¡Excelente productividad!</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-600">Completa tu primera tarea para ver tu progreso.</p>
-                )}
-              </div>
-            </div>
-
-            {/* Proyectos activos */}
-            <div className="bg-white border rounded-lg p-3 lg:p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <Target className="text-blue-600" size={16} />
-                  <h4 className="font-semibold text-gray-900 text-sm">Proyectos Activos</h4>
-                </div>
-                <button
-                  onClick={() => setActiveView('projects')}
-                  className="text-blue-600 hover:text-blue-700 text-xs font-medium"
-                >
-                  Ver todos
-                </button>
-              </div>
-              <div className="space-y-2">
-                {activeProjects.slice(0, 3).map(project => (
-                  <div key={project.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedProject(project);
-                      setShowProjectDetailModal(true);
-                    }}
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">{project.title}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <div className="w-12 bg-gray-200 rounded-full h-1">
-                          <div
-                            className="bg-blue-500 h-1 rounded-full"
-                            style={{ width: `${project.progress || 0}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-gray-500">{project.progress || 0}%</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {activeProjects.length === 0 && (
-                  <p className="text-xs text-gray-500 text-center py-2">No hay proyectos activos</p>
-                )}
-              </div>
-            </div>
-
-            {/* Acciones rápidas - Solo visible en desktop */}
-            <div className="hidden lg:block bg-white border rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 text-sm mb-3">Acciones Rápidas</h4>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setShowCreateProject(true)}
-                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
-                >
-                  <Plus size={14} />
-                  <span>Nuevo proyecto</span>
-                </button>
-                <button
-                  onClick={() => setActiveView('projects')}
-                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
-                >
-                  <Archive size={14} />
-                  <span>Ver proyectos</span>
-                </button>
-                <button
-                  onClick={() => setActiveView('assistant')}
-                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
-                >
-                  <Bot size={14} />
-                  <span>Consultar IA</span>
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
 
       </div>
-    );
-  };
+    </div>
+  );
 
   // TODO: Add renderProjectsView function back after fixing main structure
 
@@ -3333,8 +3427,29 @@ Responde siempre en español y mantén el tono configurado.`;
                           </div>
                         )}
                         <div className="relative">
+                          <style jsx>{`
+                            .custom-scrollbar::-webkit-scrollbar {
+                              width: 8px;
+                            }
+                            .custom-scrollbar::-webkit-scrollbar-track {
+                              background: #f3f4f6;
+                              border-radius: 4px;
+                            }
+                            .custom-scrollbar::-webkit-scrollbar-thumb {
+                              background: #6366f1;
+                              border-radius: 4px;
+                              border: 1px solid #e5e7eb;
+                            }
+                            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                              background: #4f46e5;
+                            }
+                            .custom-scrollbar {
+                              scrollbar-width: thin;
+                              scrollbar-color: #6366f1 #f3f4f6;
+                            }
+                          `}</style>
                           <div
-                            className="space-y-1 max-h-24 overflow-y-auto text-xs pr-1 border border-gray-200 rounded-md px-2 py-1 bg-white"
+                            className="custom-scrollbar space-y-1 max-h-24 overflow-y-auto text-xs pr-1 border border-gray-200 rounded-md px-2 py-1 bg-white"
                           >
                             {availableSpecialties.map((specialty) => (
                               <label
@@ -4168,6 +4283,18 @@ Responde siempre en español y mantén el tono configurado.`;
       {/* Modal de Perfil de Usuario */}
       {showUserProfileModal && (
         <>
+          <style jsx>{`
+            @keyframes fadeIn {
+              from {
+                opacity: 0;
+                transform: translateY(-10px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}</style>
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
@@ -5193,7 +5320,114 @@ Responde siempre en español y mantén el tono configurado.`;
         </div>
       )}
 
+      {/* Floating AI Shortcuts Panel */}
+      {showShortcutsPanel && (
+        <div className="fixed top-4 right-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-4 rounded-xl shadow-2xl z-50 animate-fadeIn">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-bold flex items-center">
+              <Bot size={16} className="mr-2" />
+              AI Shortcuts
+            </h3>
+            <button
+              onClick={() => setShowShortcutsPanel(false)}
+              className="text-white/70 hover:text-white text-lg"
+            >
+              ×
+            </button>
+          </div>
+          <div className="space-y-2 text-xs">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <div className="font-semibold">⌘/Ctrl + Shift + A</div>
+              <div className="text-white/80">Ir al Asistente</div>
+            </div>
+            <div className="p-2 bg-white/10 rounded-lg">
+              <div className="font-semibold">⌘/Ctrl + 1, 2, 3</div>
+              <div className="text-white/80">Prompts rápidos (en Assistant)</div>
+            </div>
+            <div className="p-2 bg-white/10 rounded-lg">
+              <div className="font-semibold">⌘/Ctrl + Shift + H</div>
+              <div className="text-white/80">Ayuda completa</div>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Shortcuts Help Modal */}
+      {shortcutsHelpVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                  <Bot className="mr-2" size={24} />
+                  Atajos de IA - Guía Completa
+                </h3>
+                <button
+                  onClick={() => setShortcutsHelpVisible(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">🚀 Navegación Rápida</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-700">Ir al Asistente de IA</span>
+                      <code className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded">⌘/Ctrl + Shift + A</code>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-700">Mostrar panel de atajos</span>
+                      <code className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded">⌘/Ctrl + Shift + S</code>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">🎯 Prompts Rápidos (Solo en Asistente)</h4>
+                  <div className="space-y-2">
+                    <div className="p-3 bg-indigo-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-800">Análisis de Proyectos</span>
+                        <code className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded">⌘/Ctrl + 1</code>
+                      </div>
+                      <p className="text-sm text-gray-600">Genera un análisis inteligente de todos tus proyectos activos</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-800">Optimización de Tareas</span>
+                        <code className="bg-purple-100 text-purple-800 px-2 py-1 rounded">⌘/Ctrl + 2</code>
+                      </div>
+                      <p className="text-sm text-gray-600">Obtén sugerencias para priorizar tus tareas pendientes</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-800">Coaching Temporal</span>
+                        <code className="bg-green-100 text-green-800 px-2 py-1 rounded">⌘/Ctrl + 3</code>
+                      </div>
+                      <p className="text-sm text-gray-600">Recibe consejos personalizados según la hora del día</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">💡 Consejos de Uso</h4>
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li>• Los atajos solo funcionan cuando <strong>no estás escribiendo</strong> en un campo de texto</li>
+                      <li>• Los prompts rápidos (1, 2, 3) solo están disponibles en la vista del Asistente</li>
+                      <li>• El Asistente utiliza información en tiempo real de tus proyectos para respuestas contextuales</li>
+                      <li>• Usa <strong>⌘/Ctrl + Shift + S</strong> para acceso rápido a este panel desde cualquier lugar</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chat Bubble Flotante para Asistente IA */}
       {chatBubbleOpen && (
@@ -5344,6 +5578,16 @@ Responde siempre en español y mantén el tono configurado.`;
         )}
       </button>
 
+      {/* Floating Quick Access Button - Solo si el chat no está abierto */}
+      {!showShortcutsPanel && !chatBubbleOpen && activeView !== 'assistant' && (
+        <button
+          onClick={() => setShowShortcutsPanel(true)}
+          className="fixed bottom-20 right-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 animate-fadeIn hover:scale-110"
+          title="Atajos de IA (⌘/Ctrl + Shift + S)"
+        >
+          <Settings size={18} />
+        </button>
+      )}
     </div>
   );
 };
