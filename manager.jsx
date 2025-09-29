@@ -3153,620 +3153,234 @@ Responde siempre en español y mantén el tono configurado.`;
   }, [showUserDropdown]);
 
   const renderAssistantView = () => {
-    // Funciones del AI Assistant
-
     return (
-      <div className="h-full flex flex-col overflow-hidden relative">
-        {/* Header con estadísticas y configuración */}
-        <div className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg mb-4 overflow-hidden">
-          {/* Título y saludo */}
-          <div className="flex justify-between items-center p-4 pb-2">
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Header de configuración del asistente */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg mb-4 p-4">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold flex items-center">
-                <Bot className="mr-2" size={20} />
-                Chat con {assistantConfig.assistantName}
+                <Settings className="mr-2" size={20} />
+                Configuración del Asistente
               </h2>
               <p className="text-purple-100 text-sm">
-                {assistantConfig.userName ? `Hola ${assistantConfig.userName}!` : 'Conversa con tu asistente personal'}
+                Personaliza tu asistente personal {assistantConfig.assistantName}
               </p>
             </div>
-            <button
-              onClick={() => setShowAssistantModal(true)}
-              className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-              title="Configurar asistente"
-            >
-              <Settings size={20} />
-            </button>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                El chat está en el bubble flotante
+              </span>
+              <Bot size={20} />
+            </div>
           </div>
-
         </div>
 
-        {/* Container principal */}
-        <div className="flex-1 flex overflow-hidden relative">
-          {/* Panel de Configuración Izquierdo */}
-          {showConfigPanel && (
-            <div className="w-80 mr-4 bg-gray-900 text-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-              {/* Header del menú */}
-              <div className="p-4 border-b border-gray-700">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-bold">Configuración</h3>
-                  <button
-                    onClick={() => {
-                      setShowConfigPanel(false);
-                      setSelectedConfigSection('');
-                    }}
-                    className="p-1 hover:bg-gray-700 rounded"
-                    title="Cerrar menú"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
+        {/* Contenido de configuración */}
+        <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="p-6 overflow-y-auto h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-              {/* Opciones del menú */}
-              <div className="flex-1 p-4">
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setSelectedConfigSection('user')}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedConfigSection === 'user'
-                        ? 'bg-gray-700 text-white'
-                        : 'hover:bg-gray-800 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <User size={18} className="mr-3" />
-                      <div>
-                        <div className="font-medium">Usuario</div>
-                        <div className="text-xs text-gray-400">Nombre, memoria personal</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setSelectedConfigSection('assistant')}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedConfigSection === 'assistant'
-                        ? 'bg-gray-700 text-white'
-                        : 'hover:bg-gray-800 text-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <Bot size={18} className="mr-3" />
-                      <div>
-                        <div className="font-medium">Asistente</div>
-                        <div className="text-xs text-gray-400">Personalidad, prompt, especialidades</div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Panel de Contenido de Configuración y Chat */}
-          <>
-            {showConfigPanel && selectedConfigSection && (
-              <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-                {/* Header del panel de contenido */}
-              <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-bold flex items-center">
-                    <Settings className="mr-2" size={18} />
-                    {selectedConfigSection === 'user' ? 'Configuración de Usuario' : 'Configuración del Asistente'}
-                  </h3>
-                  <button
-                    onClick={() => setSelectedConfigSection('')}
-                    className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
-                    title="Cerrar panel"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-
-              {/* Contenido del panel */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {selectedConfigSection === 'user' && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                      👤 Datos del Usuario
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Tu nombre
-                        </label>
-                        <input
-                          type="text"
-                          value={assistantConfig.userName}
-                          onChange={(e) => handleConfigChange('userName', e.target.value)}
-                          placeholder="¿Cómo te gustaría que te llame?"
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedConfigSection === 'assistant' && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                      🤖 Asistente
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Nombre del asistente
-                        </label>
-                        <input
-                          type="text"
-                          value={assistantConfig.assistantName}
-                          onChange={(e) => handleConfigChange('assistantName', e.target.value)}
-                          placeholder="Nombre de tu asistente"
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-
-                      {/* Especialidades */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-2">
-                          🎓 Especialidades
-                        </label>
-                        {assistantConfig.specialties.length > 0 && (
-                          <div className="mb-2 flex flex-wrap gap-1">
-                            {assistantConfig.specialties.map((specialty) => (
-                              <span
-                                key={specialty}
-                                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800"
-                              >
-                                {specialty}
-                                <button
-                                  onClick={() => removeSpecialty(specialty)}
-                                  className="ml-1 text-indigo-600 hover:text-indigo-800"
-                                  title="Eliminar"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="relative">
-                          <div
-                            className="space-y-1 max-h-24 overflow-y-auto text-xs pr-1 border border-gray-200 rounded-md px-2 py-1 bg-white"
-                          >
-                            {availableSpecialties.map((specialty) => (
-                              <label
-                                key={specialty}
-                                className="flex items-center hover:bg-gray-100 px-1 py-0.5 rounded cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={assistantConfig.specialties.includes(specialty)}
-                                  onChange={() => {
-                                    if (assistantConfig.specialties.includes(specialty)) {
-                                      removeSpecialty(specialty);
-                                    } else {
-                                      handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
-                                    }
-                                  }}
-                                  className="mr-2 text-indigo-600 focus:ring-indigo-500"
-                                />
-                                <span className="text-gray-700">{specialty}</span>
-                              </label>
-                            ))}
-                          </div>
-                          {/* Indicador de fade-out para mostrar que hay más contenido */}
-                          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-md"></div>
-                        </div>
-
-                        {/* Campo para agregar especialidad personalizada */}
-                        <div className="mt-2">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={newCustomSpecialty}
-                              onChange={(e) => setNewCustomSpecialty(e.target.value)}
-                              placeholder="Escribe una especialidad personalizada"
-                              className="flex-1 p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  addCustomSpecialty();
-                                }
-                              }}
-                            />
-                            <button
-                              onClick={addCustomSpecialty}
-                              disabled={!newCustomSpecialty.trim()}
-                              className="px-3 py-2 bg-indigo-500 text-white rounded text-xs hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Agregar especialidad"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Prompt Inicial */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          📝 Prompt Inicial del Asistente
-                        </label>
-                        <textarea
-                          value={assistantConfig.systemPrompt}
-                          onChange={(e) => handleConfigChange('systemPrompt', e.target.value)}
-                          placeholder="Define la personalidad y comportamiento de tu asistente..."
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[100px] resize-vertical"
-                          rows={4}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Este prompt define cómo se comportará tu asistente en las conversaciones.
-                        </p>
-                      </div>
-
-                      {/* Tono */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          🎯 Tono
-                        </label>
-                        <select
-                          value={assistantConfig.tone}
-                          onChange={(e) => handleConfigChange('tone', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        >
-                          <option value="Motivador">Motivador</option>
-                          <option value="Profesional">Profesional</option>
-                          <option value="Amigable">Amigable</option>
-                          <option value="Directo">Directo</option>
-                        </select>
-                      </div>
-
-                      {/* Memoria a Largo Plazo */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          🧠 Memoria a Largo Plazo
-                        </label>
-                        <p className="text-xs text-gray-500 mb-2">
-                          Estos campos se van llenando automáticamente durante las interacciones, pero puedes completarlos para que te conozca más rápido.
-                        </p>
-
-                        <div className="space-y-2">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Rasgos de personalidad</label>
-                            <textarea
-                              value={assistantConfig.memory.personalityTraits}
-                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, personalityTraits: e.target.value})}
-                              placeholder="Ej: Soy una persona analítica y organizada..."
-                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
-                              rows={2}
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Motivadores personales</label>
-                            <textarea
-                              value={assistantConfig.memory.motivationalTriggers}
-                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, motivationalTriggers: e.target.value})}
-                              placeholder="Ej: Me motivan los desafíos, reconocimiento..."
-                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
-                              rows={2}
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Estilo de aprendizaje</label>
-                            <textarea
-                              value={assistantConfig.memory.learningStyle}
-                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, learningStyle: e.target.value})}
-                              placeholder="Ej: Aprendo mejor con ejemplos prácticos..."
-                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
-                              rows={2}
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Prioridades actuales</label>
-                            <textarea
-                              value={assistantConfig.memory.currentPriorities}
-                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, currentPriorities: e.target.value})}
-                              placeholder="Ej: Enfocarme en proyectos de desarrollo web..."
-                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
-                              rows={2}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Botón Guardar */}
-                <button
-                  onClick={saveConfiguration}
-                  className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm flex items-center justify-center"
-                >
-                  <Save size={14} className="mr-1" />
-                  {isConfigSaved && <CheckCircle2 size={14} className="mr-1" />}
-                  {isConfigSaved ? 'Guardado!' : 'Guardar Configuración'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Chat Principal - Se oculta cuando hay configuración seleccionada */}
-          {!(showConfigPanel && selectedConfigSection) && (
-            <div className={`transition-all duration-300 ${showConfigPanel ? 'flex-1' : 'w-full'} flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50 rounded-xl shadow-2xl border border-indigo-100`}>
-              {/* Mensajes del chat */}
-              <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
-                {messages.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                      <span className="text-2xl">🤖</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">¡Hola! Soy {assistantConfig.assistantName}</h3>
-                    <p className="text-gray-600 max-w-md mx-auto">
-                      Estoy aquí para ayudarte con tus proyectos, responder preguntas y hacer tu trabajo más eficiente.
-                      ¡Pregúntame lo que necesites!
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8 max-w-2xl mx-auto">
-                      <button
-                        onClick={() => setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`)}
-                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
-                      >
-                        💼 Análisis de proyectos ({projects.length})
-                      </button>
-                      <button
-                        onClick={() => {
-                          const pendingTasks = projects.reduce((total, project) =>
-                            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
-                          );
-                          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
-                        }}
-                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
-                      >
-                        ✅ Optimizar tareas pendientes
-                      </button>
-                      <button
-                        onClick={() => {
-                          const currentHour = new Date().getHours();
-                          const timeBasedPrompt = currentHour < 12
-                            ? 'Dame una estrategia productiva para empezar bien el día'
-                            : currentHour < 18
-                            ? 'Necesito mantener el foco y energía para la tarde'
-                            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
-                          setNewMessage(timeBasedPrompt);
-                        }}
-                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
-                      >
-                        🚀 Coaching personalizado
-                      </button>
-                    </div>
-
-                    {/* Additional contextual suggestions */}
-                    {projects.length > 0 && (
-                      <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <h4 className="text-sm font-semibold text-indigo-800 mb-2">💡 Sugerencias inteligentes</h4>
-                        <div className="space-y-2">
-                          {projects.filter(p => p.status === 'active').length > 0 && (
-                            <button
-                              onClick={() => setNewMessage(`¿Cómo puedo mejorar la eficiencia en mis proyectos activos: ${projects.filter(p => p.status === 'active').map(p => p.title).join(', ')}?`)}
-                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
-                            >
-                              📈 Optimizar proyectos activos
-                            </button>
-                          )}
-                          {projects.some(p => p.tasks?.some(t => !t.completed)) && (
-                            <button
-                              onClick={() => setNewMessage('Ayúdame a crear un plan de acción para completar las tareas más importantes de esta semana')}
-                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
-                            >
-                              🎯 Plan de acción semanal
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setNewMessage('Basándote en mi histórico de productividad, ¿qué hábitos debería desarrollar para ser más eficiente?')}
-                            className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
-                          >
-                            🌱 Desarrollo de hábitos
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {messages.map((message, index) => (
-                  <div
-                    key={message.id}
-                    className={`w-full animate-fadeIn ${message.type === 'user' ? 'flex justify-end' : 'flex justify-start'}`}
-                    style={{animationDelay: `${index * 0.1}s`}}
-                  >
-                    <div className={`max-w-[85%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
-                      <div
-                        className={`relative px-6 py-4 rounded-2xl shadow-lg backdrop-blur-sm ${
-                          message.type === 'user'
-                            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white ml-8'
-                            : 'bg-white/90 border border-gray-100 mr-8'
-                        }`}
-                      >
-                        {/* Avatar */}
-                        <div className={`absolute -top-2 ${message.type === 'user' ? '-right-2' : '-left-2'} w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                          message.type === 'user'
-                            ? 'bg-gradient-to-r from-pink-400 to-purple-500'
-                            : 'bg-gradient-to-r from-indigo-400 to-blue-500'
-                        }`}>
-                          {message.type === 'assistant' ? (
-                            <Bot size={16} className="text-white" />
-                          ) : (
-                            <User size={16} className="text-white" />
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="pt-2">
-                          {message.type === 'assistant' ? (
-                            <div className="text-gray-800 leading-relaxed">
-                              <ReactMarkdown
-                                components={{
-                                  p: ({children}) => <p className="mb-3 last:mb-0 text-sm leading-7">{children}</p>,
-                                  ul: ({children}) => <ul className="mb-3 pl-5 space-y-2 list-disc marker:text-indigo-400">{children}</ul>,
-                                  ol: ({children}) => <ol className="mb-3 pl-5 space-y-2 list-decimal marker:text-indigo-400">{children}</ol>,
-                                  li: ({children}) => <li className="text-sm text-gray-700 leading-6">{children}</li>,
-                                  h1: ({children}) => <h1 className="text-lg font-bold mb-3 text-gray-900 border-b border-gray-200 pb-2">{children}</h1>,
-                                  h2: ({children}) => <h2 className="text-base font-bold mb-2 text-gray-900">{children}</h2>,
-                                  h3: ({children}) => <h3 className="text-sm font-semibold mb-2 text-gray-900">{children}</h3>,
-                                  strong: ({children}) => <strong className="font-semibold text-gray-900 bg-yellow-100 px-1 rounded">{children}</strong>,
-                                  em: ({children}) => <em className="italic text-indigo-600">{children}</em>,
-                                  code: ({children}) => <code className="bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-xs font-mono text-gray-800">{children}</code>,
-                                  blockquote: ({children}) => <blockquote className="border-l-4 border-indigo-300 pl-4 mb-3 italic text-gray-700 bg-indigo-50 py-2 rounded-r-lg">{children}</blockquote>,
-                                  br: () => <br className="mb-2" />
-                                }}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p className="text-sm leading-relaxed font-medium">{message.content}</p>
-                          )}
-
-                          {/* Timestamp */}
-                          <div className={`text-xs mt-3 pt-2 border-t ${
-                            message.type === 'user'
-                              ? 'text-indigo-100 border-indigo-400/30'
-                              : 'text-gray-400 border-gray-200'
-                          } flex items-center justify-between`}>
-                            <span>{message.timestamp}</span>
-                            {message.type === 'assistant' && (
-                              <span className="text-indigo-500 font-medium text-xs">{assistantConfig.assistantName}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Indicador de que el asistente está escribiendo */}
-                {isAssistantTyping && (
-                  <div className="w-full flex justify-start animate-fadeIn">
-                    <div className="max-w-[85%] mr-8">
-                      <div className="relative px-6 py-4 bg-white/90 border border-gray-100 rounded-2xl shadow-lg backdrop-blur-sm">
-                        {/* Avatar */}
-                        <div className="absolute -top-2 -left-2 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-400 to-blue-500 flex items-center justify-center shadow-lg">
-                          <Bot size={16} className="text-white" />
-                        </div>
-
-                        <div className="pt-2 flex items-center space-x-3">
-                          <span className="text-sm text-gray-600 font-medium">{assistantConfig.assistantName} está escribiendo</span>
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
-                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.4s"}}></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-
-              {/* Input para nuevo mensaje */}
-              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gradient-to-r from-white via-indigo-50/30 to-white backdrop-blur-sm">
-                {/* Controles de voz */}
-                <div className="flex justify-between items-center mb-3">
-                  <div className="flex space-x-2">
-                    {speechSupported ? (
-                      <button
-                        onClick={isListening ? stopListening : startListening}
-                        disabled={isAssistantTyping}
-                        className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
-                          isListening
-                            ? 'bg-red-500 text-white hover:bg-red-600'
-                            : 'bg-green-500 text-white hover:bg-green-600'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
-                      >
-                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                        <span className="ml-1">{isListening ? 'Grabando (2s de pausa para terminar)' : 'Hablar'}</span>
-                      </button>
-                    ) : (
-                      <div className="px-3 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium">
-                        <MicOff size={16} className="inline mr-1" />
-                        Voz no disponible
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setVoiceEnabled(!voiceEnabled)}
-                      className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
-                        voiceEnabled
-                          ? 'bg-blue-500 text-white hover:bg-blue-600'
-                          : 'bg-gray-400 text-white hover:bg-gray-500'
-                      }`}
-                      title={voiceEnabled ? 'Desactivar voz del asistente' : 'Activar voz del asistente'}
-                    >
-                      {voiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                    </button>
-
-                    {isSpeaking && (
-                      <button
-                        onClick={stopSpeaking}
-                        className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
-                        title="Detener síntesis de voz"
-                      >
-                        <VolumeX size={16} />
-                        <span className="ml-1">Silenciar</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex space-x-3">
-                  <div className="flex-1 relative">
+              {/* Configuración de Usuario */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <User className="mr-2" size={18} />
+                  Configuración de Usuario
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tu nombre
+                    </label>
                     <input
                       type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder={isListening ? 'Escuchando... (Haz una pausa de 2 segundos para terminar)' : `💬 Pregúntale algo a ${assistantConfig.assistantName}...`}
-                      className={`w-full p-4 border-2 rounded-2xl focus:outline-none focus:border-transparent text-sm transition-all duration-200 shadow-sm ${
-                        isListening
-                          ? 'border-red-300 focus:ring-4 focus:ring-red-500/20 bg-red-50'
-                          : 'border-gray-200 focus:ring-4 focus:ring-indigo-500/20 bg-white hover:border-indigo-300'
-                      } ${isAssistantTyping ? 'opacity-50' : ''}`}
-                      disabled={isAssistantTyping}
+                      value={assistantConfig.userName}
+                      onChange={(e) => handleConfigChange('userName', e.target.value)}
+                      placeholder="¿Cómo te gustaría que te llame?"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    {newMessage.trim() && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-2">
-                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-                          {newMessage.length}
-                        </span>
-                      </div>
-                    )}
                   </div>
-                  <button
-                    onClick={sendMessage}
-                    disabled={!newMessage.trim() || isAssistantTyping}
-                    className="px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center space-x-2"
-                    title="Enviar mensaje"
-                  >
-                    <Send size={18} />
-                    <span className="font-medium hidden sm:block">Enviar</span>
-                  </button>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Memoria a largo plazo
+                    </label>
+                    <textarea
+                      value={assistantConfig.memory?.personalInfo || ''}
+                      onChange={(e) => handleConfigChange('memory', {
+                        ...assistantConfig.memory,
+                        personalInfo: e.target.value
+                      })}
+                      placeholder="Información personal que quieres que el asistente recuerde sobre ti..."
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      rows={4}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          </>
 
+              {/* Configuración del Asistente */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Bot className="mr-2" size={18} />
+                  Configuración del Asistente
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nombre del asistente
+                    </label>
+                    <input
+                      type="text"
+                      value={assistantConfig.assistantName}
+                      onChange={(e) => handleConfigChange('assistantName', e.target.value)}
+                      placeholder="Nombre de tu asistente"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tono de comunicación
+                    </label>
+                    <select
+                      value={assistantConfig.tone}
+                      onChange={(e) => handleConfigChange('tone', e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="Amigable">Amigable</option>
+                      <option value="Profesional">Profesional</option>
+                      <option value="Motivador">Motivador</option>
+                      <option value="Directo">Directo</option>
+                      <option value="Casual">Casual</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prompt del sistema
+                    </label>
+                    <textarea
+                      value={assistantConfig.basePrompt}
+                      onChange={(e) => handleConfigChange('basePrompt', e.target.value)}
+                      placeholder="Define la personalidad y comportamiento de tu asistente..."
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Especialidades */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 lg:col-span-2">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  🎓 Especialidades del Asistente
+                </h3>
+
+                {/* Especialidades seleccionadas */}
+                {assistantConfig.specialties.length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Especialidades activas:
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {assistantConfig.specialties.map((specialty) => (
+                        <span
+                          key={specialty}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 border border-green-200"
+                        >
+                          {specialty}
+                          <button
+                            onClick={() => removeSpecialty(specialty)}
+                            className="ml-2 text-green-600 hover:text-green-800 font-bold"
+                            title="Eliminar especialidad"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de especialidades disponibles */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+                  {availableSpecialties.map((specialty) => (
+                    <label
+                      key={specialty}
+                      className="flex items-center p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={assistantConfig.specialties.includes(specialty)}
+                        onChange={() => {
+                          if (assistantConfig.specialties.includes(specialty)) {
+                            removeSpecialty(specialty);
+                          } else {
+                            handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
+                          }
+                        }}
+                        className="mr-2 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="text-sm">{specialty}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Agregar nueva especialidad */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Agregar nueva especialidad:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customSpecialty}
+                      onChange={(e) => setCustomSpecialty(e.target.value)}
+                      placeholder="Nueva especialidad..."
+                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    <button
+                      onClick={() => {
+                        if (customSpecialty.trim() && !availableSpecialties.includes(customSpecialty.trim())) {
+                          const newSpecialty = customSpecialty.trim();
+                          setAvailableSpecialties([...availableSpecialties, newSpecialty]);
+                          handleConfigChange('specialties', [...assistantConfig.specialties, newSpecialty]);
+                          setCustomSpecialty('');
+                        }
+                      }}
+                      disabled={!customSpecialty.trim()}
+                      className="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Botón para guardar configuración */}
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={saveAssistantConfig}
+                className={`px-8 py-3 rounded-lg font-medium transition-all ${
+                  isConfigSaved
+                    ? 'bg-green-500 text-white'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                }`}
+              >
+                <div className="flex items-center">
+                  {isConfigSaved ? <CheckCircle2 className="mr-2" size={18} /> : <Save className="mr-2" size={18} />}
+                  {isConfigSaved ? 'Configuración Guardada!' : 'Guardar Configuración'}
+                </div>
+              </button>
+            </div>
+
+          </div>
         </div>
       </div>
     );
   };
-
   // Main component JSX
   // Mostrar pantalla de carga mientras verifica autenticación
   if (authLoading) {
