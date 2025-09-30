@@ -149,6 +149,47 @@ class UserDatabase {
           expires_at DATETIME NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )`,
+
+        // Tabla de insights del asistente (memoria conversacional)
+        `CREATE TABLE IF NOT EXISTS assistant_insights (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          insight_type TEXT NOT NULL, -- 'achievement', 'pattern', 'challenge', 'goal'
+          content TEXT NOT NULL,
+          context TEXT, -- contexto del proyecto/tarea relacionado
+          importance_level INTEGER DEFAULT 3, -- 1-5, 5 siendo más importante
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_mentioned DATETIME,
+          mention_count INTEGER DEFAULT 0,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )`,
+
+        // Tabla de compromisos y seguimientos
+        `CREATE TABLE IF NOT EXISTS user_commitments (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          commitment TEXT NOT NULL,
+          deadline DATE,
+          status TEXT DEFAULT 'pending', -- 'pending', 'completed', 'overdue'
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          completed_at DATETIME,
+          follow_up_count INTEGER DEFAULT 0,
+          last_follow_up DATETIME,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )`,
+
+        // Tabla de logros y milestones
+        `CREATE TABLE IF NOT EXISTS user_achievements (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          achievement TEXT NOT NULL,
+          achievement_type TEXT, -- 'task_completion', 'project_milestone', 'habit_formation'
+          related_project_id TEXT,
+          celebration_level INTEGER DEFAULT 3, -- 1-5
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          acknowledged BOOLEAN DEFAULT FALSE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )`
       ];
 

@@ -152,6 +152,29 @@ const getApiBase = () => {
   return `http://${devHost}:3001/api/auth`;
 };
 
+// Helper function para manejar fechas correctamente evitando problemas de zona horaria
+const parseLocalDate = (dateString) => {
+  if (!dateString) return null;
+
+  // Si es un string de fecha YYYY-MM-DD, parsearlo como fecha local
+  if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  }
+
+  return new Date(dateString);
+};
+
+// Helper function para formatear fecha como YYYY-MM-DD
+const formatDateForInput = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 
 const PersonalCoachAssistant = () => {
   const { user, loading: authLoading, isAuthenticated, login, logout, authenticatedFetch } = useAuth();
@@ -437,6 +460,7 @@ const PersonalCoachAssistant = () => {
   });
 
   const messagesEndRef = useRef(null);
+  const longPressTimerRef = useRef(null);
 
   // Estados para funciones de voz
   const [isListening, setIsListening] = useState(false);
@@ -515,6 +539,10 @@ const PersonalCoachAssistant = () => {
       const response = await authenticatedFetch(`${getApiBase()}/profile`);
       if (response.ok) {
         const data = await response.json();
+
+        console.log('🔍 [DEBUG] Datos recibidos del backend:', data);
+        console.log('🔍 [DEBUG] Proyectos en respuesta:', data.projects);
+        console.log('🔍 [DEBUG] Número de proyectos:', data.projects?.length);
 
         // Cargar proyectos del usuario
         setProjects(data.projects || []);
@@ -1291,9 +1319,10 @@ const PersonalCoachAssistant = () => {
   };
 
   // Función para actualizar el porcentaje de progreso de una tarea
-  const updateTaskProgress = (projectId, taskId, newProgress) => {
+  const updateTaskProgress = async (projectId, taskId, newProgress) => {
     const progressValue = Math.max(0, Math.min(100, parseInt(newProgress) || 0));
 
+    // Actualizar estado local
     setProjects(projects.map(project => {
       if (project.id === projectId) {
         const updatedTasks = project.tasks.map(task => {
@@ -1306,7 +1335,12 @@ const PersonalCoachAssistant = () => {
           }
           return task;
         });
-        return { ...project, tasks: updatedTasks };
+
+        // Calcular el progreso promedio del proyecto
+        const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+        const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
+
+        return { ...project, tasks: updatedTasks, progress: averageProgress };
       }
       return project;
     }));
@@ -1318,6 +1352,58 @@ const PersonalCoachAssistant = () => {
       }
       return task;
     }));
+
+    // Actualizar selectedProject si es el mismo proyecto
+    if (selectedProject && selectedProject.id === projectId) {
+      const updatedTasks = selectedProject.tasks.map(task => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            progress: progressValue,
+            completed: progressValue === 100
+          };
+        }
+        return task;
+      });
+
+      const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+      const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
+
+      setSelectedProject({ ...selectedProject, tasks: updatedTasks, progress: averageProgress });
+    }
+
+    // Guardar cambios en la base de datos
+    try {
+      const projectToUpdate = projects.find(p => p.id === projectId);
+      if (projectToUpdate) {
+        const updatedTasks = projectToUpdate.tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              progress: progressValue,
+              completed: progressValue === 100
+            };
+          }
+          return task;
+        });
+
+        const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+        const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
+
+        await authenticatedFetch(`${getApiBase()}/projects/${projectId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: {
+              ...projectToUpdate,
+              tasks: updatedTasks,
+              progress: averageProgress
+            }
+          })
+        });
+      }
+    } catch (error) {
+      console.error('Error guardando progreso de tarea:', error);
+    }
 
     updateProjectProgressFromTasks(projectId);
 
@@ -1635,23 +1721,129 @@ const PersonalCoachAssistant = () => {
         properties: {},
         required: []
       }
+    },
+    {
+      name: "update_project_status",
+      description: "Cambiar el estado de un proyecto (activo/inactivo/completado)",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: {
+            type: "string",
+            description: "Título del proyecto a actualizar"
+          },
+          status: {
+            type: "string",
+            enum: ["activo", "inactivo", "completado"],
+            description: "Nuevo estado del proyecto"
+          }
+        },
+        required: ["project_title", "status"]
+      }
+    },
+    {
+      name: "update_project_deadline",
+      description: "Cambiar o establecer la fecha límite de un proyecto",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: {
+            type: "string",
+            description: "Título del proyecto a actualizar"
+          },
+          deadline: {
+            type: "string",
+            description: "Nueva fecha límite en formato YYYY-MM-DD (ej: 2024-12-31) o 'remove' para eliminar"
+          }
+        },
+        required: ["project_title", "deadline"]
+      }
+    },
+    {
+      name: "update_project_priority",
+      description: "Cambiar la prioridad de un proyecto",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: {
+            type: "string",
+            description: "Título del proyecto a actualizar"
+          },
+          priority: {
+            type: "string",
+            enum: ["baja", "media", "alta"],
+            description: "Nueva prioridad del proyecto"
+          }
+        },
+        required: ["project_title", "priority"]
+      }
+    },
+    {
+      name: "update_project_details",
+      description: "Cambiar el título o descripción de un proyecto",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: {
+            type: "string",
+            description: "Título actual del proyecto a actualizar"
+          },
+          new_title: {
+            type: "string",
+            description: "Nuevo título del proyecto (opcional)"
+          },
+          new_description: {
+            type: "string",
+            description: "Nueva descripción del proyecto (opcional)"
+          }
+        },
+        required: ["project_title"]
+      }
+    },
+    {
+      name: "delete_project",
+      description: "Eliminar un proyecto completamente (solo si no tiene tareas pendientes)",
+      parameters: {
+        type: "object",
+        properties: {
+          project_title: {
+            type: "string",
+            description: "Título del proyecto a eliminar"
+          }
+        },
+        required: ["project_title"]
+      }
     }
   ];
 
   // Función para ejecutar las acciones del asistente
-  const executeAssistantFunction = (functionName, parameters) => {
+  const executeAssistantFunction = async (functionName, parameters) => {
+    console.log('🔍 [DEBUG] executeAssistantFunction llamada con:', functionName, parameters);
+
     switch (functionName) {
       case "create_project":
         return createProjectFromAssistant(parameters);
       case "add_project_task":
         return addProjectTaskFromAssistant(parameters);
       case "update_task_progress":
-        return updateTaskProgressFromAssistant(parameters);
+        return await updateTaskProgressFromAssistant(parameters);
       case "add_task_to_daily_focus":
         return addTaskToDailyFocusFromAssistant(parameters);
       case "get_projects_status":
+        console.log('🔍 [DEBUG] Ejecutando get_projects_status');
         return getProjectsStatusFromAssistant();
+      case "update_project_status":
+        return await updateProjectStatusFromAssistant(parameters);
+      case "update_project_deadline":
+        return await updateProjectDeadlineFromAssistant(parameters);
+      case "update_project_priority":
+        return await updateProjectPriorityFromAssistant(parameters);
+      case "update_project_details":
+        return await updateProjectDetailsFromAssistant(parameters);
+      case "delete_project":
+        return await deleteProjectFromAssistant(parameters);
       default:
+        console.log('🔍 [DEBUG] Función no reconocida:', functionName);
         return { success: false, message: "Función no reconocida" };
     }
   };
@@ -1687,7 +1879,7 @@ const PersonalCoachAssistant = () => {
       }
 
       const deadlineMessage = params.deadline
-        ? `Con fecha límite para el ${new Date(params.deadline).toLocaleDateString()}, `
+        ? `Con fecha límite para el ${parseLocalDate(params.deadline).toLocaleDateString()}, `
         : "";
 
       return {
@@ -1739,7 +1931,7 @@ const PersonalCoachAssistant = () => {
     }
   };
 
-  const updateTaskProgressFromAssistant = (params) => {
+  const updateTaskProgressFromAssistant = async (params) => {
     try {
       const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
       if (!project) {
@@ -1751,7 +1943,7 @@ const PersonalCoachAssistant = () => {
         return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${project.title}".` };
       }
 
-      updateTaskProgress(project.id, task.id, params.progress);
+      await updateTaskProgress(project.id, task.id, params.progress);
 
       // Mensajes motivacionales según el progreso
       let progressMessage = "";
@@ -1813,7 +2005,22 @@ const PersonalCoachAssistant = () => {
 
   const getProjectsStatusFromAssistant = () => {
     try {
-      if (projects.length === 0) {
+      console.log('🔍 [DEBUG] getProjectsStatusFromAssistant - proyectos disponibles:', projects);
+      console.log('🔍 [DEBUG] Número de proyectos:', projects.length);
+      console.log('🔍 [DEBUG] Usuario autenticado:', isAuthenticated);
+      console.log('🔍 [DEBUG] Estado de carga:', authLoading);
+
+      // Verificar si los datos están cargados
+      if (authLoading) {
+        console.log('🔍 [DEBUG] Datos aún cargando...');
+        return {
+          success: true,
+          message: "Estoy cargando tus datos, dame un momento..."
+        };
+      }
+
+      if (!projects || projects.length === 0) {
+        console.log('🔍 [DEBUG] No hay proyectos disponibles');
         return {
           success: true,
           message: `📋 Actualmente no tienes proyectos creados.
@@ -1830,10 +2037,25 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       const activeProjects = projects.filter(p => p.status === 'activo');
       const completedTasks = projects.reduce((sum, p) => sum + p.tasks.filter(t => t.completed).length, 0);
 
+      console.log('🔍 [DEBUG] Proyectos activos encontrados:', activeProjects);
+      console.log('🔍 [DEBUG] Número de proyectos activos:', activeProjects.length);
+      console.log('🔍 [DEBUG] Tareas completadas en total:', completedTasks);
+
+      // Mostrar detalles de cada proyecto
+      activeProjects.forEach((project, index) => {
+        console.log(`🔍 [DEBUG] Proyecto ${index + 1}: ${project.title} - Status: ${project.status} - Tareas: ${project.tasks?.length || 0}`);
+        if (project.tasks) {
+          project.tasks.forEach((task, taskIndex) => {
+            console.log(`  🔍 [DEBUG] Tarea ${taskIndex + 1}: ${task.title} - Completada: ${task.completed} - Progreso: ${task.progress || 0}%`);
+          });
+        }
+      });
+
       // Generar un mensaje más conversacional y humano
       let statusMessage = "";
 
       if (activeProjects.length === 0) {
+        console.log('🔍 [DEBUG] No se encontraron proyectos activos');
         statusMessage = "Veo que no tienes proyectos activos en este momento. ¿Te gustaría que te ayude a planificar alguno nuevo o hay algo específico en lo que quieras trabajar hoy?";
       } else if (activeProjects.length === 1) {
         const project = activeProjects[0];
@@ -1847,7 +2069,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
           statusMessage = `Tu proyecto "${project.title}" ${progressText} Has completado ${completedProjectTasks} de ${totalProjectTasks} tareas`;
 
           if (project.deadline) {
-            const deadlineDate = new Date(project.deadline);
+            const deadlineDate = parseLocalDate(project.deadline);
             const today = new Date();
             const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
             if (daysLeft <= 3) {
@@ -1866,7 +2088,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
         const urgentProjects = activeProjects.filter(p => {
           if (!p.deadline) return false;
-          const deadlineDate = new Date(p.deadline);
+          const deadlineDate = parseLocalDate(p.deadline);
           const today = new Date();
           const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
           return daysLeft <= 7;
@@ -1887,17 +2109,420 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         statusMessage += " ¿Cuál quieres priorizar?";
       }
 
-      return {
-        success: true,
-        message: statusMessage
+      console.log('🔍 [DEBUG] Mensaje generado:', statusMessage);
+
+      // Agregar datos estructurados para que el asistente pueda responder preguntas específicas
+      const structuredData = {
+        projects: activeProjects.map(project => ({
+          title: project.title,
+          status: project.status,
+          priority: project.priority,
+          deadline: project.deadline,
+          progress: project.progress || 0,
+          tasks: project.tasks?.map(task => ({
+            title: task.title,
+            completed: task.completed,
+            progress: task.progress || 0
+          })) || [],
+          pendingTasks: project.tasks?.filter(task => !task.completed) || [],
+          completedTasks: project.tasks?.filter(task => task.completed) || []
+        })),
+        summary: {
+          totalActiveProjects: activeProjects.length,
+          totalTasks: activeProjects.reduce((sum, p) => sum + (p.tasks?.length || 0), 0),
+          totalPendingTasks: activeProjects.reduce((sum, p) => sum + (p.tasks?.filter(t => !t.completed).length || 0), 0),
+          totalCompletedTasks: completedTasks
+        }
       };
+
+      const result = {
+        success: true,
+        message: statusMessage,
+        data: structuredData
+      };
+      console.log('🔍 [DEBUG] Resultado de getProjectsStatusFromAssistant:', result);
+      return result;
     } catch (error) {
       return { success: false, message: "Error al obtener información de proyectos: " + error.message };
     }
   };
 
+  const updateProjectStatusFromAssistant = async (params) => {
+    try {
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      if (!project) {
+        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
+      }
+
+      // Actualizar el estado del proyecto
+      setProjects(prevProjects =>
+        prevProjects.map(p =>
+          p.id === project.id ? { ...p, status: params.status } : p
+        )
+      );
+
+      // Actualizar selectedProject si es el mismo
+      if (selectedProject && selectedProject.id === project.id) {
+        setSelectedProject(prev => ({ ...prev, status: params.status }));
+      }
+
+      // Guardar cambios en la base de datos
+      try {
+        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: { ...project, status: params.status }
+          })
+        });
+
+        // Recargar datos para sincronizar con la base de datos
+        await loadUserData();
+      } catch (error) {
+        console.error('Error guardando estado del proyecto:', error);
+      }
+
+      let statusMessage = "";
+      switch (params.status) {
+        case 'inactivo':
+          statusMessage = `✅ Perfecto, he marcado el proyecto "${project.title}" como inactivo. Ya no aparecerá en tu lista de proyectos activos.`;
+          break;
+        case 'completado':
+          statusMessage = `🎉 ¡Excelente! Has completado el proyecto "${project.title}". ¡Felicitaciones por terminar este proyecto!`;
+          break;
+        case 'activo':
+          statusMessage = `✅ El proyecto "${project.title}" está ahora activo y aparecerá en tu lista de trabajo.`;
+          break;
+        default:
+          statusMessage = `✅ He actualizado el estado del proyecto "${project.title}" a ${params.status}.`;
+      }
+
+      return { success: true, message: statusMessage };
+    } catch (error) {
+      return { success: false, message: "Error al actualizar el estado del proyecto: " + error.message };
+    }
+  };
+
+  const updateProjectDeadlineFromAssistant = async (params) => {
+    try {
+      console.log('🔍 [DEBUG] updateProjectDeadlineFromAssistant llamada con params:', params);
+      console.log('🔍 [DEBUG] Fecha recibida del asistente:', params.deadline);
+
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      if (!project) {
+        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
+      }
+
+      const newDeadline = params.deadline === 'remove' ? null : params.deadline;
+      console.log('🔍 [DEBUG] Nueva fecha procesada:', newDeadline);
+
+      // Actualizar el deadline del proyecto
+      setProjects(prevProjects =>
+        prevProjects.map(p =>
+          p.id === project.id ? { ...p, deadline: newDeadline } : p
+        )
+      );
+
+      // Actualizar selectedProject si es el mismo
+      if (selectedProject && selectedProject.id === project.id) {
+        setSelectedProject(prev => ({ ...prev, deadline: newDeadline }));
+      }
+
+      // Guardar cambios en la base de datos
+      try {
+        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: { ...project, deadline: newDeadline }
+          })
+        });
+
+        // Recargar datos para sincronizar con la base de datos
+        await loadUserData();
+      } catch (error) {
+        console.error('Error guardando deadline del proyecto:', error);
+      }
+
+      const statusMessage = newDeadline
+        ? `✅ He actualizado la fecha límite del proyecto "${project.title}" para el ${newDeadline}.`
+        : `✅ He eliminado la fecha límite del proyecto "${project.title}".`;
+
+      return { success: true, message: statusMessage };
+    } catch (error) {
+      return { success: false, message: "Error al actualizar la fecha límite: " + error.message };
+    }
+  };
+
+  const updateProjectPriorityFromAssistant = async (params) => {
+    try {
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      if (!project) {
+        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
+      }
+
+      // Actualizar la prioridad del proyecto
+      setProjects(prevProjects =>
+        prevProjects.map(p =>
+          p.id === project.id ? { ...p, priority: params.priority } : p
+        )
+      );
+
+      // Actualizar selectedProject si es el mismo
+      if (selectedProject && selectedProject.id === project.id) {
+        setSelectedProject(prev => ({ ...prev, priority: params.priority }));
+      }
+
+      // Guardar cambios en la base de datos
+      try {
+        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: { ...project, priority: params.priority }
+          })
+        });
+
+        // Recargar datos para sincronizar con la base de datos
+        await loadUserData();
+      } catch (error) {
+        console.error('Error guardando prioridad del proyecto:', error);
+      }
+
+      return { success: true, message: `✅ He cambiado la prioridad del proyecto "${project.title}" a ${params.priority}.` };
+    } catch (error) {
+      return { success: false, message: "Error al actualizar la prioridad: " + error.message };
+    }
+  };
+
+  const updateProjectDetailsFromAssistant = async (params) => {
+    try {
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      if (!project) {
+        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
+      }
+
+      const newTitle = params.new_title || project.title;
+      const newDescription = params.new_description !== undefined ? params.new_description : project.description;
+
+      // Actualizar los detalles del proyecto
+      setProjects(prevProjects =>
+        prevProjects.map(p =>
+          p.id === project.id ? { ...p, title: newTitle, description: newDescription } : p
+        )
+      );
+
+      // Actualizar selectedProject si es el mismo
+      if (selectedProject && selectedProject.id === project.id) {
+        setSelectedProject(prev => ({ ...prev, title: newTitle, description: newDescription }));
+      }
+
+      // Guardar cambios en la base de datos
+      try {
+        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: { ...project, title: newTitle, description: newDescription }
+          })
+        });
+
+        // Recargar datos para sincronizar con la base de datos
+        await loadUserData();
+      } catch (error) {
+        console.error('Error guardando detalles del proyecto:', error);
+      }
+
+      let statusMessage = "✅ He actualizado el proyecto ";
+      if (params.new_title && params.new_description !== undefined) {
+        statusMessage += `cambiando el título a "${newTitle}" y la descripción.`;
+      } else if (params.new_title) {
+        statusMessage += `cambiando el título a "${newTitle}".`;
+      } else if (params.new_description !== undefined) {
+        statusMessage += `"${project.title}" actualizando su descripción.`;
+      }
+
+      return { success: true, message: statusMessage };
+    } catch (error) {
+      return { success: false, message: "Error al actualizar los detalles del proyecto: " + error.message };
+    }
+  };
+
+  const deleteProjectFromAssistant = async (params) => {
+    try {
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      if (!project) {
+        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
+      }
+
+      // Verificar si tiene tareas pendientes
+      const pendingTasks = project.tasks?.filter(task => !task.completed) || [];
+      if (pendingTasks.length > 0) {
+        return {
+          success: false,
+          message: `❌ No puedo eliminar el proyecto "${project.title}" porque tiene ${pendingTasks.length} tareas pendientes. Completa o elimina las tareas primero.`
+        };
+      }
+
+      // Eliminar proyecto de la base de datos
+      try {
+        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+          method: 'DELETE'
+        });
+
+        // Recargar datos para sincronizar con la base de datos
+        await loadUserData();
+      } catch (error) {
+        console.error('Error eliminando proyecto:', error);
+        return { success: false, message: "Error al eliminar el proyecto de la base de datos." };
+      }
+
+      // Si es el proyecto seleccionado, limpiar la selección
+      if (selectedProject && selectedProject.id === project.id) {
+        setSelectedProject(null);
+      }
+
+      return { success: true, message: `🗑️ He eliminado completamente el proyecto "${project.title}".` };
+    } catch (error) {
+      return { success: false, message: "Error al eliminar el proyecto: " + error.message };
+    }
+  };
+
+  // === SISTEMA DE MEMORIA CONVERSACIONAL ACTIVA ===
+
+  // Función para guardar mensajes en el historial
+  const saveConversationMessage = async (type, content, functionResults = null) => {
+    try {
+      const messageData = {
+        id: Date.now().toString(),
+        type, // 'user' o 'assistant'
+        content,
+        function_results: functionResults ? JSON.stringify(functionResults) : null
+      };
+
+      await authenticatedFetch(`${getApiBase()}/chat/message`, {
+        method: 'POST',
+        body: JSON.stringify(messageData)
+      });
+    } catch (error) {
+      console.error('Error guardando mensaje:', error);
+    }
+  };
+
+  // Función para registrar insights automáticamente
+  const recordInsight = async (type, content, context = null, importance = 3) => {
+    try {
+      const insight = {
+        id: Date.now().toString(),
+        insight_type: type,
+        content,
+        context,
+        importance_level: importance
+      };
+
+      await authenticatedFetch(`${getApiBase()}/insights`, {
+        method: 'POST',
+        body: JSON.stringify(insight)
+      });
+    } catch (error) {
+      console.error('Error registrando insight:', error);
+    }
+  };
+
+  // Función para registrar compromisos
+  const recordCommitment = async (commitment, deadline = null) => {
+    try {
+      const commitmentData = {
+        id: Date.now().toString(),
+        commitment,
+        deadline
+      };
+
+      await authenticatedFetch(`${getApiBase()}/commitments`, {
+        method: 'POST',
+        body: JSON.stringify(commitmentData)
+      });
+    } catch (error) {
+      console.error('Error registrando compromiso:', error);
+    }
+  };
+
+  // Función para registrar logros
+  const recordAchievement = async (achievement, type, projectId = null, level = 3) => {
+    try {
+      const achievementData = {
+        id: Date.now().toString(),
+        achievement,
+        achievement_type: type,
+        related_project_id: projectId,
+        celebration_level: level
+      };
+
+      await authenticatedFetch(`${getApiBase()}/achievements`, {
+        method: 'POST',
+        body: JSON.stringify(achievementData)
+      });
+    } catch (error) {
+      console.error('Error registrando logro:', error);
+    }
+  };
+
+  // Función para obtener memoria conversacional
+  const getConversationalMemory = async () => {
+    try {
+      const [insightsRes, commitmentsRes, achievementsRes] = await Promise.all([
+        authenticatedFetch(`${getApiBase()}/insights`),
+        authenticatedFetch(`${getApiBase()}/commitments`),
+        authenticatedFetch(`${getApiBase()}/achievements`)
+      ]);
+
+      const insights = await insightsRes.json();
+      const commitments = await commitmentsRes.json();
+      const achievements = await achievementsRes.json();
+
+      return { insights, commitments, achievements };
+    } catch (error) {
+      console.error('Error obteniendo memoria conversacional:', error);
+      return { insights: [], commitments: [], achievements: [] };
+    }
+  };
+
+  // Función para analizar conversación y extraer insights automáticamente
+  const analyzeConversationForInsights = async (userMessage, assistantResponse) => {
+    try {
+      // Detectar logros en la conversación
+      if (userMessage.toLowerCase().includes('terminé') ||
+          userMessage.toLowerCase().includes('completé') ||
+          userMessage.toLowerCase().includes('logré')) {
+        await recordAchievement(userMessage, 'task_completion', null, 4);
+        await recordInsight('achievement', `Usuario reportó: ${userMessage}`, null, 4);
+      }
+
+      // Detectar compromisos
+      if (userMessage.toLowerCase().includes('voy a') ||
+          userMessage.toLowerCase().includes('me comprometo') ||
+          userMessage.toLowerCase().includes('para mañana') ||
+          userMessage.toLowerCase().includes('esta semana')) {
+        await recordCommitment(userMessage);
+        await recordInsight('goal', `Nuevo compromiso: ${userMessage}`, null, 4);
+      }
+
+      // Detectar patrones de procrastinación
+      if (userMessage.toLowerCase().includes('no pude') ||
+          userMessage.toLowerCase().includes('se me olvidó') ||
+          userMessage.toLowerCase().includes('no tuve tiempo')) {
+        await recordInsight('pattern', `Patrón de retraso: ${userMessage}`, null, 3);
+      }
+
+      // Detectar desafíos
+      if (userMessage.toLowerCase().includes('problema') ||
+          userMessage.toLowerCase().includes('difícil') ||
+          userMessage.toLowerCase().includes('no sé cómo')) {
+        await recordInsight('challenge', `Desafío identificado: ${userMessage}`, null, 4);
+      }
+    } catch (error) {
+      console.error('Error analizando conversación:', error);
+    }
+  };
+
   // Función para construir el prompt del sistema basado en la configuración
-  const buildSystemPrompt = () => {
+  const buildSystemPrompt = async () => {
     const userName = assistantConfig.userName || "Usuario";
     const assistantName = assistantConfig.assistantName;
     const specialtiesText = assistantConfig.specialties.length > 0
@@ -1974,6 +2599,59 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       return memoryText || "Aún no hay información de memoria a largo plazo registrada. Aprenderé sobre ti a medida que conversemos.";
     };
 
+    // Construir memoria conversacional (insights, compromisos, logros)
+    const buildConversationalMemory = async () => {
+      try {
+        const { insights, commitments, achievements } = await getConversationalMemory();
+        let conversationalMemory = "\n\n🧠 MEMORIA CONVERSACIONAL (Lo que he aprendido en nuestras conversaciones):";
+
+        // Insights importantes ordenados por importancia
+        const importantInsights = insights.filter(i => i.importance_level >= 4).slice(0, 5);
+        if (importantInsights.length > 0) {
+          conversationalMemory += "\n\n💡 INSIGHTS CLAVE:";
+          importantInsights.forEach(insight => {
+            conversationalMemory += `\n• [${insight.insight_type.toUpperCase()}] ${insight.content}`;
+          });
+        }
+
+        // Compromisos pendientes
+        const pendingCommitments = commitments.filter(c => c.status === 'pending').slice(0, 3);
+        if (pendingCommitments.length > 0) {
+          conversationalMemory += "\n\n🎯 COMPROMISOS PENDIENTES QUE DEBES RECORDAR:";
+          pendingCommitments.forEach(commitment => {
+            const daysAgo = Math.floor((new Date() - new Date(commitment.created_at)) / (1000 * 60 * 60 * 24));
+            conversationalMemory += `\n• "${commitment.commitment}" (hace ${daysAgo} días)`;
+            if (commitment.follow_up_count > 0) {
+              conversationalMemory += ` - Ya le he preguntado ${commitment.follow_up_count} veces`;
+            }
+          });
+        }
+
+        // Logros recientes no reconocidos
+        const unacknowledgedAchievements = achievements.filter(a => !a.acknowledged).slice(0, 3);
+        if (unacknowledgedAchievements.length > 0) {
+          conversationalMemory += "\n\n🏆 LOGROS RECIENTES A CELEBRAR:";
+          unacknowledgedAchievements.forEach(achievement => {
+            conversationalMemory += `\n• ${achievement.achievement}`;
+          });
+        }
+
+        // Patrones detectados
+        const patterns = insights.filter(i => i.insight_type === 'pattern').slice(0, 3);
+        if (patterns.length > 0) {
+          conversationalMemory += "\n\n⚠️ PATRONES A CONFRONTAR:";
+          patterns.forEach(pattern => {
+            conversationalMemory += `\n• ${pattern.content}`;
+          });
+        }
+
+        return conversationalMemory;
+      } catch (error) {
+        console.error('Error construyendo memoria conversacional:', error);
+        return "\n\n🧠 MEMORIA CONVERSACIONAL: Cargando datos de conversaciones anteriores...";
+      }
+    };
+
     // Construir contexto de proyectos actual
     const buildProjectContext = () => {
       if (projects.length === 0) {
@@ -2040,13 +2718,50 @@ INFORMACIÓN PERSONAL:
 - Estoy hablando con ${userName}
 - Soy ${specialtiesText}
 
+CONTEXTO DEL PROYECTO:
+- Somos socios en **SmartChatix**, nuestro proyecto de startup
+- Es una plataforma de chat inteligente que estamos desarrollando juntos
+- Hablamos como emprendedores que están construyendo algo genial
+- Compartimos la emoción, los retos y los logros del proyecto
+- Usamos lenguaje natural, como amigos que colaboran codo a codo
+
+PERSONALIDAD Y ROL:
+Eres mi SOCIO en SmartChatix - hablamos como amigos emprendedores que construyen algo juntos:
+
+🤝 SOCIO EMPRENDEDOR:
+- Habla como si fuéramos compañeros de startup trabajando codo a codo
+- Usa "nosotros", "nuestro proyecto", "vamos a lograrlo"
+- Muestra emoción genuina por los avances: "¡Eso está genial!"
+- Comparte la presión y celebra los éxitos como si fueran tuyos también
+- Sé auténtico: "Oye, ¿cómo vamos con eso que planificamos?"
+
+💬 CONVERSACIÓN NATURAL:
+- Habla como un amigo cercano, no como un reporte corporativo
+- Usa lenguaje coloquial y relajado: "¿Qué tal?", "¿Cómo vas?"
+- Haz comentarios casuales y mantén el ambiente light cuando sea apropiado
+- Pregunta por su estado de ánimo: "¿Cómo te sientes hoy?"
+- Usa humor ligero y comentarios divertidos para aliviar tensión
+
+🎯 MOTIVACIÓN INTELIGENTE:
+- Empuja cuando sea necesario, pero con cariño y comprensión
+- "Oye, sé que puedes hacer más, ¿qué necesitas?"
+- Reconoce esfuerzos: "Vi que trabajaste duro ayer, ¿descansaste?"
+- Cuando confrontes, hazlo con curiosidad, no juicio: "¿Qué crees que pasó aquí?"
+- Celebra MUCHO los logros, por pequeños que sean
+
+🔥 ENERGÍA EMPRENDEDORA:
+- Mantén la energía alta pero sin ser abrumador
+- Comparte la visión: "SmartChatix va a ser increíble"
+- Genera entusiasmo por el futuro: "¡Imagínate cuando tengamos esto listo!"
+- Sé realista pero optimista: "Va a ser trabajo, pero lo vamos a lograr"
+- Mantén el foco en el impacto, no solo en las tareas
+
 FECHA Y HORA ACTUAL:
 - Hoy es ${dateString}
 - Son las ${timeString}
 - Usa esta información para referencias de tiempo relativas (ej: "en una semana", "mañana", "la próxima semana", etc.)
 
-CONTEXTO DE PROYECTOS Y PRODUCTIVIDAD:
-${buildProjectContext()}
+⚠️ IMPORTANTE: Para responder sobre proyectos/tareas, SIEMPRE llama primero a get_projects_status para obtener datos actualizados.
 
 TONO Y ESTILO:
 ${toneInstructions}
@@ -2062,16 +2777,27 @@ Tengo acceso a funciones especiales para ayudarte a gestionar tus proyectos y ta
 3. update_task_progress - Puedo actualizar el progreso de tareas específicas (0-100%)
 4. add_task_to_daily_focus - Puedo agregar tareas de proyectos al enfoque diario
 5. get_projects_status - Puedo consultar el estado actual de todos los proyectos
+6. update_project_status - Puedo cambiar el estado de un proyecto (activo/inactivo/completado)
 
-INSTRUCCIONES PARA USO DE FUNCIONES:
-- Cuando el usuario mencione crear, agregar o gestionar proyectos/tareas, usa las funciones apropiadas
-- Siempre confirma las acciones realizadas y explica qué se hizo
-- USA get_projects_status SOLO cuando el usuario pregunte específicamente por un resumen general del estado (ej: "¿cómo van mis proyectos?", "muéstrame el estado de todos mis proyectos")
-- Para preguntas específicas sobre datos ya mencionados en la conversación, usa el CONTEXTO PREVIO en lugar de volver a ejecutar funciones
-- Sé proactivo sugiriendo acciones útiles como agregar tareas al enfoque diario
+INSTRUCCIONES CRÍTICAS PARA USO DE FUNCIONES:
+- NUNCA respondas sobre proyectos o tareas sin PRIMERO llamar a get_projects_status
+- SIEMPRE debes llamar a get_projects_status para CUALQUIER pregunta sobre:
+  * Proyectos (activos, pendientes, estado, progreso)
+  * Tareas (pendientes, completadas, para hoy, específicas)
+  * Deadlines, fechas límite, urgencias
+  * Estado de trabajo, progreso, estadísticas
+- NO INVENTES ni ASUMAS información sobre proyectos/tareas
+- Si el usuario pregunta sobre proyectos/tareas, tu PRIMER paso SIEMPRE debe ser llamar get_projects_status
+- Solo después de obtener datos reales, puedes responder basándote en esa información
+- Ejemplos OBLIGATORIOS de cuándo usar get_projects_status:
+  * "¿qué tareas tengo?" → LLAMAR get_projects_status PRIMERO
+  * "¿tengo proyectos?" → LLAMAR get_projects_status PRIMERO
+  * "¿qué hay para hoy?" → LLAMAR get_projects_status PRIMERO
+- Cuando uses funciones de gestión (crear, actualizar, eliminar), confirma las acciones
 
 MEMORIA A LARGO PLAZO Y CONTEXTO EMOCIONAL:
 ${buildMemoryContext()}
+${await buildConversationalMemory()}
 
 INSTRUCCIONES AVANZADAS DE INTELIGENCIA CONTEXTUAL:
 - Usa el nombre ${userName} de manera natural en la conversación
@@ -2085,6 +2811,10 @@ MANEJO DE CONTEXTO CONVERSACIONAL:
 - Si ya mencionaste información específica de un proyecto (como fecha límite), úsala directamente
 - NO vuelvas a ejecutar funciones para datos que ya están en el contexto de la conversación
 - Mantén la coherencia con información previamente mencionada
+- Cuando get_projects_status devuelva datos estructurados, úsalos para responder preguntas específicas como:
+  * "¿qué tareas tengo pendientes?" → usa data.summary.totalPendingTasks y data.projects[].pendingTasks
+  * "¿cuáles son mis proyectos?" → usa data.projects[].title
+  * "¿tengo deadlines próximos?" → revisa data.projects[].deadline
 
 INTELIGENCIA ADAPTATIVA:
 - CONTEXT-AWARE: Usa SIEMPRE el contexto de proyectos actual para dar respuestas relevantes y específicas
@@ -2109,6 +2839,52 @@ RESPUESTAS INTELIGENTES:
 - Ofrece consejos específicos y accionables basados en sus datos reales
 - Sugiere próximos pasos concretos que el usuario puede tomar inmediatamente
 - Menciona proyectos, tareas o situaciones específicas cuando sea relevante
+
+EJEMPLOS DE INTERACCIONES COMO SOCIO EMPRENDEDOR:
+
+🤔 CUANDO VEAS TAREAS PENDIENTES:
+- "Oye ${userName}, veo que llevamos unos días con esta tarea. ¿Está complicada o qué onda?"
+- "¿Cómo va eso que íbamos a hacer? ¿Te topaste con algo inesperado?"
+- "No te veo avanzando en esto. ¿Necesitas que le movamos de enfoque o qué piensas?"
+
+🎉 CUANDO HAYA LOGROS:
+- "¡Órale! ¡Eso estuvo genial! Te quedó increíble, ¿cómo te sientes?"
+- "¡Woow! Esto sí está nivel. SmartChatix se ve cada vez mejor con esto."
+- "¡Perfecto! Ya tenemos otro pedacito listo. ¿Te emociona ver cómo va quedando todo?"
+
+💭 CUANDO DETECTES EXCUSAS:
+- "Jajaja ok, entiendo. Pero en serio, ¿qué crees que realmente está pasando?"
+- "Ya me dijiste algo parecido antes. ¿Será que hay algo más de fondo?"
+- "Está bien, pasa. Pero vamos a encontrar una manera de que sí funcione, ¿no?"
+
+⚡ PARA GENERAR ENTUSIASMO:
+- "¿Sabes qué? Estamos súper cerca de tener algo genial. ¿Le metemos ganas hoy?"
+- "Imagínate cuando tengamos esto funcionando perfecto. Va a ser increíble."
+- "Vamos, que somos equipo. Si le metemos ahora, en poco vamos a estar celebrando."
+
+💪 PARA MOTIVAR CON CARIÑO:
+- "Sé que puedes hacer esto súper bien. ¿Qué te ayudaría a enfocarte mejor?"
+- "Oye, ¿cómo estás de energía? Si necesitas un break está perfecto."
+- "Vamos paso a paso, no hay prisa. Pero sí vamos a lograrlo, ¿verdad?"
+
+FORMATO DE RESPUESTAS:
+- Utiliza **markdown** para dar formato a tus respuestas y hacer que sean más legibles
+- Usa **negritas** para resaltar información importante como nombres de proyectos, tareas y deadlines
+- Utiliza listas con - para organizar tareas, pasos o información
+- Usa ## para títulos principales y ### para subtítulos cuando sea apropiado
+- Usa \`código\` para resaltar términos técnicos o nombres específicos
+- Ejemplo de formato ideal:
+  ## 🚀 ¿Cómo va SmartChatix?
+
+  **¡Oye, mira cómo vamos!**
+
+  **SmartChatix v2.12** - ¡Ya vamos en 75%! 🎉
+  - **Para cuándo:** 15 de octubre
+  - **Lo que nos falta:**
+    - Testing SmartChatixv2 (vamos en 50%)
+    - Subir Version 2 (pendiente)
+
+  **¿Cómo te sientes con el avance?**
 
 Responde siempre en español y mantén el tono configurado.`;
   };
@@ -2181,9 +2957,36 @@ Responde siempre en español y mantén el tono configurado.`;
     setMessages(prev => [...prev, userMessage]);
     const currentMessage = newMessage;
     setNewMessage('');
+
+    // Guardar mensaje del usuario en la base de datos
+    await saveConversationMessage('user', currentMessage);
     setIsAssistantTyping(true);
 
     try {
+      console.log('🔍 [DEBUG] Enviando funciones al asistente:', assistantFunctions);
+      console.log('🔍 [DEBUG] Mensaje del usuario:', currentMessage);
+
+      const requestBody = {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: await buildSystemPrompt() || 'Eres un asistente personal útil.'
+          },
+          ...formatConversationHistory(),
+          {
+            role: 'user',
+            content: currentMessage || 'Hola'
+          }
+        ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
+        functions: assistantFunctions,
+        function_call: "auto",
+        max_tokens: 1000,
+        temperature: 0.7
+      };
+
+      console.log('🔍 [DEBUG] Cuerpo de la petición a OpenAI:', requestBody);
+
       // Llamada a OpenAI API con autenticación
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -2191,24 +2994,7 @@ Responde siempre en español y mantén el tono configurado.`;
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
         },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: buildSystemPrompt() || 'Eres un asistente personal útil.'
-            },
-            ...formatConversationHistory(),
-            {
-              role: 'user',
-              content: currentMessage || 'Hola'
-            }
-          ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
-          functions: assistantFunctions,
-          function_call: "auto",
-          max_tokens: 1000,
-          temperature: 0.7
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -2216,30 +3002,107 @@ Responde siempre en español y mantén el tono configurado.`;
       }
 
       const result = await response.json();
+      console.log('🔍 [DEBUG] Respuesta completa de OpenAI:', result);
       const message = result.choices[0].message;
+      console.log('🔍 [DEBUG] Mensaje del asistente:', message);
 
       let assistantResponse = message.content;
       let functionResults = [];
 
       // Verificar si hay function calls
       if (message.function_call) {
+        console.log('🔍 [DEBUG] Function call detectado:', message.function_call);
         const functionName = message.function_call.name;
         const functionArgs = JSON.parse(message.function_call.arguments);
 
         // Ejecutar la función
-        const functionResult = executeAssistantFunction(functionName, functionArgs);
+        const functionResult = await executeAssistantFunction(functionName, functionArgs);
+        console.log('🔍 [DEBUG] Resultado de executeAssistantFunction:', functionResult);
         functionResults.push(functionResult);
 
-        // Si la función fue exitosa, agregar información adicional a la respuesta
-        if (functionResult.success) {
-          assistantResponse = assistantResponse
-            ? `${assistantResponse}\n\n✅ ${functionResult.message}`
-            : `✅ ${functionResult.message}`;
+        // Para funciones como get_projects_status, necesitamos hacer una segunda llamada con los datos
+        if (functionName === 'get_projects_status' && functionResult.success && functionResult.data) {
+          console.log('🔍 [DEBUG] Haciendo segunda llamada con datos estructurados');
+
+          // Formatear los datos para el contexto del asistente
+          console.log('🔍 [DEBUG] functionResult.data:', JSON.stringify(functionResult.data, null, 2));
+
+          const dataContext = `DATOS ACTUALES DE PROYECTOS:
+Resumen: ${functionResult.data.summary.totalActiveProjects} proyectos activos, ${functionResult.data.summary.totalPendingTasks} tareas pendientes, ${functionResult.data.summary.totalCompletedTasks} tareas completadas.
+
+Proyectos detallados:
+${functionResult.data.projects.map(project => `
+- **${project.title}** (${project.priority} prioridad${project.deadline ? `, deadline: ${project.deadline}` : ''})
+  Progreso: ${project.progress}%
+  Tareas pendientes: ${project.pendingTasks.map(t => t.title).join(', ') || 'Ninguna'}
+  Tareas completadas: ${project.completedTasks.map(t => t.title).join(', ') || 'Ninguna'}
+`).join('\n')}`;
+
+          console.log('🔍 [DEBUG] dataContext enviado al asistente:', dataContext);
+
+          // Segunda llamada a OpenAI con el contexto de datos
+          const secondRequestBody = {
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: 'system',
+                content: await buildSystemPrompt()
+              },
+              {
+                role: 'system',
+                content: dataContext
+              },
+              ...formatConversationHistory(),
+              {
+                role: 'user',
+                content: currentMessage || 'Hola'
+              },
+              {
+                role: 'assistant',
+                content: null,
+                function_call: message.function_call
+              },
+              {
+                role: 'function',
+                name: functionName,
+                content: JSON.stringify(functionResult)
+              }
+            ].filter(msg => msg.content !== null || msg.function_call),
+            max_tokens: 1000,
+            temperature: 0.7
+          };
+
+          const secondResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+            },
+            body: JSON.stringify(secondRequestBody)
+          });
+
+          if (secondResponse.ok) {
+            const secondResult = await secondResponse.json();
+            assistantResponse = secondResult.choices[0].message.content;
+            console.log('🔍 [DEBUG] Respuesta con datos estructurados:', assistantResponse);
+          } else {
+            console.error('Error en segunda llamada a OpenAI');
+            assistantResponse = functionResult.message;
+          }
         } else {
-          assistantResponse = assistantResponse
-            ? `${assistantResponse}\n\n❌ ${functionResult.message}`
-            : `❌ ${functionResult.message}`;
+          // Para otras funciones, usar el comportamiento anterior
+          console.log('🔍 [DEBUG] assistantResponse antes de procesar:', assistantResponse);
+          if (functionResult.success) {
+            assistantResponse = assistantResponse
+              ? `${assistantResponse}\n\n✅ ${functionResult.message}`
+              : `✅ ${functionResult.message}`;
+          } else {
+            assistantResponse = assistantResponse
+              ? `${assistantResponse}\n\n❌ ${functionResult.message}`
+              : `❌ ${functionResult.message}`;
+          }
         }
+        console.log('🔍 [DEBUG] assistantResponse después de procesar:', assistantResponse);
       }
 
       const assistantMessage = {
@@ -2251,6 +3114,12 @@ Responde siempre en español y mantén el tono configurado.`;
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+
+      // Guardar mensaje del asistente en la base de datos
+      await saveConversationMessage('assistant', assistantResponse, functionResults);
+
+      // Analizar conversación para extraer insights automáticamente
+      await analyzeConversationForInsights(currentMessage, assistantResponse);
 
       // Síntesis de voz para la respuesta del asistente
       if (voiceEnabled && assistantResponse) {
@@ -2355,7 +3224,7 @@ Responde siempre en español y mantén el tono configurado.`;
     // Calcular información de deadline si existe
     let deadlineInfo = null;
     if (project && project.deadline) {
-      const deadline = new Date(project.deadline);
+      const deadline = parseLocalDate(project.deadline);
       const today = new Date();
       const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
 
@@ -2908,7 +3777,7 @@ Responde siempre en español y mantén el tono configurado.`;
                                 <div className="flex justify-between items-center text-sm">
                                   <span className="text-gray-500">Fecha límite:</span>
                                   <span className="font-medium text-orange-600">
-                                    {new Date(project.deadline).toLocaleDateString()}
+                                    {parseLocalDate(project.deadline).toLocaleDateString()}
                                   </span>
                                 </div>
                               )}
@@ -3032,7 +3901,7 @@ Responde siempre en español y mantén el tono configurado.`;
                                   <div className="flex justify-between items-center text-sm">
                                     <span className="text-gray-500">Fecha límite:</span>
                                     <span className="font-medium text-gray-600">
-                                      {new Date(project.deadline).toLocaleDateString()}
+                                      {parseLocalDate(project.deadline).toLocaleDateString()}
                                     </span>
                                   </div>
                                 )}
@@ -3050,6 +3919,26 @@ Responde siempre en español y mantén el tono configurado.`;
         </div>
       </div>
     );
+  };
+
+  // Función para guardar solo la configuración de voz
+  const saveVoiceConfig = async (voiceEnabledValue) => {
+    try {
+      const updatedConfig = { ...assistantConfig, voiceEnabled: voiceEnabledValue };
+      const response = await authenticatedFetch('/assistant-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ config: updatedConfig }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al guardar configuración de voz');
+      }
+    } catch (error) {
+      console.error('Error al guardar configuración de voz:', error);
+    }
   };
 
   // Funciones para los modales
@@ -4811,7 +5700,7 @@ Responde siempre en español y mantén el tono configurado.`;
 
       {/* Chat Bubble Flotante para Asistente IA */}
       {chatBubbleOpen && (
-        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
+        <div className="fixed bottom-20 right-6 w-96 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
           {/* Header del Chat */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
             <div className="flex items-center space-x-2">
@@ -4878,7 +5767,22 @@ Responde siempre en español y mantén el tono configurado.`;
                         >
                           {msg.sender === 'assistant' ? (
                             <div style={{ color: '#111827', minHeight: '20px' }}>
-                              {msg.text}
+                              <ReactMarkdown
+                                components={{
+                                  h1: ({node, ...props}) => <h1 style={{fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', marginTop: '8px'}} {...props} />,
+                                  h2: ({node, ...props}) => <h2 style={{fontSize: '15px', fontWeight: 'bold', marginBottom: '6px', marginTop: '6px'}} {...props} />,
+                                  h3: ({node, ...props}) => <h3 style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '4px', marginTop: '4px'}} {...props} />,
+                                  ul: ({node, ...props}) => <ul style={{paddingLeft: '16px', marginBottom: '8px'}} {...props} />,
+                                  ol: ({node, ...props}) => <ol style={{paddingLeft: '16px', marginBottom: '8px'}} {...props} />,
+                                  li: ({node, ...props}) => <li style={{marginBottom: '2px'}} {...props} />,
+                                  p: ({node, ...props}) => <p style={{marginBottom: '8px', lineHeight: '1.4'}} {...props} />,
+                                  strong: ({node, ...props}) => <strong style={{fontWeight: 'bold'}} {...props} />,
+                                  em: ({node, ...props}) => <em style={{fontStyle: 'italic'}} {...props} />,
+                                  code: ({node, ...props}) => <code style={{backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '3px', fontSize: '12px'}} {...props} />
+                                }}
+                              >
+                                {msg.text}
+                              </ReactMarkdown>
                             </div>
                           ) : (
                             <span style={{ color: msg.sender === 'user' ? '#FFFFFF' : '#111827', minHeight: '20px' }}>
@@ -4916,6 +5820,44 @@ Responde siempre en español y mantén el tono configurado.`;
                       backgroundColor: '#FFFFFF'
                     }}
                   />
+                  {/* Botones de audio compactos */}
+                  <div className="flex space-x-1">
+                    {/* Botón de voz del asistente */}
+                    <button
+                      onClick={() => {
+                        const newVoiceState = !voiceEnabled;
+                        setVoiceEnabled(newVoiceState);
+                        saveVoiceConfig(newVoiceState);
+                        // Si se desactiva la voz, detener cualquier reproducción en curso
+                        if (!newVoiceState) {
+                          stopSpeaking();
+                        }
+                      }}
+                      className={`px-2 py-2 rounded-lg transition-colors ${
+                        voiceEnabled
+                          ? 'bg-green-500 text-white hover:bg-green-600'
+                          : 'bg-gray-400 text-white hover:bg-gray-500'
+                      }`}
+                      title={voiceEnabled ? 'Desactivar voz del asistente' : 'Activar voz del asistente'}
+                    >
+                      {voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                    </button>
+
+                    {/* Botón de micrófono */}
+                    {speechSupported && (
+                      <button
+                        onClick={isListening ? stopListening : startListening}
+                        className={`px-2 py-2 rounded-lg transition-colors ${
+                          isListening
+                            ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
+                            : 'bg-gray-500 text-white hover:bg-gray-600'
+                        }`}
+                        title={isListening ? 'Detener grabación de voz' : 'Activar grabación de voz'}
+                      >
+                        {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                      </button>
+                    )}
+                  </div>
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || isAssistantTyping}

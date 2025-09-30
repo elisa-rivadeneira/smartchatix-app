@@ -488,7 +488,7 @@ router.put('/projects/:projectId', authenticateToken, async (req, res) => {
       // Actualizar el proyecto
       const updateQuery = `
         UPDATE user_projects
-        SET title = ?, description = ?, priority = ?, status = ?, progress = ?
+        SET title = ?, description = ?, priority = ?, status = ?, progress = ?, deadline = ?
         WHERE id = ? AND user_id = ?
       `;
 
@@ -498,6 +498,7 @@ router.put('/projects/:projectId', authenticateToken, async (req, res) => {
         project.priority || existingProject.priority,
         project.status || existingProject.status,
         project.progress !== undefined ? project.progress : existingProject.progress,
+        project.deadline !== undefined ? project.deadline : existingProject.deadline,
         projectId,
         userId
       ], function(updateErr) {
@@ -700,6 +701,145 @@ router.post('/chat-messages', authenticateToken, async (req, res) => {
     res.status(500).json({
       error: 'Error al guardar mensaje'
     });
+  }
+});
+
+// === RUTAS PARA SISTEMA DE MEMORIA CONVERSACIONAL ===
+
+// Ruta para guardar insights
+router.post('/insights', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, insight_type, content, context, importance_level } = req.body;
+
+    userDB.run(
+      `INSERT INTO assistant_insights (id, user_id, insight_type, content, context, importance_level)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, userId, insight_type, content, context, importance_level],
+      function(err) {
+        if (err) {
+          console.error('Error guardando insight:', err);
+          return res.status(500).json({ error: 'Error al guardar insight' });
+        }
+        res.json({ success: true, message: 'Insight guardado exitosamente' });
+      }
+    );
+  } catch (error) {
+    console.error('Error en guardar insight:', error);
+    res.status(500).json({ error: 'Error al guardar insight' });
+  }
+});
+
+// Ruta para obtener insights
+router.get('/insights', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    userDB.all(
+      `SELECT * FROM assistant_insights WHERE user_id = ? ORDER BY importance_level DESC, created_at DESC`,
+      [userId],
+      (err, rows) => {
+        if (err) {
+          console.error('Error obteniendo insights:', err);
+          return res.status(500).json({ error: 'Error al obtener insights' });
+        }
+        res.json(rows || []);
+      }
+    );
+  } catch (error) {
+    console.error('Error en obtener insights:', error);
+    res.status(500).json({ error: 'Error al obtener insights' });
+  }
+});
+
+// Ruta para guardar compromisos
+router.post('/commitments', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, commitment, deadline } = req.body;
+
+    userDB.run(
+      `INSERT INTO user_commitments (id, user_id, commitment, deadline) VALUES (?, ?, ?, ?)`,
+      [id, userId, commitment, deadline],
+      function(err) {
+        if (err) {
+          console.error('Error guardando compromiso:', err);
+          return res.status(500).json({ error: 'Error al guardar compromiso' });
+        }
+        res.json({ success: true, message: 'Compromiso guardado exitosamente' });
+      }
+    );
+  } catch (error) {
+    console.error('Error en guardar compromiso:', error);
+    res.status(500).json({ error: 'Error al guardar compromiso' });
+  }
+});
+
+// Ruta para obtener compromisos
+router.get('/commitments', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    userDB.all(
+      `SELECT * FROM user_commitments WHERE user_id = ? ORDER BY created_at DESC`,
+      [userId],
+      (err, rows) => {
+        if (err) {
+          console.error('Error obteniendo compromisos:', err);
+          return res.status(500).json({ error: 'Error al obtener compromisos' });
+        }
+        res.json(rows || []);
+      }
+    );
+  } catch (error) {
+    console.error('Error en obtener compromisos:', error);
+    res.status(500).json({ error: 'Error al obtener compromisos' });
+  }
+});
+
+// Ruta para guardar logros
+router.post('/achievements', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, achievement, achievement_type, related_project_id, celebration_level } = req.body;
+
+    userDB.run(
+      `INSERT INTO user_achievements (id, user_id, achievement, achievement_type, related_project_id, celebration_level)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, userId, achievement, achievement_type, related_project_id, celebration_level],
+      function(err) {
+        if (err) {
+          console.error('Error guardando logro:', err);
+          return res.status(500).json({ error: 'Error al guardar logro' });
+        }
+        res.json({ success: true, message: 'Logro guardado exitosamente' });
+      }
+    );
+  } catch (error) {
+    console.error('Error en guardar logro:', error);
+    res.status(500).json({ error: 'Error al guardar logro' });
+  }
+});
+
+// Ruta para obtener logros
+router.get('/achievements', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    userDB.all(
+      `SELECT * FROM user_achievements WHERE user_id = ? ORDER BY created_at DESC`,
+      [userId],
+      (err, rows) => {
+        if (err) {
+          console.error('Error obteniendo logros:', err);
+          return res.status(500).json({ error: 'Error al obtener logros' });
+        }
+        res.json(rows || []);
+      }
+    );
+  } catch (error) {
+    console.error('Error en obtener logros:', error);
+    res.status(500).json({ error: 'Error al obtener logros' });
   }
 });
 
