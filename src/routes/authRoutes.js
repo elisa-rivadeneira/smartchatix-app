@@ -712,7 +712,7 @@ router.post('/insights', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const { id, insight_type, content, context, importance_level } = req.body;
 
-    userDB.run(
+    userDB.db.run(
       `INSERT INTO assistant_insights (id, user_id, insight_type, content, context, importance_level)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [id, userId, insight_type, content, context, importance_level],
@@ -735,7 +735,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    userDB.all(
+    userDB.db.all(
       `SELECT * FROM assistant_insights WHERE user_id = ? ORDER BY importance_level DESC, created_at DESC`,
       [userId],
       (err, rows) => {
@@ -758,7 +758,7 @@ router.post('/commitments', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const { id, commitment, deadline } = req.body;
 
-    userDB.run(
+    userDB.db.run(
       `INSERT INTO user_commitments (id, user_id, commitment, deadline) VALUES (?, ?, ?, ?)`,
       [id, userId, commitment, deadline],
       function(err) {
@@ -780,7 +780,7 @@ router.get('/commitments', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    userDB.all(
+    userDB.db.all(
       `SELECT * FROM user_commitments WHERE user_id = ? ORDER BY created_at DESC`,
       [userId],
       (err, rows) => {
@@ -803,7 +803,7 @@ router.post('/achievements', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const { id, achievement, achievement_type, related_project_id, celebration_level } = req.body;
 
-    userDB.run(
+    userDB.db.run(
       `INSERT INTO user_achievements (id, user_id, achievement, achievement_type, related_project_id, celebration_level)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [id, userId, achievement, achievement_type, related_project_id, celebration_level],
@@ -826,7 +826,7 @@ router.get('/achievements', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    userDB.all(
+    userDB.db.all(
       `SELECT * FROM user_achievements WHERE user_id = ? ORDER BY created_at DESC`,
       [userId],
       (err, rows) => {

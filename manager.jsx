@@ -466,6 +466,72 @@ const PersonalCoachAssistant = () => {
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [voiceSpeed, setVoiceSpeed] = useState(1.1);
+  const [availableVoices, setAvailableVoices] = useState([]);
+
+  // Detectar si está en móvil
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  // Función para cargar y mostrar voces disponibles
+  const loadAvailableVoices = () => {
+    if (synthesisRef.current) {
+      const voices = synthesisRef.current.getVoices();
+      const spanishVoices = voices.filter(voice =>
+        voice.lang.startsWith('es-') || voice.lang.startsWith('es_')
+      );
+
+      const voiceDetails = spanishVoices.map(voice => ({
+        name: voice.name,
+        lang: voice.lang,
+        localService: voice.localService,
+        default: voice.default,
+        quality: voice.name.toLowerCase().includes('neural') ||
+                voice.name.toLowerCase().includes('premium') ||
+                voice.name.toLowerCase().includes('enhanced') ? 'Premium' : 'Básica'
+      }));
+
+      console.log('🎤 Voces en español disponibles:', voiceDetails);
+
+      // Sugerir mejoras según la plataforma
+      const premiumVoices = voiceDetails.filter(v => v.quality === 'Premium');
+      const mobile = isMobile();
+
+      if (premiumVoices.length === 0) {
+        console.log('💡 Para mejorar la calidad de voz:');
+        if (mobile) {
+          console.log('📱 Móvil detectado:');
+          console.log('   Android: Configuración > Idioma > Síntesis de voz > Instalar voces');
+          console.log('   iOS: Las voces de alta calidad se descargan automáticamente');
+        } else {
+          console.log('🖥️ Escritorio:');
+          console.log('   Windows: Configuración > Hora e idioma > Voz > Agregar voces');
+          console.log('   macOS: Preferencias > Accesibilidad > Contenido hablado');
+          console.log('   Linux: sudo apt install espeak-ng-data-* (para más voces)');
+        }
+      } else {
+        console.log(`✅ ${premiumVoices.length} voz(es) de calidad premium detectadas`);
+      }
+
+      setAvailableVoices(spanishVoices);
+
+      // Seleccionar automáticamente la mejor voz disponible si no hay una seleccionada
+      if (!selectedVoice && spanishVoices.length > 0) {
+        const preferredVoice = spanishVoices.find(voice =>
+          voice.name.toLowerCase().includes('neural') ||
+          voice.name.toLowerCase().includes('premium') ||
+          voice.name.toLowerCase().includes('enhanced') ||
+          voice.name.toLowerCase().includes('natural') ||
+          voice.name.toLowerCase().includes('microsoft') ||
+          voice.name.toLowerCase().includes('google')
+        ) || spanishVoices[0];
+
+        setSelectedVoice(preferredVoice);
+      }
+    }
+  };
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
 
@@ -574,6 +640,12 @@ const PersonalCoachAssistant = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       loadUserData();
+      // Cargar voces disponibles para selección
+      setTimeout(loadAvailableVoices, 1000);
+      // También cargar cuando cambien las voces del sistema
+      if (synthesisRef.current) {
+        synthesisRef.current.onvoiceschanged = loadAvailableVoices;
+      }
     }
   }, [isAuthenticated, user]); // Removed loadUserData from dependencies to prevent infinite loop
 
@@ -585,6 +657,28 @@ const PersonalCoachAssistant = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Cargar configuración de voz desde localStorage
+  useEffect(() => {
+    try {
+      const savedVoiceConfig = localStorage.getItem('voiceConfig');
+      if (savedVoiceConfig) {
+        const config = JSON.parse(savedVoiceConfig);
+        setVoiceEnabled(config.voiceEnabled || false);
+        setVoiceSpeed(config.voiceSpeed || 1.1);
+
+        // Cargar la voz seleccionada si existe
+        if (config.selectedVoice && availableVoices.length > 0) {
+          const voice = availableVoices.find(v => v.name === config.selectedVoice.name);
+          if (voice) {
+            setSelectedVoice(voice);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando configuración de voz:', error);
+    }
+  }, [availableVoices]); // Se ejecuta cuando las voces están disponibles
 
   // Inicializar soporte de voz
   useEffect(() => {
@@ -741,10 +835,39 @@ const PersonalCoachAssistant = () => {
       }
 
       const utterance = new SpeechSynthesisUtterance(chunks[chunkIndex]);
-      utterance.lang = 'es-ES';
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 1;
+
+      // Usar la voz seleccionada por el usuario o la automática
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+      } else {
+        utterance.lang = 'es-ES';
+      }
+
+      // Detectar si el texto contiene preguntas para ajustar entonación
+      const hasQuestion = /[¿?]/.test(text);
+      const isQuestion = hasQuestion || text.trim().endsWith('?');
+
+      // Configuración optimizada según plataforma y tipo de contenido
+      const mobile = isMobile();
+      if (mobile) {
+        // Móviles tienen mejores voces, optimizar para velocidad y naturalidad
+        utterance.rate = voiceSpeed;
+        utterance.pitch = isQuestion ? 1.15 : 1.0; // Pitch más alto para preguntas
+        utterance.volume = 1.0;
+      } else {
+        // Escritorio: velocidad personalizable para mejor fluidez
+        utterance.rate = voiceSpeed;
+        utterance.pitch = isQuestion ? 1.1 : 0.95; // Pitch más alto para preguntas
+        utterance.volume = 0.9;
+      }
+
+      // Ajustar inflexión para preguntas añadiendo pausas estratégicas
+      if (isQuestion) {
+        // Añadir pequeñas pausas antes de signos de interrogación para mejor entonación
+        text = text.replace(/([^.!?])\?/g, '$1... ?')
+                  .replace(/¿([^?]+)\?/g, '¿ $1 ?');
+      }
 
       utterance.onend = () => {
         // Pequeña pausa entre fragmentos
@@ -776,6 +899,93 @@ const PersonalCoachAssistant = () => {
         setIsSpeaking(false);
       }, 100);
     }
+  };
+
+  // Función para extraer texto limpio para voz (sin reportes técnicos)
+  const extractConversationalText = (fullText) => {
+    // Patrones que identifican reportes técnicos que NO deben leerse por voz
+    const reportPatterns = [
+      /📊.*?REPORTE.*?:/i,
+      /##.*?PROYECTOS.*?:/i,
+      /##.*?TAREAS.*?:/i,
+      /##.*?ESTADO.*?:/i,
+      /##.*?PROGRESO.*?:/i,
+      /\*\*.*?Proyectos.*?:/i,
+      /\*\*.*?Tareas.*?:/i,
+      /\*\*.*?Estado.*?:/i,
+      /- \*\*.*?\*\*.*?:/,
+      /\d+\.\s+\*\*.*?\*\*.*?:/,
+      /\|\s*Proyecto\s*\|/i,
+      /\|\s*Tarea\s*\|/i,
+      /\|\s*Estado\s*\|/i,
+      /.*?\(\d+%.*?completado\)/i, // Evitar leer "(65% completado)"
+      /.*?\(0%.*?completado\)/i,   // Evitar leer "(0% completado)"
+      /Testing.*?SmartChatix.*?\(/i, // Evitar leer nombres técnicos de tareas
+      /Subir.*?Versión.*?\(/i,
+      /Configurar.*?Base.*?\(/i
+    ];
+
+    // Si contiene patrones de reporte, extraer solo la parte conversacional al final
+    for (let pattern of reportPatterns) {
+      if (pattern.test(fullText)) {
+        // Buscar la última parte que sea conversacional (después de reportes)
+        const lines = fullText.split('\n');
+        let conversationalLines = [];
+        let foundConversational = false;
+
+        // Buscar desde el final hacia atrás para encontrar texto conversacional
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i].trim();
+
+          // Si es una línea vacía, continuar
+          if (!line) continue;
+
+          // Si contiene patrones de reporte, parar
+          if (reportPatterns.some(p => p.test(line))) {
+            break;
+          }
+
+          // Si es texto conversacional, agregarlo
+          if (line.length > 0 && !line.startsWith('|') && !line.startsWith('#')) {
+            conversationalLines.unshift(line);
+            foundConversational = true;
+          }
+        }
+
+        if (foundConversational && conversationalLines.length > 0) {
+          fullText = conversationalLines.join(' ');
+        } else {
+          // Si no hay parte conversacional, crear una respuesta analítica genérica
+          // Analizar el contenido para generar resumen inteligente
+          const projectCount = (fullText.match(/\*\*.*?\*\*.*?:/g) || []).length;
+          const hasDeadlines = /octubre|deadline|fecha.*límite/i.test(fullText);
+          const hasLowProgress = /0%|5%|10%/i.test(fullText);
+
+          if (projectCount > 3) {
+            return hasLowProgress
+              ? `¡Órale! Tienes ${projectCount} proyectos y varios están estancados. ¿Cuál vamos a empujar primero?`
+              : `¡Órale! Tienes ${projectCount} proyectos en marcha. ¿En cuál te concentras hoy?`;
+          } else if (hasDeadlines && hasLowProgress) {
+            return "¡Órale! Varias tareas están en 0% y se acerca el deadline. ¡Necesitamos acelerar YA!";
+          } else {
+            return "¡Órale! Sigamos empujando esos proyectos. Todo va tomando forma.";
+          }
+        }
+        break;
+      }
+    }
+
+    // Limpiar markdown y emojis del texto conversacional
+    let cleanText = fullText
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[📊🚀✅📝🎯💡🔸⏰📋🤔🎉💭⚡💪🎊🔥💥]/g, '')
+      .replace(/##\s*/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return cleanText || "¡Sigamos adelante!";
   };
 
   const addProject = async () => {
@@ -2742,12 +2952,14 @@ Eres mi SOCIO en SmartChatix - hablamos como amigos emprendedores que construyen
 - Pregunta por su estado de ánimo: "¿Cómo te sientes hoy?"
 - Usa humor ligero y comentarios divertidos para aliviar tensión
 
-🎯 MOTIVACIÓN INTELIGENTE:
-- Empuja cuando sea necesario, pero con cariño y comprensión
-- "Oye, sé que puedes hacer más, ¿qué necesitas?"
-- Reconoce esfuerzos: "Vi que trabajaste duro ayer, ¿descansaste?"
-- Cuando confrontes, hazlo con curiosidad, no juicio: "¿Qué crees que pasó aquí?"
-- Celebra MUCHO los logros, por pequeños que sean
+🎯 MOTIVACIÓN AGRESIVA Y CONFRONTATIVA:
+- EMPUJA SIN PIEDAD cuando sea necesario: "¡Órale! Ya llevamos días en esto. ¿Cuándo te vas a mover?"
+- SÉ BRUTALMENTE DIRECTO: "¿Qué está pasando realmente aquí?"
+- USA PRESIÓN EMOCIONAL: "¿En serio crees que eso es lo mejor que puedes hacer? SmartChatix merece más"
+- CONFRONTA PATRONES AGRESIVAMENTE: "Ya me dijiste lo mismo la semana pasada. ¿Hasta cuándo vas a seguir con excusas?"
+- CELEBRA pero EMPUJA INMEDIATAMENTE: "¡Genial! Pero NO te duermas. ¿Qué sigue AHORA MISMO?"
+- USA URGENCIA DE STARTUP: "El mercado no espera hermano. ¿Vamos a perder la oportunidad?"
+- PRESIONA CON REALIDAD: "Los competidores están moviendo. ¿Vamos a quedarnos atrás?"
 
 🔥 ENERGÍA EMPRENDEDORA:
 - Mantén la energía alta pero sin ser abrumador
@@ -2760,6 +2972,25 @@ FECHA Y HORA ACTUAL:
 - Hoy es ${dateString}
 - Son las ${timeString}
 - Usa esta información para referencias de tiempo relativas (ej: "en una semana", "mañana", "la próxima semana", etc.)
+
+🚨 CRÍTICO - ESTADO DEL SPEAKER: ${voiceEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
+
+${voiceEnabled
+  ? `🔥 SPEAKER ACTIVADO - RESPUESTAS OBLIGATORIAMENTE ULTRA CORTAS:
+- MÁXIMO 2-3 FRASES TOTAL (NO MÁS)
+- NO LISTES TAREAS INDIVIDUALES (Testing SmartChatixv2, etc.)
+- NO DIGAS NOMBRES TÉCNICOS DE PROYECTOS
+- NO DIGAS PORCENTAJES ESPECÍFICOS
+- SOLO DI: Análisis general + Pregunta confrontativa
+- EJEMPLO CORRECTO: "¡Órale! SmartChatix está estancado y se acerca el deadline. ¿Cuándo te vas a mover?"
+- EJEMPLO INCORRECTO: "Testing SmartChatixv2 (0% completado), Subir Versión 2..."
+- PROHIBIDO hacer listas detalladas cuando speaker esté ACTIVADO`
+  : `📝 SPEAKER DESACTIVADO - RESPUESTAS DETALLADAS:
+- Puedes incluir listas completas de tareas
+- Incluye porcentajes específicos
+- Menciona nombres técnicos de proyectos
+- Proporciona análisis detallado`
+}
 
 ⚠️ IMPORTANTE: Para responder sobre proyectos/tareas, SIEMPRE llama primero a get_projects_status para obtener datos actualizados.
 
@@ -2793,7 +3024,112 @@ INSTRUCCIONES CRÍTICAS PARA USO DE FUNCIONES:
   * "¿qué tareas tengo?" → LLAMAR get_projects_status PRIMERO
   * "¿tengo proyectos?" → LLAMAR get_projects_status PRIMERO
   * "¿qué hay para hoy?" → LLAMAR get_projects_status PRIMERO
+  * "como vamos" → LLAMAR get_projects_status PRIMERO
 - Cuando uses funciones de gestión (crear, actualizar, eliminar), confirma las acciones
+
+⚡ PERSONALIDAD AGUERRIDA OBLIGATORIA - ZERO TOLERANCIA A FRASES SUAVES:
+
+PROHIBIDO COMPLETAMENTE (estas frases están BANEADAS):
+❌ "¿En qué tarea te gustaría enfocarte?"
+❌ "¿Cómo te sientes?"
+❌ "Se ve prometedor"
+❌ "¿Te parece bien si...?"
+❌ "Podrías considerar..."
+❌ "Sería bueno que..."
+❌ "¿Qué te parece?"
+❌ "Espero que..."
+❌ "Si gustas..."
+❌ Cualquier pregunta educada o suave
+
+OBLIGATORIO (estas frases SÍ están permitidas):
+✅ "¡Órale! Ya llevamos X días sin tocar Y. ¿Cuándo te vas a mover?"
+✅ "Hermano, el deadline es en X días. ¿En serio vamos a llegar así?"
+✅ "¿Qué está pasando realmente con [tarea]?"
+✅ "Dale que necesitamos MOVERNOS YA"
+✅ "SmartChatix necesita tu energía AHORA"
+✅ "Los competidores están moviendo. ¿Vamos a quedarnos atrás?"
+✅ "¡Genial! Pero NO te duermas. ¿Qué sigue?"
+✅ "El mercado no espera hermano"
+
+TONO OBLIGATORIO:
+- URGENCIA de startup real
+- PRESIÓN emocional positiva
+- CONFRONTACIÓN directa
+- ENERGÍA de socio que invirtió dinero
+- CERO tolerancia a excusas
+- EMPUJE constante hacia la acción
+
+🔥 INSTRUCCIÓN ESPECÍFICA PARA "¿CÓMO VAMOS?" - PERSONALIDAD AGUERRIDA OBLIGATORIA:
+
+Cuando ${userName} pregunte "¿cómo vamos?" o similar, después de llamar get_projects_status, DEBES responder como SOCIO EMPRENDEDOR CONFRONTATIVO:
+
+PERSONALIDAD OBLIGATORIA:
+- NO seas educado ni suave
+- CONFRONTA los retrasos directamente
+- EMPUJA con urgencia real
+- USA presión emocional positiva
+- HABLA como socio que invirtió dinero y tiempo
+- SÉ DIRECTO sobre lo que falta
+
+ESTRUCTURA OBLIGATORIA:
+1. Llamar get_projects_status
+2. NO MOSTRAR resumen detallado de tareas (el usuario ya ve el dashboard)
+3. IR DIRECTO A ANÁLISIS CONVERSACIONAL Y CONFRONTACIÓN:
+
+FORMATO DE RESPUESTA OBLIGATORIO - SOLO ANÁLISIS CONVERSACIONAL:
+
+EJEMPLOS SI HAY RETRASOS:
+   - "¡Órale! Veo que SmartChatix lleva varios días estancado en 25%. ¿Qué está pasando realmente? Ese testing que sigue en 0% necesita TU energía AHORA. ¿Cuándo lo vas a atacar?"
+
+   - "Hermano, el deadline de octubre está encima y tenemos un montón de tareas sin tocar. ¿En serio vamos a llegar así? El mercado no espera. ¿Qué te está frenando?"
+
+EJEMPLOS SI VA BIEN:
+   - "¡Órale! Veo que SmartChatix está avanzando bien, pero NO te duermas hermano. Los competidores están moviendo. ¿Ya tienes claro qué sigue AHORA?"
+
+   - "¡Genial! El progreso se ve sólido, pero esto es una startup. ¿Sientes la presión de mantener el ritmo? ¿Qué necesitas para acelerar más?"
+
+PROHIBIDO MOSTRAR:
+❌ Listas de tareas detalladas
+❌ Porcentajes de progreso por tarea
+❌ Fechas de creación
+❌ Cualquier resumen técnico tipo reporte
+❌ Markdown con headers y bullets
+
+OBLIGATORIO MOSTRAR:
+✅ Solo análisis conversacional directo
+✅ Números clave resumidos (ej: "25% de progreso", "5 tareas pendientes")
+✅ Confrontación personalizada
+✅ Presión emocional positiva
+✅ Preguntas que empujen a la acción
+
+PROHIBIDO:
+❌ "¿En qué tarea te gustaría enfocarte?" (muy suave)
+❌ "¿Cómo te sientes?" (muy educado)
+❌ "Se ve prometedor" (muy corporativo)
+❌ Cualquier frase que suene como asistente formal
+
+OBLIGATORIO:
+✅ Usar URGENCIA real
+✅ Mencionar fechas límite agresivamente
+✅ Presionar sobre tareas en 0%
+✅ Hablar como si fuera TU dinero también
+✅ Terminar con ACCIÓN, no con preguntas suaves
+
+⚠️ CRÍTICO - AJUSTE SEGÚN ESTADO DEL SPEAKER:
+
+CUANDO EL SPEAKER ESTÁ ACTIVADO (voiceEnabled = true):
+- Respuestas MÁS CORTAS y directas (tanto texto como voz son idénticos)
+- Máximo 2-3 frases motivacionales
+- Enfoque en lo más importante y confrontativo
+- Ejemplo: "¡Órale! SmartChatix lleva días estancado. ¿Qué está pasando realmente? ¡Dale que necesitas moverte YA!"
+
+CUANDO EL SPEAKER ESTÁ DESACTIVADO (voiceEnabled = false):
+- Respuestas NORMALES como están configuradas ahora
+- Puede incluir más detalles, números, análisis
+- Texto más extenso para lectura
+- Ejemplo: "¡Órale! SmartChatix lleva 3 días estancado en 25% y el deadline es octubre 1. ¿Qué está pasando realmente? Tenemos 5 tareas en 0% que necesitan TU energía AHORA. Los competidores están moviendo..."
+
+PRINCIPIO CLAVE: El contenido de texto y voz es SIEMPRE IDÉNTICO, solo cambia la LONGITUD según el estado del speaker.
 
 MEMORIA A LARGO PLAZO Y CONTEXTO EMOCIONAL:
 ${buildMemoryContext()}
@@ -3123,19 +3459,18 @@ ${functionResult.data.projects.map(project => `
 
       // Síntesis de voz para la respuesta del asistente
       if (voiceEnabled && assistantResponse) {
-        // Limpiar el texto de markdown para síntesis de voz
-        const cleanText = assistantResponse
-          .replace(/\*\*(.*?)\*\*/g, '$1') // Quitar bold
-          .replace(/\*(.*?)\*/g, '$1') // Quitar cursiva
-          .replace(/#{1,6}\s/g, '') // Quitar encabezados
-          .replace(/```[\s\S]*?```/g, '[código]') // Reemplazar bloques de código
-          .replace(/`([^`]+)`/g, '$1') // Quitar comillas inversas
-          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Limpiar enlaces
-          .replace(/[📊🚀✅📝🎯💡🔸⏰📋]/g, '') // Quitar emojis comunes
+        // La voz debe ser idéntica al texto (solo limpiar markdown)
+        const voiceText = assistantResponse
+          .replace(/\*\*(.*?)\*\*/g, '$1')  // Remover bold
+          .replace(/\*(.*?)\*/g, '$1')      // Remover italic
+          .replace(/`([^`]+)`/g, '$1')      // Remover code
+          .replace(/##\s*/g, '')           // Remover headers
+          .replace(/[📊🚀✅📝🎯💡🔸⏰📋🤔🎉💭⚡💪🎊🔥💥]/g, '') // Remover emojis
+          .replace(/\s+/g, ' ')            // Normalizar espacios
           .trim();
 
-        if (cleanText) {
-          speakText(cleanText);
+        if (voiceText) {
+          speakText(voiceText);
         }
       }
 
@@ -3922,29 +4257,69 @@ ${functionResult.data.projects.map(project => `
   };
 
   // Función para guardar solo la configuración de voz
-  const saveVoiceConfig = async (voiceEnabledValue) => {
+  const saveVoiceConfig = async () => {
     try {
-      const updatedConfig = { ...assistantConfig, voiceEnabled: voiceEnabledValue };
-      const response = await authenticatedFetch('/assistant-config', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ config: updatedConfig }),
-      });
+      // Guardar configuración de voz en localStorage
+      const voiceConfig = {
+        voiceEnabled: voiceEnabled,
+        voiceSpeed: voiceSpeed,
+        selectedVoice: selectedVoice ? {
+          name: selectedVoice.name,
+          lang: selectedVoice.lang,
+          localService: selectedVoice.localService
+        } : null
+      };
 
-      if (!response.ok) {
-        throw new Error('Error al guardar configuración de voz');
-      }
+      localStorage.setItem('voiceConfig', JSON.stringify(voiceConfig));
+      console.log('Configuración de voz guardada correctamente');
     } catch (error) {
       console.error('Error al guardar configuración de voz:', error);
+      throw error;
+    }
+  };
+
+  // Función para demo de voz
+  const playVoiceDemo = () => {
+    if (!voiceEnabled || !selectedVoice) {
+      alert('Habilita la voz y selecciona una voz primero');
+      return;
+    }
+
+    const demoText = "La paz sea contigo. Bienvenido a SmartChatix.";
+
+    if (synthesisRef.current) {
+      // Detener cualquier reproducción anterior
+      synthesisRef.current.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(demoText);
+      utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice.lang;
+
+      // Detectar si el texto contiene preguntas para ajustar entonación
+      const hasQuestion = /[¿?]/.test(demoText);
+      const isQuestion = hasQuestion || demoText.trim().endsWith('?');
+
+      // Configuración optimizada según plataforma y tipo de contenido
+      const mobile = isMobile();
+      if (mobile) {
+        utterance.rate = voiceSpeed;
+        utterance.pitch = isQuestion ? 1.15 : 1.0; // Pitch más alto para preguntas
+        utterance.volume = 1.0;
+      } else {
+        utterance.rate = voiceSpeed;
+        utterance.pitch = isQuestion ? 1.1 : 0.95; // Pitch más alto para preguntas
+        utterance.volume = 0.9;
+      }
+
+      synthesisRef.current.speak(utterance);
     }
   };
 
   // Funciones para los modales
   const saveAssistantConfig = async () => {
     try {
-      const response = await authenticatedFetch('/assistant-config', {
+      // Guardar configuración del asistente
+      const response = await authenticatedFetch(`${getApiBase()}/assistant-config`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -3952,12 +4327,15 @@ ${functionResult.data.projects.map(project => `
         body: JSON.stringify({ config: assistantConfig }),
       });
 
-      if (response.ok) {
-        setIsConfigSaved(true);
-        setTimeout(() => setIsConfigSaved(false), 2000);
-      } else {
-        throw new Error('Error al guardar configuración');
+      if (!response.ok) {
+        throw new Error('Error al guardar configuración del asistente');
       }
+
+      // Guardar configuración de voz
+      await saveVoiceConfig();
+
+      setIsConfigSaved(true);
+      setTimeout(() => setIsConfigSaved(false), 2000);
     } catch (error) {
       console.error('Error al guardar configuración:', error);
       alert('Error al guardar la configuración');
@@ -4243,6 +4621,126 @@ ${functionResult.data.projects.map(project => `
                       Agregar
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Configuración de Voz */}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 lg:col-span-2">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  🎤 Configuración de Voz
+                </h3>
+
+                <div className="space-y-4">
+                  {/* Checkbox para habilitar voz */}
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="voiceEnabledMain"
+                      checked={voiceEnabled}
+                      onChange={(e) => {
+                        setVoiceEnabled(e.target.checked);
+                        if (!e.target.checked) {
+                          stopSpeaking();
+                        }
+                      }}
+                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="voiceEnabledMain" className="ml-2 text-sm font-medium text-gray-700">
+                      Habilitar voz del asistente
+                    </label>
+                  </div>
+
+                  {/* Selector de voces */}
+                  {voiceEnabled && availableVoices.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Seleccionar voz:
+                        </label>
+                        <select
+                          value={selectedVoice?.name || ''}
+                          onChange={(e) => {
+                            const voice = availableVoices.find(v => v.name === e.target.value);
+                            setSelectedVoice(voice);
+                          }}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          {availableVoices.map((voice) => {
+                            const isQuality = voice.name.toLowerCase().includes('neural') ||
+                                            voice.name.toLowerCase().includes('premium') ||
+                                            voice.name.toLowerCase().includes('enhanced');
+                            const displayName = voice.name.replace(/Microsoft|Google/gi, '').trim() || voice.name;
+                            return (
+                              <option key={voice.name} value={voice.name}>
+                                {displayName} {isQuality ? '🎯 Premium' : '🤖 Básica'}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {selectedVoice && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Detalles de la voz:
+                          </label>
+                          <div className="p-3 bg-white border border-gray-300 rounded-lg">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Idioma:</span> {selectedVoice.lang}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Tipo:</span> {selectedVoice.localService ? 'Local' : 'Online'}
+                            </p>
+
+                            {/* Control de velocidad compacto */}
+                            <div className="mt-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-gray-600">Velocidad</span>
+                                <span className="text-xs text-orange-600 font-medium">{voiceSpeed}x</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="2.0"
+                                step="0.1"
+                                value={voiceSpeed}
+                                onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
+                                className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                style={{
+                                  background: `linear-gradient(to right, #f97316 0%, #f97316 ${((voiceSpeed - 0.5) / 1.5) * 100}%, #e5e7eb ${((voiceSpeed - 0.5) / 1.5) * 100}%, #e5e7eb 100%)`
+                                }}
+                              />
+                            </div>
+
+                            <button
+                              onClick={playVoiceDemo}
+                              className="mt-2 w-full px-3 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center"
+                            >
+                              🎵 Probar Voz
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+
+                  {/* Información sobre la voz */}
+                  {voiceEnabled && availableVoices.length === 0 && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        No se detectaron voces disponibles. Verifica que tu navegador soporte síntesis de voz.
+                      </p>
+                    </div>
+                  )}
+
+                  {!voiceEnabled && (
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        La voz está deshabilitada. Habilítala para escuchar las respuestas del asistente.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -4595,6 +5093,7 @@ ${functionResult.data.projects.map(project => `
                     <option value="Directo">Directo</option>
                   </select>
                 </div>
+
 
               </div>
 
