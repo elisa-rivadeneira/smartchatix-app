@@ -5730,7 +5730,7 @@ ${functionResult.data.projects.map(project => `
 
       {/* Chat Bubble Flotante para Asistente IA */}
       {chatBubbleOpen && (
-        <div className="fixed bottom-20 right-6 w-96 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 w-[90vw] max-w-96 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col md:left-auto md:right-6 md:transform-none md:translate-x-0 md:w-96">
           {/* Header del Chat */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
             <div className="flex items-center space-x-2">
@@ -5916,7 +5916,7 @@ ${functionResult.data.projects.map(project => `
             }, 300);
           }
         }}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 ${
+        className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 md:left-auto md:right-6 md:transform-none md:translate-x-0 ${
           chatBubbleOpen
             ? 'bg-gray-500 hover:bg-gray-600'
             : 'bg-blue-500 hover:bg-blue-600'
