@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Directo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-box {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .error {
+            background: #ff4757;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #2ed573;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Funcionamiento del Navegador</h1>
+
+    <div class="test-box">
+        ✅ HTML y CSS están funcionando correctamente
+    </div>
+
+    <div id="js-test" class="error">
+        ❌ JavaScript no se ha ejecutado
+    </div>
+
+    <div id="react-container">
+        <!-- React se renderizará aquí -->
+    </div>
+
+    <div id="console-output">
+        <h3>Output de Consola:</h3>
+        <div id="console-log"></div>
+    </div>
+
+    <!-- React CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <script>
+        // Override console.log to show in page
+        const originalConsoleLog = console.log;
+        const consoleOutput = document.getElementById('console-log');
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, arguments);
+            const logDiv = document.createElement('div');
+            logDiv.textContent = args.join(' ');
+            logDiv.style.padding = '5px';
+            logDiv.style.borderBottom = '1px solid #ccc';
+            consoleOutput.appendChild(logDiv);
+        };
+
+        console.log('=== INICIANDO TESTS ===');
+
+        // Test 1: JavaScript básico
+        try {
+            document.getElementById('js-test').className = 'success';
+            document.getElementById('js-test').innerHTML = '✅ JavaScript está funcionando';
+            console.log('✅ JavaScript básico: OK');
+        } catch (e) {
+            console.log('❌ JavaScript básico: ERROR', e.message);
+        }
+
+        // Test 2: React básico
+        try {
+            console.log('Intentando cargar React...');
+            if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+                console.log('✅ React y ReactDOM cargados desde CDN');
+
+                // Crear componente React simple
+                const TestComponent = React.createElement('div', {
+                    style: {
+                        background: '#ff9ff3',
+                        color: 'white',
+                        padding: '20px',
+                        borderRadius: '10px',
+                        textAlign: 'center',
+                        fontSize: '20px',
+                        margin: '20px 0'
+                    }
+                }, '🚀 REACT ESTÁ FUNCIONANDO PERFECTAMENTE');
+
+                // Renderizar
+                const container = document.getElementById('react-container');
+                const root = ReactDOM.createRoot(container);
+                root.render(TestComponent);
+
+                console.log('✅ React renderizado exitosamente');
+            } else {
+                console.log('❌ React no se pudo cargar desde CDN');
+            }
+        } catch (e) {
+            console.log('❌ Error con React:', e.message);
+        }
+
+        // Test 3: Verificar errores de red
+        window.addEventListener('error', function(e) {
+            console.log('❌ Error de JavaScript:', e.message, 'en', e.filename, 'línea', e.lineno);
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.log('❌ Promise rechazada:', e.reason);
+        });
+
+        console.log('=== TESTS COMPLETADOS ===');
+    </script>
+</body>
+</html>

@@ -412,6 +412,47 @@ router.post('/daily-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Eliminar tarea diaria
+router.delete('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM daily_tasks WHERE id = ? AND user_id = ?';
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('Error verificando tarea diaria:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        return res.status(404).json({ error: 'Tarea diaria no encontrada' });
+      }
+
+      // Eliminar la tarea
+      const deleteQuery = 'DELETE FROM daily_tasks WHERE id = ? AND user_id = ?';
+      userDB.db.run(deleteQuery, [taskId, userId], function(deleteErr) {
+        if (deleteErr) {
+          console.error('Error eliminando tarea diaria:', deleteErr);
+          return res.status(500).json({ error: 'Error al eliminar tarea' });
+        }
+
+        res.json({
+          success: true,
+          message: 'Tarea diaria eliminada exitosamente'
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('Error en eliminación de tarea diaria:', error);
+    res.status(500).json({
+      error: 'Error al eliminar tarea diaria'
+    });
+  }
+});
+
 // Guardar tarea de proyecto
 router.post('/project-tasks', authenticateToken, async (req, res) => {
   try {

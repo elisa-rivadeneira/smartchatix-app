@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Pause, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
@@ -83,8 +84,7 @@ style.textContent = `
   }
 
   .neon-border {
-    border: 2px solid #ff00ff;
-    border-radius: 8px;
+    border-bottom: 2px solid #ff00ff;
     background: linear-gradient(45deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
     backdrop-filter: blur(10px);
     animation: synthPulse 3s ease-in-out infinite;
@@ -178,7 +178,11 @@ const formatDateForInput = (date) => {
 
 
 const PersonalCoachAssistant = () => {
+  console.log('PersonalCoachAssistant component iniciando...');
+
   const { user, loading: authLoading, isAuthenticated, login, logout, authenticatedFetch } = useAuth();
+
+  console.log('Auth state:', { user, authLoading, isAuthenticated });
 
   const [projects, setProjects] = useState([]);
   const [dailyTasks, setDailyTasks] = useState([]);
@@ -189,6 +193,12 @@ const PersonalCoachAssistant = () => {
   const [selectedProjectForTask, setSelectedProjectForTask] = useState('');
   const [selectedProjectTasks, setSelectedProjectTasks] = useState([]);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+  const [addTaskStep, setAddTaskStep] = useState(1); // 1: seleccionar proyecto, 2: seleccionar tarea o crear nueva
+  const [selectedProjectTaskId, setSelectedProjectTaskId] = useState('');
+  const [addTaskMode, setAddTaskMode] = useState(''); // 'existing' o 'new'
+  const [showProjectSelectionModal, setShowProjectSelectionModal] = useState(false);
+  const [modalStep, setModalStep] = useState(1); // 1: seleccionar proyecto, 2: tareas/crear nueva
+  const [showNewTaskInput, setShowNewTaskInput] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
 
   // Nuevos estados para gestión de tareas de proyectos
@@ -210,7 +220,32 @@ const PersonalCoachAssistant = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [projectToChangeStatus, setProjectToChangeStatus] = useState(null);
   const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskEstimatedHours, setNewTaskEstimatedHours] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [editTaskName, setEditTaskName] = useState('');
+  const [editTaskDescription, setEditTaskDescription] = useState('');
+  const [editEstimatedHours, setEditEstimatedHours] = useState('');
+  const [editEstimatedMinutes, setEditEstimatedMinutes] = useState('');
+  const [editActualHours, setEditActualHours] = useState('');
+  const [editActualMinutes, setEditActualMinutes] = useState('');
+  const [editTaskProject, setEditTaskProject] = useState(''); // Para vincular tareas diarias con proyectos
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [completingTask, setCompletingTask] = useState(null);
+  const [activeTimers, setActiveTimers] = useState(() => {
+    const saved = localStorage.getItem('activeTimers');
+    return saved ? JSON.parse(saved) : {};
+  }); // {taskId: startTime}
+  const [timerIntervals, setTimerIntervals] = useState({}); // {taskId: intervalId}
+  const [pausedTimers, setPausedTimers] = useState(() => {
+    const saved = localStorage.getItem('pausedTimers');
+    return saved ? JSON.parse(saved) : {};
+  }); // {taskId: accumulatedTime}
+  const [timerMode, setTimerMode] = useState(() => {
+    const saved = localStorage.getItem('timerMode');
+    return saved || 'una_tarea'; // 'una_tarea' o 'multiples'
+  });
 
   // Estados para el asistente
   const [assistantConfig, setAssistantConfig] = useState({
@@ -681,6 +716,40 @@ const PersonalCoachAssistant = () => {
     }
   }, [availableVoices]); // Se ejecuta cuando las voces están disponibles
 
+  // Efectos para persistencia de timers
+  useEffect(() => {
+    localStorage.setItem('activeTimers', JSON.stringify(activeTimers));
+  }, [activeTimers]);
+
+  useEffect(() => {
+    localStorage.setItem('pausedTimers', JSON.stringify(pausedTimers));
+  }, [pausedTimers]);
+
+  useEffect(() => {
+    localStorage.setItem('timerMode', timerMode);
+  }, [timerMode]);
+
+  // Restaurar timers activos al cargar la página
+  useEffect(() => {
+    Object.keys(activeTimers).forEach(taskId => {
+      if (!timerIntervals[taskId]) {
+        // Reanudar timer activo
+        const originalStartTime = activeTimers[taskId];
+        const intervalId = setInterval(() => {
+          setActiveTimers(prev => ({ ...prev, [taskId]: originalStartTime }));
+        }, 1000);
+        setTimerIntervals(prev => ({ ...prev, [taskId]: intervalId }));
+      }
+    });
+
+    // Cleanup en unmount
+    return () => {
+      Object.values(timerIntervals).forEach(intervalId => {
+        if (intervalId) clearInterval(intervalId);
+      });
+    };
+  }, []); // Solo ejecutar una vez al montar
+
   // Inicializar soporte de voz
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -810,6 +879,238 @@ const PersonalCoachAssistant = () => {
       }
       finalTranscriptRef.current = '';
     }
+  };
+
+  // Función para manejar el envío del tiempo real
+  const handleTimeSubmit = async (actualHours) => {
+    if (!completingTask) return;
+
+    try {
+      // Actualizar la tarea con el tiempo real
+      const updatedTask = {
+        ...completingTask,
+        actual_hours: actualHours,
+        completed: true
+      };
+
+      // Actualizar en el estado local
+      setProjects(prevProjects =>
+        prevProjects.map(project =>
+          project.id === completingTask.projectId
+            ? {
+                ...project,
+                tasks: project.tasks.map(task =>
+                  task.id === completingTask.id ? updatedTask : task
+                )
+              }
+            : project
+        )
+      );
+
+      // Aquí podrías hacer una llamada al backend para guardar el tiempo real
+      console.log('Tiempo real guardado:', {
+        taskId: completingTask.id,
+        estimated: completingTask.estimated_hours,
+        actual: actualHours
+      });
+
+      // Cerrar modal
+      setShowTimeModal(false);
+      setCompletingTask(null);
+
+    } catch (error) {
+      console.error('Error guardando tiempo real:', error);
+    }
+  };
+
+  // Funciones para el timer
+  const startTimer = (taskId) => {
+    const activeTimerIds = Object.keys(activeTimers);
+
+    if (timerMode === 'una_tarea' && activeTimerIds.length > 0) {
+      // Una tarea a la vez: pausar automáticamente otros timers
+      const currentTask = dailyTasks.find(t => t.id.toString() === activeTimerIds[0]) ||
+                         projects.flatMap(p => p.tasks).find(t => t.id.toString() === activeTimerIds[0]);
+
+      const newTask = dailyTasks.find(t => t.id.toString() === taskId) ||
+                     projects.flatMap(p => p.tasks).find(t => t.id.toString() === taskId);
+
+      if (confirm(`Tienes una tarea en curso. ¿Pausar "${currentTask?.text || currentTask?.title || 'tarea actual'}" para empezar "${newTask?.text || newTask?.title || 'nueva tarea'}"?`)) {
+        activeTimerIds.forEach(id => pauseTimer(id));
+      } else {
+        return; // No iniciar el nuevo timer
+      }
+    } else if (timerMode === 'multiples' && activeTimerIds.length > 0) {
+      // Múltiples tareas: advertir sobre múltiples timers
+      if (!confirm(`Ya tienes ${activeTimerIds.length} tarea(s) corriendo. ¿Quieres agregar otra tarea más?`)) {
+        return; // No iniciar el nuevo timer
+      }
+    }
+
+    const startTime = Date.now();
+    setActiveTimers(prev => ({ ...prev, [taskId]: startTime }));
+
+    // Crear un intervalo para forzar re-renders cada segundo
+    const intervalId = setInterval(() => {
+      setActiveTimers(prev => ({ ...prev, [taskId]: startTime }));
+    }, 1000);
+
+    setTimerIntervals(prev => ({ ...prev, [taskId]: intervalId }));
+  };
+
+  const pauseTimer = (taskId) => {
+    const startTime = activeTimers[taskId];
+    if (startTime) {
+      const elapsed = Date.now() - startTime;
+      const previousTime = pausedTimers[taskId] || 0;
+
+      // Guardar tiempo acumulado
+      setPausedTimers(prev => ({
+        ...prev,
+        [taskId]: previousTime + elapsed
+      }));
+
+      // Limpiar timer activo
+      if (timerIntervals[taskId]) {
+        clearInterval(timerIntervals[taskId]);
+      }
+
+      setActiveTimers(prev => {
+        const newTimers = { ...prev };
+        delete newTimers[taskId];
+        return newTimers;
+      });
+
+      setTimerIntervals(prev => {
+        const newIntervals = { ...prev };
+        delete newIntervals[taskId];
+        return newIntervals;
+      });
+    }
+  };
+
+  const resumeTimer = (taskId) => {
+    // Continuar desde donde se pausó
+    startTimer(taskId);
+  };
+
+  const completeTask = (taskId) => {
+    // Calcular tiempo total
+    let totalTime = pausedTimers[taskId] || 0;
+
+    if (activeTimers[taskId]) {
+      const elapsed = Date.now() - activeTimers[taskId];
+      totalTime += elapsed;
+    }
+
+    const durationHours = totalTime / (1000 * 60 * 60);
+
+    // Limpiar todos los timers
+    if (timerIntervals[taskId]) {
+      clearInterval(timerIntervals[taskId]);
+    }
+
+    setActiveTimers(prev => {
+      const newTimers = { ...prev };
+      delete newTimers[taskId];
+      return newTimers;
+    });
+
+    setTimerIntervals(prev => {
+      const newIntervals = { ...prev };
+      delete newIntervals[taskId];
+      return newIntervals;
+    });
+
+    setPausedTimers(prev => {
+      const newPaused = { ...prev };
+      delete newPaused[taskId];
+      return newPaused;
+    });
+
+    return durationHours;
+  };
+
+  const stopTimer = (taskId) => {
+    // Mantener función original para compatibilidad
+    return completeTask(taskId);
+  };
+
+  const getTimerDisplay = (taskId) => {
+    const startTime = activeTimers[taskId];
+    const pausedTime = pausedTimers[taskId] || 0;
+
+    let totalElapsed = pausedTime;
+
+    if (startTime) {
+      // Timer activo: sumar tiempo actual
+      totalElapsed += (Date.now() - startTime);
+    }
+
+    if (totalElapsed === 0 && !startTime) return null;
+
+    const hours = Math.floor(totalElapsed / (1000 * 60 * 60));
+    const minutes = Math.floor((totalElapsed % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((totalElapsed % (1000 * 60)) / 1000);
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Función para formatear horas en formato legible
+  const formatHours = (hours) => {
+    if (!hours || hours === 0) return "0min";
+
+    const totalMinutes = Math.round(hours * 60);
+
+    if (totalMinutes < 60) {
+      return `${totalMinutes}min`;
+    }
+
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
+    if (m === 0) {
+      return `${h}h`;
+    }
+
+    return `${h}h ${m}min`;
+  };
+
+  // Función para convertir texto como "1h 30min" o "45min" a horas decimales
+  const parseTimeInput = (timeStr) => {
+    if (!timeStr || timeStr.trim() === '') return null;
+
+    const str = timeStr.toLowerCase().trim();
+
+    // Patrones: "1h 30min", "1h30min", "1.5h", "45min", "2h", "90"
+    const hourMinPattern = /(\d+)h\s*(\d+)min/;
+    const hourOnlyPattern = /(\d+)h$/;
+    const minOnlyPattern = /(\d+)min$/;
+    const decimalPattern = /^(\d*\.?\d+)h?$/;
+
+    let totalHours = 0;
+
+    if (hourMinPattern.test(str)) {
+      const match = str.match(hourMinPattern);
+      totalHours = parseInt(match[1]) + parseInt(match[2]) / 60;
+    } else if (hourOnlyPattern.test(str)) {
+      const match = str.match(hourOnlyPattern);
+      totalHours = parseInt(match[1]);
+    } else if (minOnlyPattern.test(str)) {
+      const match = str.match(minOnlyPattern);
+      totalHours = parseInt(match[1]) / 60;
+    } else if (decimalPattern.test(str)) {
+      const match = str.match(decimalPattern);
+      totalHours = parseFloat(match[1]);
+    } else {
+      // Asumir que es un número simple en horas
+      const num = parseFloat(str);
+      if (!isNaN(num)) {
+        totalHours = num;
+      }
+    }
+
+    return totalHours > 0 ? totalHours : null;
   };
 
   const speakText = (text) => {
@@ -1195,6 +1496,110 @@ const PersonalCoachAssistant = () => {
 
 
   // Funciones para gestión de tareas de proyectos
+  const openEditTaskModal = (task) => {
+    setEditingTask(task);
+    setEditTaskName(task.title || task.text || '');
+    setEditTaskDescription(task.description || '');
+
+    // Convertir horas decimales a horas y minutos (estimado)
+    const totalEstimatedHours = task.estimated_hours || 0;
+    const estimatedHours = Math.floor(totalEstimatedHours);
+    const estimatedMinutes = Math.round((totalEstimatedHours - estimatedHours) * 60);
+
+    setEditEstimatedHours(estimatedHours > 0 ? estimatedHours.toString() : '');
+    setEditEstimatedMinutes(estimatedMinutes > 0 ? estimatedMinutes.toString() : '');
+
+    // Convertir horas decimales a horas y minutos (real)
+    const totalActualHours = task.actual_hours || 0;
+    const actualHours = Math.floor(totalActualHours);
+    const actualMinutes = Math.round((totalActualHours - actualHours) * 60);
+
+    setEditActualHours(actualHours > 0 ? actualHours.toString() : '');
+    setEditActualMinutes(actualMinutes > 0 ? actualMinutes.toString() : '');
+
+    // Setear proyecto vinculado si es una tarea diaria
+    setEditTaskProject(task.projectId || '');
+
+    setShowEditTaskModal(true);
+  };
+
+  const closeEditTaskModal = () => {
+    setShowEditTaskModal(false);
+    setEditingTask(null);
+    setEditTaskName('');
+    setEditTaskDescription('');
+    setEditEstimatedHours('');
+    setEditEstimatedMinutes('');
+    setEditActualHours('');
+    setEditActualMinutes('');
+    setEditTaskProject('');
+  };
+
+  const saveTaskChanges = async () => {
+    if (!editTaskName.trim() || !editingTask) return;
+
+    // Detectar si es una tarea diaria o de proyecto
+    const isDailyTask = dailyTasks.some(task => task.id === editingTask.id);
+
+    if (isDailyTask) {
+      // Usar función específica para tareas diarias
+      await saveDailyTaskChanges();
+    } else {
+      // Usar función específica para tareas de proyecto
+      await saveProjectTaskChanges();
+    }
+  };
+
+  const saveProjectTaskChanges = async () => {
+    if (!editTaskName.trim() || !editingTask) return;
+
+    // Calcular tiempo estimado total en horas
+    const estimatedHours = parseInt(editEstimatedHours) || 0;
+    const estimatedMinutes = parseInt(editEstimatedMinutes) || 0;
+    const totalEstimatedHours = estimatedHours + (estimatedMinutes / 60);
+
+    // Calcular tiempo real total en horas
+    const actualHours = parseInt(editActualHours) || 0;
+    const actualMinutes = parseInt(editActualMinutes) || 0;
+    const totalActualHours = actualHours + (actualMinutes / 60);
+
+    const updatedTask = {
+      ...editingTask,
+      title: editTaskName.trim(),
+      text: editTaskName.trim(),
+      description: editTaskDescription.trim(),
+      estimated_hours: totalEstimatedHours > 0 ? totalEstimatedHours : null,
+      actual_hours: totalActualHours > 0 ? totalActualHours : null,
+    };
+
+    try {
+      // Actualizar en backend si es necesario
+      // ... aquí iría la llamada al API
+
+      // Actualizar el estado local
+      setProjects(projects.map(project => {
+        const updatedTasks = project.tasks.map(task =>
+          task.id === editingTask.id ? updatedTask : task
+        );
+        return { ...project, tasks: updatedTasks };
+      }));
+
+      // Actualizar selectedProject también
+      if (selectedProject) {
+        setSelectedProject(prev => ({
+          ...prev,
+          tasks: prev.tasks.map(task =>
+            task.id === editingTask.id ? updatedTask : task
+          )
+        }));
+      }
+
+      closeEditTaskModal();
+    } catch (error) {
+      console.error('Error actualizando tarea:', error);
+    }
+  };
+
   const addProjectTask = async (projectId) => {
     const taskText = newProjectTask[projectId];
     if (taskText && taskText.trim()) {
@@ -1325,6 +1730,29 @@ const PersonalCoachAssistant = () => {
   };
 
   const toggleProjectTaskCompletion = (projectId, taskId, completed) => {
+    // Si se está completando la tarea y tiene tiempo estimado, mostrar modal
+    if (completed) {
+      const project = projects.find(p => p.id === projectId);
+      const task = project?.tasks.find(t => t.id === taskId);
+
+      // Si hay un timer activo, detenerlo y obtener el tiempo
+      let timerHours = 0;
+      if (activeTimers[taskId]) {
+        timerHours = stopTimer(taskId);
+      }
+
+      if (task && task.estimated_hours && !task.actual_hours) {
+        // Mostrar modal de tiempo real con el tiempo del timer como sugerencia
+        setCompletingTask({
+          ...task,
+          projectId: projectId,
+          suggestedHours: timerHours > 0 ? Math.round(timerHours * 100) / 100 : null // Redondear a 2 decimales
+        });
+        setShowTimeModal(true);
+        return; // No completar aún, se completará cuando se envíe el tiempo
+      }
+    }
+
     setProjects(projects.map(project => {
       if (project.id === projectId) {
         const updatedTasks = project.tasks.map(task => {
@@ -1399,8 +1827,11 @@ const PersonalCoachAssistant = () => {
       id: Date.now(),
       text: newDailyTask.trim(),
       completed: false,
-      projectId: selectedProjectForTask || null,
-      projectTaskId: null
+      projectId: selectedProjectForTask === 'personal' ? null : selectedProjectForTask,
+      projectTaskId: null,
+      estimated_hours: null,
+      actual_hours: null,
+      description: ''
     };
 
     try {
@@ -1414,8 +1845,8 @@ const PersonalCoachAssistant = () => {
 
       if (response.ok) {
         setDailyTasks([...dailyTasks, task]);
-        setNewDailyTask('');
-        setSelectedProjectForTask('');
+        // Para tareas personales, resetear completamente
+        resetAddTaskForm();
       } else {
         console.error('Error al guardar tarea diaria');
       }
@@ -1423,8 +1854,159 @@ const PersonalCoachAssistant = () => {
       console.error('Error:', error);
       // Si falla la petición, al menos actualizar localmente
       setDailyTasks([...dailyTasks, task]);
-      setNewDailyTask('');
-      setSelectedProjectForTask('');
+      // Para tareas personales, resetear completamente
+      resetAddTaskForm();
+    }
+  };
+
+  // Funciones para el nuevo flujo de agregar tareas
+  const resetAddTaskForm = () => {
+    setShowAddTaskForm(false);
+    setShowProjectSelectionModal(false);
+    setModalStep(1);
+    setSelectedProjectForTask('');
+    setSelectedProjectTaskId('');
+    setAddTaskMode('');
+    setNewDailyTask('');
+    setShowNewTaskInput(false);
+  };
+
+  const handleProjectSelection = (projectId) => {
+    setSelectedProjectForTask(projectId);
+
+    if (projectId === 'personal') {
+      // Proyecto personal - mostrar entrada de tarea en el modal
+      setAddTaskMode('personal');
+      setModalStep(2);
+    } else if (projectId) {
+      // Proyecto específico - mostrar tareas disponibles en el modal
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        const availableTasks = project.tasks.filter(task =>
+          !dailyTasks.some(dt => dt.projectId === projectId && dt.projectTaskId === task.id)
+        );
+        setSelectedProjectTasks(availableTasks);
+      }
+      setAddTaskMode('project');
+      setModalStep(2);
+    }
+  };
+
+  const openProjectSelectionModal = () => {
+    setShowProjectSelectionModal(true);
+    setModalStep(1);
+  };
+
+  const goBackToProjectSelection = () => {
+    setModalStep(1);
+    setSelectedProjectForTask('');
+    setAddTaskMode('');
+    setNewDailyTask('');
+  };
+
+  const addExistingProjectTask = async (taskId) => {
+    if (!taskId || !selectedProjectForTask) return;
+
+    const project = projects.find(p => p.id === selectedProjectForTask);
+    const projectTask = project?.tasks.find(t => t.id === taskId);
+
+    if (!projectTask) return;
+
+    const dailyTask = {
+      id: Date.now(),
+      text: projectTask.title || projectTask.text,
+      completed: projectTask.completed || false,
+      projectId: selectedProjectForTask,
+      projectTaskId: taskId,
+      estimated_hours: projectTask.estimated_hours || null,
+      actual_hours: projectTask.actual_hours || null,
+      description: projectTask.description || ''
+    };
+
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ task: dailyTask }),
+      });
+
+      if (response.ok) {
+        setDailyTasks([...dailyTasks, dailyTask]);
+        // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
+        resetAddTaskForm();
+      } else {
+        console.error('Error al guardar tarea diaria');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      // Si falla la petición, al menos actualizar localmente
+      setDailyTasks([...dailyTasks, dailyTask]);
+      // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
+      resetAddTaskForm();
+    }
+  };
+
+  const addNewTaskToProject = async () => {
+    if (!newDailyTask.trim() || !selectedProjectForTask) return;
+
+    // Crear la tarea en el proyecto primero
+    const newTask = {
+      id: Date.now(),
+      title: newDailyTask.trim(),
+      text: newDailyTask.trim(),
+      description: '',
+      completed: false,
+      progress: 0,
+      estimated_hours: null,
+      actual_hours: null,
+      createdAt: new Date().toLocaleDateString()
+    };
+
+    // Actualizar el proyecto con la nueva tarea
+    setProjects(prevProjects => {
+      return prevProjects.map(project =>
+        project.id === selectedProjectForTask
+          ? { ...project, tasks: [...project.tasks, newTask] }
+          : project
+      );
+    });
+
+    // Crear la tarea diaria vinculada
+    const dailyTask = {
+      id: Date.now() + 1, // ID diferente para evitar conflictos
+      text: newDailyTask.trim(),
+      completed: false,
+      projectId: selectedProjectForTask,
+      projectTaskId: newTask.id,
+      estimated_hours: null,
+      actual_hours: null,
+      description: ''
+    };
+
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ task: dailyTask }),
+      });
+
+      if (response.ok) {
+        setDailyTasks([...dailyTasks, dailyTask]);
+        // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
+        resetAddTaskForm();
+      } else {
+        console.error('Error al guardar tarea diaria');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      // Si falla la petición, al menos actualizar localmente
+      setDailyTasks([...dailyTasks, dailyTask]);
+      // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
+      resetAddTaskForm();
     }
   };
 
@@ -1696,6 +2278,9 @@ const PersonalCoachAssistant = () => {
           description: '',
           completed: false,
           progress: 0,
+          estimated_hours: newTaskEstimatedHours ? parseTimeInput(newTaskEstimatedHours) : null,
+          actual_hours: null,
+          time_started: null,
           createdAt: new Date().toLocaleDateString(),
           id: Date.now() // Temporary ID
         };
@@ -1720,6 +2305,7 @@ const PersonalCoachAssistant = () => {
 
         // Limpiar el input y salir del modo edición
         setNewTaskText('');
+        setNewTaskEstimatedHours('');
         setIsAddingTask(false);
         console.log('✅ Tarea agregada localmente, input limpiado');
 
@@ -3116,17 +3702,39 @@ ${functionResult.data.projects.map(project => `
   const toggleTask = (taskId) => {
     const task = dailyTasks.find(t => t.id === taskId);
     if (task) {
-      // Actualizar tarea diaria
-      setDailyTasks(dailyTasks.map(t =>
-        t.id === taskId ? { ...t, completed: !t.completed } : t
-      ));
+      const completing = !task.completed;
+
+      // Si se está completando la tarea y tiene timer activo, capturar el tiempo
+      if (completing) {
+        let actualHours = task.actual_hours || 0;
+
+        // Si hay un timer activo, capturar el tiempo
+        if (activeTimers[taskId] || pausedTimers[taskId]) {
+          const timerHours = completeTask(taskId);
+          actualHours = timerHours;
+        }
+
+        // Actualizar tarea diaria con el tiempo capturado
+        setDailyTasks(dailyTasks.map(t =>
+          t.id === taskId ? {
+            ...t,
+            completed: true,
+            actual_hours: actualHours > 0 ? actualHours : task.actual_hours
+          } : t
+        ));
+      } else {
+        // Solo cambiar estado de completado
+        setDailyTasks(dailyTasks.map(t =>
+          t.id === taskId ? { ...t, completed: false } : t
+        ));
+      }
 
       // Sincronizar con tarea de proyecto si está vinculada
       if (task.projectId && task.projectTaskId) {
         setProjects(projects.map(project => {
           if (project.id === task.projectId) {
             const updatedTasks = project.tasks.map(pt =>
-              pt.id === task.projectTaskId ? { ...pt, completed: !task.completed } : pt
+              pt.id === task.projectTaskId ? { ...pt, completed: completing } : pt
             );
             return { ...project, tasks: updatedTasks };
           }
@@ -3137,8 +3745,27 @@ ${functionResult.data.projects.map(project => `
     }
   };
 
-  const deleteTask = (taskId) => {
-    setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+  const deleteTask = async (taskId) => {
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+      } else {
+        console.error('Error al eliminar tarea diaria');
+        // Si falla la petición, al menos actualizar localmente
+        setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      // Si falla la petición, al menos actualizar localmente
+      setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+    }
   };
 
   const startEditingTask = (taskId, taskText) => {
@@ -3154,6 +3781,41 @@ ${functionResult.data.projects.map(project => `
     }
     setEditingTaskId(null);
     setEditingTaskText('');
+  };
+
+  // Función para actualizar tareas diarias desde el modal de edición
+  const saveDailyTaskChanges = async () => {
+    if (!editTaskName.trim() || !editingTask) return;
+
+    // Calcular tiempo estimado total en horas
+    const estimatedHours = parseInt(editEstimatedHours) || 0;
+    const estimatedMinutes = parseInt(editEstimatedMinutes) || 0;
+    const totalEstimatedHours = estimatedHours + (estimatedMinutes / 60);
+
+    // Calcular tiempo real total en horas
+    const actualHours = parseInt(editActualHours) || 0;
+    const actualMinutes = parseInt(editActualMinutes) || 0;
+    const totalActualHours = actualHours + (actualMinutes / 60);
+
+    const updatedTask = {
+      ...editingTask,
+      text: editTaskName.trim(),
+      description: editTaskDescription.trim(),
+      estimated_hours: totalEstimatedHours > 0 ? totalEstimatedHours : null,
+      actual_hours: totalActualHours > 0 ? totalActualHours : null,
+      projectId: editTaskProject || null, // Vincular con proyecto seleccionado
+    };
+
+    try {
+      // Actualizar el estado local de las tareas diarias
+      setDailyTasks(dailyTasks.map(task =>
+        task.id === editingTask.id ? updatedTask : task
+      ));
+
+      closeEditTaskModal();
+    } catch (error) {
+      console.error('Error actualizando tarea diaria:', error);
+    }
   };
 
   const cancelEditingTask = () => {
@@ -3187,38 +3849,46 @@ ${functionResult.data.projects.map(project => `
       }
     }
 
+    // Obtener información del timer para esta tarea
+    const timerDisplay = getTimerDisplay(task.id);
+    const isTimerActive = activeTimers[task.id];
+    const isTimerPaused = pausedTimers[task.id] && !isTimerActive;
+
     return (
       <div
         key={task.id}
-        className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
-          isUrgent
+        className={`flex flex-col p-3 rounded-lg border transition-all duration-200 ${
+          task.completed
+            ? 'bg-green-50 border-green-200'
+            : isUrgent
             ? 'bg-red-50 border-red-200 hover:bg-red-100'
             : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
         }`}
       >
-        <div className="flex items-center flex-1">
-          <input
-            type="checkbox"
-            checked={task.completed}
-            onChange={() => toggleTask(task.id)}
-            className={`mr-3 ${isUrgent ? 'text-red-600' : ''}`}
-          />
-          <div className="flex-1">
-            {editingTaskId === task.id ? (
-              <input
-                type="text"
-                value={editingTaskText}
-                onChange={(e) => setEditingTaskText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveEditedTask();
-                  if (e.key === 'Escape') cancelEditingTask();
-                }}
-                onBlur={saveEditedTask}
-                className="w-full p-1 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-              />
-            ) : (
-              <>
+        {/* Primera fila: Checkbox, nombre de tarea y controles */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center flex-1">
+            <input
+              type="checkbox"
+              checked={task.completed}
+              onChange={() => toggleTask(task.id)}
+              className={`mr-3 ${isUrgent ? 'text-red-600' : ''}`}
+            />
+            <div className="flex-1">
+              {editingTaskId === task.id ? (
+                <input
+                  type="text"
+                  value={editingTaskText}
+                  onChange={(e) => setEditingTaskText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEditedTask();
+                    if (e.key === 'Escape') cancelEditingTask();
+                  }}
+                  onBlur={saveEditedTask}
+                  className="w-full p-1 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              ) : (
                 <div className="flex items-center gap-2">
                   <span className={task.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
                     {task.text}
@@ -3229,52 +3899,126 @@ ${functionResult.data.projects.map(project => `
                     </span>
                   )}
                 </div>
-                {project && (
-                  <div className="mt-1">
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${getProjectColor(project.id)}`}>
-                      {project.title}
-                    </span>
-                  </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {/* Controles de timer */}
+            {!task.completed && !editingTaskId && (
+              <div className="flex items-center gap-1 mr-2">
+                {isTimerActive ? (
+                  <button
+                    onClick={() => pauseTimer(task.id)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded flex items-center"
+                    title="Pausar timer"
+                  >
+                    <Pause size={14} />
+                    {isTimerActive && (
+                      <div className="w-2 h-2 bg-red-500 rounded-full ml-1 animate-pulse"></div>
+                    )}
+                  </button>
+                ) : isTimerPaused ? (
+                  <button
+                    onClick={() => resumeTimer(task.id)}
+                    className="text-orange-500 hover:text-orange-700 hover:bg-orange-50 p-1 rounded"
+                    title="Reanudar timer"
+                  >
+                    <Play size={14} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startTimer(task.id)}
+                    className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
+                    title="Iniciar timer"
+                  >
+                    <Play size={14} />
+                  </button>
                 )}
+              </div>
+            )}
+
+            {/* Controles de edición */}
+            {editingTaskId === task.id ? (
+              <>
+                <button
+                  onClick={saveEditedTask}
+                  className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
+                  title="Guardar"
+                >
+                  <CheckCircle size={16} />
+                </button>
+                <button
+                  onClick={cancelEditingTask}
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                  title="Cancelar"
+                >
+                  ✕
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => openEditTaskModal(task)}
+                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
+                  title="Editar tarea"
+                >
+                  <Edit3 size={16} />
+                </button>
+                <button
+                  onClick={() => deleteTask(task.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                  title="Eliminar tarea"
+                >
+                  <Trash2 size={16} />
+                </button>
               </>
             )}
           </div>
         </div>
-        <div className="flex gap-1">
-          {editingTaskId === task.id ? (
-            <>
-              <button
-                onClick={saveEditedTask}
-                className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
-                title="Guardar"
-              >
-                <CheckCircle size={16} />
-              </button>
-              <button
-                onClick={cancelEditingTask}
-                className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                title="Cancelar"
-              >
-                ✕
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => startEditingTask(task.id, task.text)}
-                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
-                title="Editar tarea"
-              >
-                <Edit3 size={16} />
-              </button>
-              <button
-                onClick={() => deleteTask(task.id)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                title="Eliminar tarea"
-              >
-                <Trash2 size={16} />
-              </button>
-            </>
+
+        {/* Segunda fila: Información adicional */}
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center gap-3">
+            {/* Proyecto vinculado */}
+            {project && (
+              <span className={`inline-block px-2 py-1 rounded-full font-medium ${getProjectColor(project.id)}`}>
+                {project.title}
+              </span>
+            )}
+
+            {/* Tiempos estimado y real */}
+            {(task.estimated_hours || task.actual_hours) && (
+              <div className="flex items-center gap-2">
+                {task.estimated_hours && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    Est: {formatHours(task.estimated_hours)}
+                  </span>
+                )}
+                {task.actual_hours && (
+                  <span className={`px-2 py-1 rounded-full ${
+                    task.actual_hours > task.estimated_hours
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    Real: {formatHours(task.actual_hours)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Timer display */}
+          {timerDisplay && (
+            <div className={`px-2 py-1 rounded-full font-mono text-xs ${
+              isTimerActive
+                ? 'bg-red-100 text-red-800'
+                : isTimerPaused
+                ? 'bg-orange-100 text-orange-800'
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {timerDisplay}
+            </div>
           )}
         </div>
       </div>
@@ -3414,55 +4158,14 @@ ${functionResult.data.projects.map(project => `
 
             {/* Botón de agregar tarea - Optimizado para móvil */}
             <div className="mt-3 md:mt-4 flex-shrink-0">
-              {!showAddTaskForm ? (
-                <button
-                  onClick={() => setShowAddTaskForm(true)}
-                  className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
-                >
-                  <Plus size={16} className="mr-2" />
-                  <span className="hidden sm:inline">Agregar nueva tarea</span>
-                  <span className="sm:hidden">Nueva tarea</span>
-                </button>
-              ) : (
-                <div className="space-y-3 border border-blue-200 rounded-lg p-3 md:p-4 bg-blue-50">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={newDailyTask}
-                      onChange={(e) => setNewDailyTask(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          addDailyTask();
-                          setShowAddTaskForm(false);
-                        }
-                      }}
-                      placeholder="¿Qué quieres lograr hoy?"
-                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      autoFocus
-                    />
-                    <div className="flex gap-2 sm:gap-1">
-                      <button
-                        onClick={() => {
-                          addDailyTask();
-                          setShowAddTaskForm(false);
-                        }}
-                        className="flex-1 sm:flex-none bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600 text-sm font-medium"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowAddTaskForm(false);
-                          setNewDailyTask('');
-                        }}
-                        className="flex-1 sm:flex-none bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 text-sm font-medium"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={openProjectSelectionModal}
+                className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
+              >
+                <Plus size={16} className="mr-2" />
+                <span className="hidden sm:inline">Agregar nueva tarea</span>
+                <span className="sm:hidden">Nueva tarea</span>
+              </button>
             </div>
           </div>
 
@@ -4356,6 +5059,60 @@ ${functionResult.data.projects.map(project => `
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Configuración de Timer */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 lg:col-span-2">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  ⏱️ Cronómetro de Tareas
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ¿Cómo quieres trabajar?
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="timerMode"
+                          value="una_tarea"
+                          checked={timerMode === 'una_tarea'}
+                          onChange={(e) => setTimerMode(e.target.value)}
+                          className="mr-3"
+                        />
+                        <div>
+                          <span className="font-medium">🎯 Una tarea a la vez</span>
+                          <p className="text-sm text-gray-600">Más concentración. Al empezar una nueva tarea, pausa automáticamente la anterior.</p>
+                        </div>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="timerMode"
+                          value="multiples"
+                          checked={timerMode === 'multiples'}
+                          onChange={(e) => setTimerMode(e.target.value)}
+                          className="mr-3"
+                        />
+                        <div>
+                          <span className="font-medium">🔄 Varias tareas a la vez</span>
+                          <p className="text-sm text-gray-600">Para cuando cambias frecuentemente entre proyectos. Te pregunta antes de agregar otra tarea.</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${timerMode === 'una_tarea' ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
+                    <p className="text-sm">
+                      <strong>Actualmente: {timerMode === 'una_tarea' ? 'Una tarea a la vez' : 'Varias tareas a la vez'}</strong>
+                      <br />
+                      {timerMode === 'una_tarea'
+                        ? 'Te ayuda a mantener el enfoque en una sola cosa.'
+                        : 'Perfecto para alternar entre diferentes proyectos.'
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -5486,19 +6243,49 @@ ${functionResult.data.projects.map(project => `
                           autoFocus
                         />
                       ) : (
-                        <span
-                          onDoubleClick={() => startEditingTaskName(task.id, task.text || task.title || '')}
-                          style={{
-                            flex: 1,
-                            fontSize: '14px',
-                            color: task.completed ? '#16a34a' : '#374151',
-                            textDecoration: task.completed ? 'line-through' : 'none',
-                            fontWeight: task.completed ? '500' : '400',
-                            cursor: 'text'
-                          }}
-                        >
-                          {task.text || task.title || 'Tarea sin título'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '8px' }}>
+                          <span
+                            onDoubleClick={() => startEditingTaskName(task.id, task.text || task.title || '')}
+                            style={{
+                              flex: 1,
+                              fontSize: '14px',
+                              color: task.completed ? '#16a34a' : '#374151',
+                              textDecoration: task.completed ? 'line-through' : 'none',
+                              fontWeight: task.completed ? '500' : '400',
+                              cursor: 'text'
+                            }}
+                          >
+                            {task.text || task.title || 'Tarea sin título'}
+                          </span>
+
+                          {/* Botón de editar */}
+                          <button
+                            onClick={() => openEditTaskModal(task)}
+                            style={{
+                              padding: '4px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              opacity: 0.6,
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#f3f4f6';
+                              e.target.style.opacity = '1';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = 'transparent';
+                              e.target.style.opacity = '0.6';
+                            }}
+                            title="Editar tarea"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                        </div>
                       )}
 
                       {/* Input de progreso */}
@@ -5521,6 +6308,217 @@ ${functionResult.data.projects.map(project => `
                         }}
                       />
                       <span style={{ fontSize: '12px', color: '#6b7280' }}>%</span>
+
+                      {/* Indicador de tiempo estimado vs real */}
+                      {(task.estimated_hours || task.actual_hours) && (
+                        <div style={{
+                          fontSize: '10px',
+                          color: '#6b7280',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          marginLeft: '8px'
+                        }}>
+                          {task.estimated_hours && (
+                            <span style={{
+                              padding: '2px 4px',
+                              backgroundColor: '#f3f4f6',
+                              borderRadius: '3px',
+                              border: '1px solid #e5e7eb'
+                            }}>
+                              Est: {formatHours(task.estimated_hours)}
+                            </span>
+                          )}
+                          {task.actual_hours && (
+                            <span style={{
+                              padding: '2px 4px',
+                              backgroundColor: task.actual_hours > task.estimated_hours ? '#fef3c7' : '#dcfce7',
+                              borderRadius: '3px',
+                              border: `1px solid ${task.actual_hours > task.estimated_hours ? '#fbbf24' : '#22c55e'}`,
+                              color: task.actual_hours > task.estimated_hours ? '#92400e' : '#166534'
+                            }}>
+                              Real: {formatHours(task.actual_hours)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Botón de timer */}
+                      <div style={{ marginLeft: '8px' }}>
+                        {activeTimers[task.id] ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{
+                              fontSize: '10px',
+                              fontFamily: 'monospace',
+                              color: '#ef4444',
+                              fontWeight: 'bold'
+                            }}>
+                              {getTimerDisplay(task.id)}
+                            </span>
+                            <button
+                              onClick={() => pauseTimer(task.id)}
+                              style={{
+                                padding: '2px 4px',
+                                backgroundColor: '#f59e0b',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                                cursor: 'pointer'
+                              }}
+                              title="Pausar timer"
+                            >
+                              ⏸
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!task.completed) {
+                                  // Solo al completar, no al descompletar
+                                  const timerHours = completeTask(task.id);
+
+                                  // Actualizar la tarea con el tiempo real
+                                  const updatedTask = {
+                                    ...task,
+                                    completed: true,
+                                    progress: 100,
+                                    actual_hours: timerHours > 0 ? Math.round(timerHours * 100) / 100 : task.actual_hours
+                                  };
+
+                                  setProjects(projects.map(project => {
+                                    if (project.id === selectedProject.id) {
+                                      const updatedTasks = project.tasks.map(t => {
+                                        if (t.id === task.id) {
+                                          return updatedTask;
+                                        }
+                                        return t;
+                                      });
+                                      return { ...project, tasks: updatedTasks };
+                                    }
+                                    return project;
+                                  }));
+
+                                  // Sincronizar también con tareas diarias si aplica
+                                  setDailyTasks(dailyTasks.map(dailyTask => {
+                                    if (dailyTask.projectId === selectedProject.id && dailyTask.projectTaskId === task.id) {
+                                      return { ...dailyTask, completed: true };
+                                    }
+                                    return dailyTask;
+                                  }));
+                                } else {
+                                  // Descompletar tarea
+                                  toggleProjectTaskCompletion(selectedProject.id, task.id, false);
+                                }
+                              }}
+                              style={{
+                                padding: '2px 4px',
+                                backgroundColor: '#22c55e',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                                cursor: 'pointer'
+                              }}
+                              title="Completar tarea"
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        ) : pausedTimers[task.id] ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{
+                              fontSize: '10px',
+                              fontFamily: 'monospace',
+                              color: '#f59e0b',
+                              fontWeight: 'bold'
+                            }}>
+                              {getTimerDisplay(task.id)} (pausado)
+                            </span>
+                            <button
+                              onClick={() => resumeTimer(task.id)}
+                              style={{
+                                padding: '2px 4px',
+                                backgroundColor: '#22c55e',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                                cursor: 'pointer'
+                              }}
+                              title="Reanudar timer"
+                            >
+                              ▶
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!task.completed) {
+                                  // Solo al completar, no al descompletar
+                                  const timerHours = completeTask(task.id);
+
+                                  // Actualizar la tarea con el tiempo real
+                                  const updatedTask = {
+                                    ...task,
+                                    completed: true,
+                                    progress: 100,
+                                    actual_hours: timerHours > 0 ? Math.round(timerHours * 100) / 100 : task.actual_hours
+                                  };
+
+                                  setProjects(projects.map(project => {
+                                    if (project.id === selectedProject.id) {
+                                      const updatedTasks = project.tasks.map(t => {
+                                        if (t.id === task.id) {
+                                          return updatedTask;
+                                        }
+                                        return t;
+                                      });
+                                      return { ...project, tasks: updatedTasks };
+                                    }
+                                    return project;
+                                  }));
+
+                                  // Sincronizar también con tareas diarias si aplica
+                                  setDailyTasks(dailyTasks.map(dailyTask => {
+                                    if (dailyTask.projectId === selectedProject.id && dailyTask.projectTaskId === task.id) {
+                                      return { ...dailyTask, completed: true };
+                                    }
+                                    return dailyTask;
+                                  }));
+                                } else {
+                                  // Descompletar tarea
+                                  toggleProjectTaskCompletion(selectedProject.id, task.id, false);
+                                }
+                              }}
+                              style={{
+                                padding: '2px 4px',
+                                backgroundColor: '#22c55e',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                                cursor: 'pointer'
+                              }}
+                              title="Completar tarea"
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startTimer(task.id)}
+                            style={{
+                              padding: '2px 4px',
+                              backgroundColor: '#22c55e',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '3px',
+                              fontSize: '10px',
+                              cursor: 'pointer'
+                            }}
+                            title="Iniciar timer"
+                          >
+                            ▶
+                          </button>
+                        )}
+                      </div>
 
                       {/* Barra de progreso mini */}
                       <div style={{
@@ -5650,6 +6648,7 @@ ${functionResult.data.projects.map(project => `
                       }
                       if (e.key === 'Escape') {
                         setNewTaskText('');
+                        setNewTaskEstimatedHours('');
                         setIsAddingTask(false);
                       }
                     }}
@@ -5666,6 +6665,23 @@ ${functionResult.data.projects.map(project => `
                       fontFamily: 'inherit'
                     }}
                     autoFocus
+                  />
+                  <input
+                    type="text"
+                    value={newTaskEstimatedHours}
+                    onChange={(e) => setNewTaskEstimatedHours(e.target.value)}
+                    placeholder="Ej: 2h, 45min, 1h 30min, 1.5h"
+                    step="0.5"
+                    style={{
+                      width: '100%',
+                      padding: '6px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      fontSize: '12px',
+                      outline: 'none',
+                      marginTop: '8px',
+                      fontFamily: 'inherit'
+                    }}
                   />
                   <div style={{
                     display: 'flex',
@@ -5706,6 +6722,7 @@ ${functionResult.data.projects.map(project => `
                     <button
                       onClick={() => {
                         setNewTaskText('');
+                        setNewTaskEstimatedHours('');
                         setIsAddingTask(false);
                       }}
                       style={{
@@ -5986,6 +7003,355 @@ ${functionResult.data.projects.map(project => `
         </div>
       )}
 
+
+      {/* Modal de tiempo real al completar tarea */}
+      {showTimeModal && completingTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw mx-4">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">
+              ¡Tarea completada! 🎉
+            </h3>
+            <p className="text-gray-600 mb-4">
+              <strong>{completingTask.title}</strong>
+            </p>
+            {completingTask.estimated_hours && (
+              <p className="text-sm text-gray-500 mb-4">
+                Tiempo estimado: {formatHours(completingTask.estimated_hours)}
+              </p>
+            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ¿Cuánto tiempo real te tomó? (horas)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.25"
+                placeholder="Ej: 2.5"
+                defaultValue={completingTask.suggestedHours || ''}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const actualHours = parseFloat(e.target.value);
+                    if (actualHours >= 0) {
+                      handleTimeSubmit(actualHours);
+                    }
+                  }
+                }}
+                id="actualTimeInput"
+              />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowTimeModal(false);
+                  setCompletingTask(null);
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Omitir
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.getElementById('actualTimeInput');
+                  const actualHours = parseFloat(input.value);
+                  if (actualHours >= 0) {
+                    handleTimeSubmit(actualHours);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para editar tarea usando Portal */}
+      {showEditTaskModal && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{zIndex: 99999999}}>
+          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Editar Tarea
+            </h3>
+
+            {/* Nombre de la tarea */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre de la tarea *
+              </label>
+              <input
+                type="text"
+                value={editTaskName}
+                onChange={(e) => setEditTaskName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && editTaskName.trim()) {
+                    saveTaskChanges();
+                  }
+                }}
+                placeholder="Ej: Implementar funcionalidad de login"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+
+            {/* Descripción */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Descripción (opcional)
+              </label>
+              <textarea
+                value={editTaskDescription}
+                onChange={(e) => setEditTaskDescription(e.target.value)}
+                placeholder="Detalles adicionales sobre la tarea..."
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
+              />
+            </div>
+
+            {/* Selector de proyecto (solo para tareas diarias) */}
+            {dailyTasks.some(task => task.id === editingTask?.id) && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Proyecto vinculado (opcional)
+                </label>
+                <select
+                  value={editTaskProject}
+                  onChange={(e) => setEditTaskProject(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Sin proyecto</option>
+                  {projects.filter(p => p.status === 'activo').map(project => (
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Tiempo estimado */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tiempo estimado
+              </label>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={editEstimatedHours}
+                    onChange={(e) => setEditEstimatedHours(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    max="99"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
+                  />
+                  <p className="text-xs text-gray-500 text-center mt-1">Horas</p>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={editEstimatedMinutes}
+                    onChange={(e) => setEditEstimatedMinutes(e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    max="59"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
+                  />
+                  <p className="text-xs text-gray-500 text-center mt-1">Minutos</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Control de tiempo y tiempo real */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Control de tiempo
+              </label>
+
+              {/* Botones de control de timer */}
+              <div className="flex gap-2 mb-4">
+                {activeTimers[editingTask?.id] ? (
+                  // Timer activo - mostrar tiempo y botón pausar
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-md">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-red-700 font-mono text-sm font-medium">
+                        {getTimerDisplay(editingTask?.id)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => pauseTimer(editingTask?.id)}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors flex items-center gap-2"
+                    >
+                      <span style={{fontSize: '14px'}}>⏸</span>
+                      Pausar
+                    </button>
+                  </div>
+                ) : pausedTimers[editingTask?.id] ? (
+                  // Timer pausado - mostrar tiempo pausado y botón reanudar
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
+                      <span style={{fontSize: '14px'}}>⏸</span>
+                      <span className="text-orange-700 font-mono text-sm font-medium">
+                        {getTimerDisplay(editingTask?.id)} (pausado)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => resumeTimer(editingTask?.id)}
+                      className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center gap-2"
+                    >
+                      <Play size={14} />
+                      Reanudar
+                    </button>
+                  </div>
+                ) : (
+                  // Sin timer - botón iniciar
+                  <button
+                    onClick={() => startTimer(editingTask?.id)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2"
+                  >
+                    <Play size={14} />
+                    Iniciar tarea
+                  </button>
+                )}
+              </div>
+
+              {/* Campos de tiempo real (editables) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">
+                  Tiempo real (editable)
+                </label>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      value={editActualHours}
+                      onChange={(e) => setEditActualHours(e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      max="99"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
+                    />
+                    <p className="text-xs text-gray-500 text-center mt-1">Horas</p>
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      value={editActualMinutes}
+                      onChange={(e) => setEditActualMinutes(e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      max="59"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
+                    />
+                    <p className="text-xs text-gray-500 text-center mt-1">Minutos</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex flex-col gap-3">
+              {/* Botón principal: Terminar Tarea */}
+              {!editingTask?.completed && (
+                <button
+                  onClick={() => {
+                    // Obtener tiempo del timer si está activo o pausado
+                    let timerHours = 0;
+                    if (activeTimers[editingTask.id] || pausedTimers[editingTask.id]) {
+                      timerHours = completeTask(editingTask.id);
+                    }
+
+                    // Calcular tiempo real final (usar timer si existe, sino los campos editables)
+                    let finalActualHours = 0;
+                    if (timerHours > 0) {
+                      finalActualHours = timerHours;
+                    } else {
+                      const actualHours = parseInt(editActualHours) || 0;
+                      const actualMinutes = parseInt(editActualMinutes) || 0;
+                      finalActualHours = actualHours + (actualMinutes / 60);
+                    }
+
+                    // Guardar cambios primero con el tiempo calculado
+                    const estimatedHours = parseInt(editEstimatedHours) || 0;
+                    const estimatedMinutes = parseInt(editEstimatedMinutes) || 0;
+                    const totalEstimatedHours = estimatedHours + (estimatedMinutes / 60);
+
+                    const updatedTask = {
+                      ...editingTask,
+                      title: editTaskName.trim(),
+                      text: editTaskName.trim(),
+                      description: editTaskDescription.trim(),
+                      estimated_hours: totalEstimatedHours > 0 ? totalEstimatedHours : null,
+                      actual_hours: finalActualHours > 0 ? finalActualHours : null,
+                      completed: true,
+                      progress: 100,
+                      projectId: editTaskProject || editingTask.projectId
+                    };
+
+                    // Detectar si es una tarea diaria o de proyecto
+                    const isDailyTask = dailyTasks.some(task => task.id === editingTask.id);
+
+                    if (isDailyTask) {
+                      // Actualizar tarea diaria
+                      setDailyTasks(dailyTasks.map(task =>
+                        task.id === editingTask.id ? updatedTask : task
+                      ));
+                    } else {
+                      // Actualizar tarea de proyecto
+                      setProjects(projects.map(project => {
+                        const updatedTasks = project.tasks.map(task =>
+                          task.id === editingTask.id ? updatedTask : task
+                        );
+                        return { ...project, tasks: updatedTasks };
+                      }));
+
+                      // Actualizar selectedProject también
+                      if (selectedProject) {
+                        setSelectedProject(prev => ({
+                          ...prev,
+                          tasks: prev.tasks.map(task =>
+                            task.id === editingTask.id ? updatedTask : task
+                          )
+                        }));
+                      }
+                    }
+
+                    closeEditTaskModal();
+                  }}
+                  disabled={!editTaskName.trim()}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <CheckCircle size={18} />
+                  <span>😊 Terminar Tarea</span>
+                </button>
+              )}
+
+              {/* Botones secundarios */}
+              <div className="flex gap-3">
+                <button
+                  onClick={closeEditTaskModal}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveTaskChanges}
+                  disabled={!editTaskName.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Botón flotante para abrir chat bubble */}
       <button
         onClick={() => {
@@ -6013,6 +7379,225 @@ ${functionResult.data.projects.map(project => `
           <Bot size={24} />
         )}
       </button>
+
+      {/* Modal de selección de proyecto y tareas */}
+      {showProjectSelectionModal && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            {modalStep === 1 ? (
+              /* Paso 1: Seleccionar Proyecto */
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Seleccionar Proyecto
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  ¿Para qué proyecto quieres agregar la tarea?
+                </p>
+
+                <div className="space-y-3 overflow-y-auto flex-1">
+                  {/* Opción: Proyecto Personal */}
+                  <button
+                    onClick={() => handleProjectSelection('personal')}
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 text-left transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📝</span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">Proyecto Personal</div>
+                        <div className="text-sm text-gray-500">Tareas sin proyecto específico</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Proyectos activos */}
+                  {projects.filter(p => p.status === 'activo').map(project => {
+                    const tasksNotInDaily = project.tasks.filter(task =>
+                      !dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === task.id)
+                    );
+
+                    return (
+                      <button
+                        key={project.id}
+                        onClick={() => handleProjectSelection(project.id)}
+                        className="w-full p-4 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getProjectColor(project.id)}`}>
+                            <span className="text-lg">📋</span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 group-hover:text-blue-900">
+                              {project.title}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {tasksNotInDaily.length} tarea{tasksNotInDaily.length !== 1 ? 's' : ''} disponible{tasksNotInDaily.length !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          {project.progress !== undefined && (
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-gray-700">
+                                {project.progress}%
+                              </div>
+                              <div className="w-12 bg-gray-200 rounded-full h-1.5">
+                                <div
+                                  className="bg-blue-500 h-1.5 rounded-full transition-all"
+                                  style={{ width: `${project.progress}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {projects.filter(p => p.status === 'activo').length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm">No hay proyectos activos disponibles</p>
+                      <p className="text-xs mt-1">Crea un proyecto primero para organizar tus tareas</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={resetAddTaskForm}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Paso 2: Tareas o Crear Nueva */
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {addTaskMode === 'personal' ? '📝 Proyecto Personal' : `📋 ${projects.find(p => p.id === selectedProjectForTask)?.title}`}
+                  </h3>
+                  <button
+                    onClick={goBackToProjectSelection}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    ← Cambiar
+                  </button>
+                </div>
+
+                {addTaskMode === 'personal' ? (
+                  /* Entrada para tarea personal */
+                  <div className="flex flex-col gap-4">
+                    <p className="text-sm text-gray-600">
+                      Describe tu tarea personal:
+                    </p>
+                    <input
+                      type="text"
+                      value={newDailyTask}
+                      onChange={(e) => setNewDailyTask(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newDailyTask.trim()) {
+                          addDailyTask();
+                        }
+                      }}
+                      onBlur={() => {
+                        if (newDailyTask.trim()) {
+                          addDailyTask();
+                        }
+                      }}
+                      placeholder="¿Qué tarea personal quieres realizar hoy?"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={resetAddTaskForm}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Lista de tareas del proyecto y opción nueva */
+                  <div className="flex flex-col gap-4">
+                    {selectedProjectTasks.length > 0 && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Haz clic en una tarea para agregarla:
+                        </p>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {selectedProjectTasks.map(task => (
+                            <button
+                              key={task.id}
+                              onClick={() => addExistingProjectTask(task.id)}
+                              className="w-full p-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left transition-colors group"
+                            >
+                              <div className="font-medium text-gray-900 group-hover:text-blue-900">{task.title || task.text}</div>
+                              {task.estimated_hours && (
+                                <div className="text-sm text-gray-500 mt-1">
+                                  Est: {formatHours(task.estimated_hours)}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Botón para nueva tarea tipo Trello */}
+                    {!showNewTaskInput ? (
+                      <button
+                        onClick={() => setShowNewTaskInput(true)}
+                        className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 text-gray-600 hover:text-gray-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Plus size={16} />
+                        <span>Nueva tarea</span>
+                      </button>
+                    ) : (
+                      <input
+                        type="text"
+                        value={newDailyTask}
+                        onChange={(e) => setNewDailyTask(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newDailyTask.trim()) {
+                            addNewTaskToProject();
+                          }
+                          if (e.key === 'Escape') {
+                            setShowNewTaskInput(false);
+                            setNewDailyTask('');
+                          }
+                        }}
+                        onBlur={() => {
+                          if (newDailyTask.trim()) {
+                            addNewTaskToProject();
+                          } else {
+                            setShowNewTaskInput(false);
+                          }
+                        }}
+                        placeholder="Describe la nueva tarea..."
+                        className="w-full p-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    )}
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={resetAddTaskForm}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
