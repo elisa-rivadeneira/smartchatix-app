@@ -2117,9 +2117,81 @@ const PersonalCoachAssistant = () => {
     }
   };
 
+  // Función para búsqueda inteligente de proyectos (tolerante a tildes y variaciones)
+  const findProjectByTitle = (searchTitle) => {
+    if (!searchTitle) return null;
+
+    // Normalizar texto removiendo tildes y caracteres especiales
+    const normalize = (str) => {
+      return str.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remover tildes
+        .replace(/[^a-z0-9\s]/g, '') // Remover caracteres especiales
+        .replace(/\s+/g, ' ') // Normalizar espacios
+        .trim();
+    };
+
+    const normalizedSearch = normalize(searchTitle);
+
+    // Buscar coincidencia exacta primero
+    let project = projects.find(p => normalize(p.title) === normalizedSearch);
+
+    // Si no encuentra exacta, buscar que contenga las palabras principales
+    if (!project) {
+      const searchWords = normalizedSearch.split(' ').filter(word => word.length > 2);
+      project = projects.find(p => {
+        const normalizedTitle = normalize(p.title);
+        return searchWords.every(word => normalizedTitle.includes(word));
+      });
+    }
+
+    // Si aún no encuentra, buscar coincidencia parcial
+    if (!project) {
+      project = projects.find(p => normalize(p.title).includes(normalizedSearch));
+    }
+
+    return project;
+  };
+
+  // Función para búsqueda inteligente de tareas dentro de un proyecto
+  const findTaskByTitle = (project, searchTitle) => {
+    if (!project || !searchTitle || !project.tasks) return null;
+
+    // Normalizar texto removiendo tildes y caracteres especiales
+    const normalize = (str) => {
+      return str.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remover tildes
+        .replace(/[^a-z0-9\s]/g, '') // Remover caracteres especiales
+        .replace(/\s+/g, ' ') // Normalizar espacios
+        .trim();
+    };
+
+    const normalizedSearch = normalize(searchTitle);
+
+    // Buscar coincidencia exacta primero
+    let task = project.tasks.find(t => normalize(t.title) === normalizedSearch);
+
+    // Si no encuentra exacta, buscar que contenga las palabras principales
+    if (!task) {
+      const searchWords = normalizedSearch.split(' ').filter(word => word.length > 2);
+      task = project.tasks.find(t => {
+        const normalizedTitle = normalize(t.title);
+        return searchWords.every(word => normalizedTitle.includes(word));
+      });
+    }
+
+    // Si aún no encuentra, buscar coincidencia parcial
+    if (!task) {
+      task = project.tasks.find(t => normalize(t.title).includes(normalizedSearch));
+    }
+
+    return task;
+  };
+
   const addProjectTaskFromAssistant = (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}". ¿Quieres que primero creemos ese proyecto?` };
       }
@@ -2156,12 +2228,12 @@ const PersonalCoachAssistant = () => {
 
   const updateTaskProgressFromAssistant = async (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
 
-      const task = project.tasks.find(t => t.title.toLowerCase().includes(params.task_title.toLowerCase()));
+      const task = findTaskByTitle(project, params.task_title);
       if (!task) {
         return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${project.title}".` };
       }
@@ -2193,12 +2265,12 @@ const PersonalCoachAssistant = () => {
 
   const addTaskToDailyFocusFromAssistant = (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
 
-      const task = project.tasks.find(t => t.title.toLowerCase().includes(params.task_title.toLowerCase()));
+      const task = findTaskByTitle(project, params.task_title);
       if (!task) {
         return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${project.title}".` };
       }
@@ -2372,7 +2444,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
   const updateProjectStatusFromAssistant = async (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
@@ -2430,7 +2502,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       console.log('🔍 [DEBUG] updateProjectDeadlineFromAssistant llamada con params:', params);
       console.log('🔍 [DEBUG] Fecha recibida del asistente:', params.deadline);
 
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
@@ -2477,7 +2549,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
   const updateProjectPriorityFromAssistant = async (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
@@ -2517,7 +2589,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
   const updateProjectDetailsFromAssistant = async (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
@@ -2569,7 +2641,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
   const deleteProjectFromAssistant = async (params) => {
     try {
-      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      const project = findProjectByTitle(params.project_title);
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
