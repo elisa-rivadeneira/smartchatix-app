@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual del Desarrollador - Smartchatix Project Manager</title>
+    <style>
+        /* Estilos inspirados en el tema synthwave de tu app */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0033 25%, #2a1458 50%, #0a0a0a 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9));
+            border-bottom: 3px solid #ff00ff;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00ffff 0%, #ff00ff 25%, #ffff00 50%, #ff00ff 75%, #00ffff 100%);
+            background-size: 200% 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            animation: synthwave-glow 4s ease-in-out infinite;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes synthwave-glow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        nav {
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px solid #ff00ff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        nav h2 {
+            color: #ff00ff;
+            margin-bottom: 1rem;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        nav ul {
+            list-style: none;
+            columns: 2;
+            gap: 2rem;
+        }
+
+        nav li {
+            margin-bottom: 0.5rem;
+            break-inside: avoid;
+        }
+
+        nav a {
+            color: #00ffff;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: block;
+            padding: 0.5rem;
+            border-radius: 5px;
+        }
+
+        nav a:hover {
+            background: rgba(0, 255, 255, 0.2);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            transform: translateX(10px);
+        }
+
+        section {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(5px);
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #ff00ff;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+            border-bottom: 2px solid #ff00ff;
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: #00ffff;
+            font-size: 1.4rem;
+            margin: 1.5rem 0 1rem 0;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        h4 {
+            color: #ffff00;
+            margin: 1rem 0 0.5rem 0;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        ul, ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #ff00ff;
+            border-radius: 5px;
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            color: #00ffff;
+            font-family: 'Courier New', monospace;
+        }
+
+        code {
+            background: rgba(255, 0, 255, 0.2);
+            color: #00ffff;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .architecture-diagram {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            font-family: monospace;
+            color: #00ffff;
+            text-align: center;
+            margin: 1rem 0;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .feature-card {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid #00ffff;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 0.5rem;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .tech-category {
+            background: rgba(255, 255, 0, 0.1);
+            border: 1px solid #ffff00;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .tech-category h4 {
+            color: #ffff00;
+            border-bottom: 1px solid #ffff00;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .command-box {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #00ff00;
+            font-family: monospace;
+        }
+
+        .future-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .future-item {
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            border-radius: 5px;
+            padding: 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #ff00ff;
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+        }
+
+        .back-to-top:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+        }
+
+        @media (max-width: 768px) {
+            nav ul {
+                columns: 1;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Manual del Desarrollador</h1>
+            <p class="subtitle">Smartchatix Project Manager</p>
+        </header>
+
+        <nav>
+            <h2>📋 Índice de Contenidos</h2>
+            <ul>
+                <li><a href="#vision-general">🎯 Visión General</a></li>
+                <li><a href="#arquitectura">🏗️ Arquitectura del Sistema</a></li>
+                <li><a href="#estructura">📁 Estructura de Archivos</a></li>
+                <li><a href="#tecnologias">🛠️ Tecnologías Utilizadas</a></li>
+                <li><a href="#funcionalidades">⚡ Funcionalidades Principales</a></li>
+                <li><a href="#base-datos">🗄️ Base de Datos</a></li>
+                <li><a href="#api-endpoints">🔗 API Endpoints</a></li>
+                <li><a href="#estados">🎛️ Estados y Gestión de Datos</a></li>
+                <li><a href="#timers">⏰ Sistema de Timers</a></li>
+                <li><a href="#autenticacion">🔐 Sistema de Autenticación</a></li>
+                <li><a href="#configuracion">⚙️ Configuración y Personalización</a></li>
+                <li><a href="#comandos">💻 Comandos de Desarrollo</a></li>
+                <li><a href="#mejoras">🚀 Mejoras Futuras</a></li>
+            </ul>
+        </nav>
+
+        <section id="vision-general">
+            <h2>🎯 Visión General</h2>
+            <p><strong>Smartchatix Project Manager</strong> es una aplicación completa de gestión de proyectos y productividad personal que combina:</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4><span class="emoji">✅</span>Gestión de Proyectos</h4>
+                    <p>Crear, organizar y trackear proyectos con métricas avanzadas</p>
+                </div>
+                <div class="feature-card">
+                    <h4><span class="emoji">⏱️</span>Sistema de Timers</h4>
+                    <p>Cronómetro inteligente con persistencia y modos de trabajo</p>
+                </div>
+                <div class="feature-card">
+                    <h4><span class="emoji">🤖</span>Asistente IA</h4>
+                    <p>Coach personal integrado con OpenAI</p>
+                </div>
+                <div class="feature-card">
+                    <h4><span class="emoji">📊</span>Analytics</h4>
+                    <p>Métricas de tiempo y productividad</p>
+                </div>
+                <div class="feature-card">
+                    <h4><span class="emoji">🎨</span>UI Retro-Futurista</h4>
+                    <p>Diseño Synthwave de los 80s</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="arquitectura">
+            <h2>🏗️ Arquitectura del Sistema</h2>
+
+            <div class="architecture-diagram">
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   FRONTEND      │    │    BACKEND      │    │   DATABASE      │
+│   React SPA     │◄──►│   Express.js    │◄──►│   SQLite        │
+│   - manager.jsx │    │   - server.js   │    │   - users.db    │
+│   - Vite        │    │   - Auth Routes │    │   - Tables      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  PERSISTENCIA   │    │   APIs EXTERNAS │    │   SEGURIDAD     │
+│  - localStorage │    │   - OpenAI      │    │   - JWT Tokens  │
+│  - Timer States │    │   - Text-to-Speech │  │   - bcrypt      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+            </div>
+        </section>
+
+        <section id="estructura">
+            <h2>📁 Estructura de Archivos</h2>
+            <pre><code>project_manager/
+├── 📄 manager.jsx              # Componente principal (7000+ líneas)
+├── 📄 server.js               # Servidor Express
+├── 📄 package.json            # Dependencias y scripts
+├── 📄 vite.config.js          # Configuración de Vite
+├── 📄 index.html              # Punto de entrada
+├── 📁 src/
+│   ├── 📁 components/
+│   │   └── Auth.jsx           # Componente de autenticación
+│   ├── 📁 hooks/
+│   │   └── useAuth.js         # Hook de autenticación
+│   ├── 📁 config/
+│   │   └── promptConfig.js    # Configuración de prompts IA
+│   └── 📁 routes/
+│       └── authRoutes.js      # Rutas API autenticadas
+├── 📁 data/
+│   └── users.db              # Base de datos SQLite
+└── 📁 docs/
+    └── manual.html           # Este archivo</code></pre>
+        </section>
+
+        <section id="tecnologias">
+            <h2>🛠️ Tecnologías Utilizadas</h2>
+
+            <div class="tech-stack">
+                <div class="tech-category">
+                    <h4>Frontend</h4>
+                    <ul>
+                        <li><strong>React 18</strong>: Framework principal</li>
+                        <li><strong>Vite</strong>: Build tool y dev server</li>
+                        <li><strong>Tailwind CSS</strong>: Framework de estilos</li>
+                        <li><strong>Lucide React</strong>: Iconografía</li>
+                        <li><strong>React Markdown</strong>: Renderizado de markdown</li>
+                    </ul>
+                </div>
+
+                <div class="tech-category">
+                    <h4>Backend</h4>
+                    <ul>
+                        <li><strong>Node.js</strong>: Runtime de JavaScript</li>
+                        <li><strong>Express.js</strong>: Framework web</li>
+                        <li><strong>SQLite3</strong>: Base de datos</li>
+                        <li><strong>JWT</strong>: Autenticación</li>
+                        <li><strong>bcryptjs</strong>: Hashing de contraseñas</li>
+                        <li><strong>CORS</strong>: Cross-Origin Resource Sharing</li>
+                    </ul>
+                </div>
+
+                <div class="tech-category">
+                    <h4>APIs Externas</h4>
+                    <ul>
+                        <li><strong>OpenAI API</strong>: Inteligencia artificial</li>
+                        <li><strong>Web Speech API</strong>: Síntesis de voz</li>
+                        <li><strong>SpeechRecognition API</strong>: Reconocimiento de voz</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="funcionalidades">
+            <h2>⚡ Funcionalidades Principales</h2>
+
+            <h3>1. Gestión de Proyectos</h3>
+            <pre><code>// Estructura de un proyecto
+const project = {
+  id: "uuid",
+  name: "Nombre del Proyecto",
+  description: "Descripción",
+  status: "active", // active, completed, paused
+  priority: "high", // high, medium, low
+  deadline: "2024-12-31",
+  estimatedHours: 40,
+  actualHours: 25,
+  progress: 62.5,
+  createdAt: "2024-01-01",
+  tasks: [/* array de tareas */]
+}</code></pre>
+
+            <h3>2. Sistema de Tareas</h3>
+            <pre><code>// Estructura de una tarea
+const task = {
+  id: "timestamp_or_uuid",
+  title: "Título de la tarea",
+  text: "Descripción",
+  completed: false,
+  progress: 0,
+  estimatedHours: 2,
+  actualHours: 1.5,
+  projectId: "uuid_proyecto", // null para tareas personales
+  projectTaskId: "uuid_tarea_proyecto",
+  timeStarted: "timestamp",
+  createdAt: "2024-01-01"
+}</code></pre>
+
+            <h3>3. Sistema de Timers Inteligente</h3>
+            <pre><code>// Estados del timer
+const timerStates = {
+  activeTimers: {}, // {taskId: startTime}
+  pausedTimers: {}, // {taskId: accumulatedTime}
+  timerIntervals: {}, // {taskId: intervalId}
+  timerMode: "una_tarea" // "una_tarea" o "multiples"
+}</code></pre>
+        </section>
+
+        <section id="base-datos">
+            <h2>🗄️ Base de Datos</h2>
+
+            <h3>Esquema de Tablas</h3>
+
+            <h4>Tabla: users</h4>
+            <pre><code>CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  name TEXT,
+  avatar TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+
+            <h4>Tabla: projects</h4>
+            <pre><code>CREATE TABLE projects (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'active',
+  priority TEXT DEFAULT 'medium',
+  deadline DATE,
+  estimated_hours REAL,
+  actual_hours REAL,
+  progress REAL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);</code></pre>
+
+            <h4>Tabla: project_tasks</h4>
+            <pre><code>CREATE TABLE project_tasks (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  completed BOOLEAN DEFAULT 0,
+  progress REAL DEFAULT 0,
+  estimated_hours REAL,
+  actual_hours REAL,
+  time_started DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);</code></pre>
+
+            <h4>Tabla: daily_tasks</h4>
+            <pre><code>CREATE TABLE daily_tasks (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT 0,
+  project_id TEXT,
+  project_task_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (project_task_id) REFERENCES project_tasks(id)
+);</code></pre>
+        </section>
+
+        <section id="api-endpoints">
+            <h2>🔗 API Endpoints</h2>
+
+            <h3>Autenticación</h3>
+            <pre><code>POST /api/auth/register    // Registro de usuario
+POST /api/auth/login       // Iniciar sesión
+GET  /api/auth/verify      // Verificar token
+GET  /api/auth/profile     // Obtener perfil
+PUT  /api/auth/change-password // Cambiar contraseña</code></pre>
+
+            <h3>Proyectos</h3>
+            <pre><code>GET    /api/auth/projects           // Listar proyectos
+POST   /api/auth/projects           // Crear proyecto
+PUT    /api/auth/projects/:id       // Actualizar proyecto
+DELETE /api/auth/projects/:id       // Eliminar proyecto</code></pre>
+
+            <h3>Tareas de Proyecto</h3>
+            <pre><code>GET    /api/auth/project-tasks      // Listar tareas
+POST   /api/auth/project-tasks      // Crear tarea
+PUT    /api/auth/project-tasks/:id  // Actualizar tarea
+DELETE /api/auth/project-tasks/:id  // Eliminar tarea</code></pre>
+
+            <h3>Tareas Diarias</h3>
+            <pre><code>POST   /api/auth/daily-tasks        // Crear tarea diaria
+DELETE /api/auth/daily-tasks/:id    // Eliminar tarea diaria</code></pre>
+
+            <h3>Asistente IA</h3>
+            <pre><code>POST /api/auth/assistant-config     // Guardar configuración
+POST /api/auth/assistant-chat       // Chat con IA</code></pre>
+        </section>
+
+        <section id="timers">
+            <h2>⏰ Sistema de Timers</h2>
+
+            <h3>Modos de Timer</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4><span class="emoji">🎯</span>Una tarea a la vez</h4>
+                    <p>Pausa automáticamente otras tareas al iniciar una nueva. Ideal para concentración profunda.</p>
+                </div>
+                <div class="feature-card">
+                    <h4><span class="emoji">🔄</span>Varias tareas a la vez</h4>
+                    <p>Permite múltiples timers simultáneos con confirmación. Perfecto para multitasking.</p>
+                </div>
+            </div>
+
+            <h3>Funciones Principales</h3>
+            <pre><code>// Iniciar Timer
+const startTimer = (taskId) => {
+  // Verificar modo de timer y alertas
+  // Crear timestamp y guardar en activeTimers
+  // Crear intervalo para actualización en tiempo real
+  // Persistir en localStorage
+};
+
+// Calcular tiempo transcurrido
+const getTimerDisplay = (taskId) => {
+  // Combinar tiempo pausado + tiempo activo
+  // Formatear como HH:MM:SS
+  return "01:23:45";
+};</code></pre>
+
+            <h3>Persistencia</h3>
+            <p>Los timers se mantienen activos incluso después de refrescar la página gracias a:</p>
+            <ul>
+                <li><strong>localStorage</strong>: Guarda estados de timers</li>
+                <li><strong>useEffect</strong>: Restaura timers al cargar</li>
+                <li><strong>Intervalos</strong>: Reanuda conteo automáticamente</li>
+            </ul>
+        </section>
+
+        <section id="autenticacion">
+            <h2>🔐 Sistema de Autenticación</h2>
+
+            <h3>JWT Authentication</h3>
+            <pre><code>// Middleware de autenticación
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+    req.user = user;
+    next();
+  });
+};</code></pre>
+
+            <h3>Hook de Autenticación</h3>
+            <pre><code>// useAuth.js
+const useAuth = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const login = async (email, password) => {
+    // Hacer petición al API
+    // Guardar token en localStorage
+    // Actualizar estado del usuario
+  };
+
+  return { user, loading, login, logout, register };
+};</code></pre>
+        </section>
+
+        <section id="comandos">
+            <h2>💻 Comandos de Desarrollo</h2>
+
+            <h3>Scripts Disponibles</h3>
+            <div class="command-box">
+# Desarrollo
+npm run dev          # Inicia Vite dev server (puerto 5173)
+npm run server       # Inicia Express server (puerto 3001)
+npm run dev:full     # Build + Start server
+
+# Producción
+npm run build        # Build para producción
+npm run preview      # Preview del build
+npm run prod         # Build + Start
+npm start           # Alias para npm run server
+            </div>
+
+            <h3>Configuración de Desarrollo</h3>
+            <pre><code>// vite.config.js
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': 'http://localhost:3001'
+    }
+  }
+});</code></pre>
+
+            <h3>Variables de Entorno</h3>
+            <pre><code>// server.js
+const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'your-openai-key';</code></pre>
+        </section>
+
+        <section id="mejoras">
+            <h2>🚀 Mejoras Futuras</h2>
+
+            <h3>Funcionalidades Pendientes</h3>
+            <div class="future-features">
+                <div class="future-item">📱 <strong>Mobile App</strong><br>React Native o PWA</div>
+                <div class="future-item">☁️ <strong>Cloud Sync</strong><br>Sincronización en la nube</div>
+                <div class="future-item">👥 <strong>Colaboración</strong><br>Proyectos compartidos</div>
+                <div class="future-item">📊 <strong>Analytics Avanzados</strong><br>Dashboards de productividad</div>
+                <div class="future-item">🔔 <strong>Notificaciones</strong><br>Push notifications</div>
+                <div class="future-item">📅 <strong>Calendario</strong><br>Integración con Google Calendar</div>
+                <div class="future-item">🎯 <strong>Gamificación</strong><br>Sistema de logros y puntos</div>
+                <div class="future-item">🔄 <strong>Integrations</strong><br>Slack, Trello, GitHub, etc.</div>
+                <div class="future-item">🎨 <strong>Temas Personalizables</strong><br>Más opciones de UI</div>
+                <div class="future-item">🤖 <strong>IA Avanzada</strong><br>Sugerencias automáticas</div>
+            </div>
+
+            <h3>Optimizaciones Técnicas</h3>
+            <div class="future-features">
+                <div class="future-item">⚡ <strong>Performance</strong><br>Code splitting, lazy loading</div>
+                <div class="future-item">🔧 <strong>Testing</strong><br>Unit tests, E2E tests</div>
+                <div class="future-item">📦 <strong>Bundle Size</strong><br>Optimización de dependencias</div>
+                <div class="future-item">🛡️ <strong>Security</strong><br>Rate limiting, input validation</div>
+                <div class="future-item">📱 <strong>PWA</strong><br>Service workers, offline mode</div>
+                <div class="future-item">🔍 <strong>SEO</strong><br>Meta tags, structured data</div>
+                <div class="future-item">♿ <strong>Accessibility</strong><br>ARIA, keyboard navigation</div>
+                <div class="future-item">🌍 <strong>i18n</strong><br>Internacionalización</div>
+            </div>
+        </section>
+
+        <section>
+            <h2>🎯 Conclusión</h2>
+            <p>Este sistema es una aplicación completa de gestión de productividad con características avanzadas como:</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <p>✅ <strong>Timer inteligente</strong> con persistencia y modos de trabajo</p>
+                </div>
+                <div class="feature-card">
+                    <p>🤖 <strong>IA integrada</strong> para coaching personal</p>
+                </div>
+                <div class="feature-card">
+                    <p>🎨 <strong>UI moderna</strong> con tema retro-futurista</p>
+                </div>
+                <div class="feature-card">
+                    <p>🔐 <strong>Autenticación segura</strong> con JWT</p>
+                </div>
+                <div class="feature-card">
+                    <p>📊 <strong>Tracking de tiempo</strong> y métricas</p>
+                </div>
+                <div class="feature-card">
+                    <p>🎤 <strong>Interfaz de voz</strong> (texto a voz y reconocimiento)</p>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 2rem; font-size: 1.2rem; color: #00ffff;">
+                <strong>¡Felicidades por crear una aplicación tan completa y profesional!</strong> 🎉
+            </p>
+        </section>
+    </div>
+
+    <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Volver arriba">
+        ↑
+    </button>
+
+    <script>
+        // Smooth scrolling para enlaces internos
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Mostrar/ocultar botón de volver arriba
+        window.addEventListener('scroll', function() {
+            const backToTop = document.querySelector('.back-to-top');
+            if (window.pageYOffset > 300) {
+                backToTop.style.display = 'block';
+            } else {
+                backToTop.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
