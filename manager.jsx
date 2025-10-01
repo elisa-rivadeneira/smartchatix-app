@@ -688,8 +688,10 @@ const PersonalCoachAssistant = () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
 
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
+      // Configuración específica para móvil vs desktop
+      const mobile = isMobile();
+      recognitionRef.current.continuous = !mobile; // En móvil, no usar continuous
+      recognitionRef.current.interimResults = !mobile; // En móvil, solo resultados finales
       recognitionRef.current.lang = 'es-ES';
       recognitionRef.current.maxAlternatives = 1;
 
@@ -713,6 +715,7 @@ const PersonalCoachAssistant = () => {
       };
 
       recognitionRef.current.onresult = (event) => {
+        const mobile = isMobile();
         let finalTranscript = '';
         let interimTranscript = '';
 
@@ -720,19 +723,27 @@ const PersonalCoachAssistant = () => {
           const result = event.results[i];
           if (result.isFinal) {
             finalTranscript += result[0].transcript;
-          } else {
+          } else if (!mobile) { // Solo usar interim en desktop
             interimTranscript += result[0].transcript;
           }
         }
 
-        // Acumular el texto final
-        if (finalTranscript) {
-          finalTranscriptRef.current += finalTranscript + ' ';
-        }
+        if (mobile) {
+          // En móvil: solo usar resultados finales y no acumular
+          if (finalTranscript) {
+            const cleanedText = finalTranscript.trim();
+            finalTranscriptRef.current = cleanedText; // No acumular, reemplazar
+            setNewMessage(cleanedText);
+          }
+        } else {
+          // En desktop: comportamiento original
+          if (finalTranscript) {
+            finalTranscriptRef.current += finalTranscript + ' ';
+          }
 
-        // Mostrar el texto acumulado + el texto temporal
-        const fullText = (finalTranscriptRef.current + interimTranscript).trim();
-        setNewMessage(fullText);
+          const fullText = (finalTranscriptRef.current + interimTranscript).trim();
+          setNewMessage(fullText);
+        }
 
         // Resetear timeout para detener grabación después de pausa
         if (timeoutRef.current) {
@@ -740,7 +751,8 @@ const PersonalCoachAssistant = () => {
           console.log('Timeout reseteado - nueva actividad detectada');
         }
 
-        // Si no hay actividad por 2 segundos, terminar la grabación
+        // Timeout más corto en móvil
+        const timeoutDuration = mobile ? 1500 : 2000;
         timeoutRef.current = setTimeout(() => {
           console.log('Timeout ejecutado - deteniendo reconocimiento');
           if (recognitionRef.current) {
@@ -750,7 +762,7 @@ const PersonalCoachAssistant = () => {
               console.log('Reconocimiento ya detenido');
             }
           }
-        }, 2000);
+        }, timeoutDuration);
       };
 
       recognitionRef.current.onerror = (event) => {
