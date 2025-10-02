@@ -134,6 +134,32 @@ style.textContent = `
       inset 0 0 20px rgba(255, 255, 255, 0.2);
     animation: retroWave 6s ease-in-out infinite;
   }
+
+  /* Mobile responsive modal styles */
+  @media (max-width: 768px) {
+    .project-modal {
+      max-height: 90vh !important;
+      height: auto !important;
+      padding: 15px !important;
+      margin: 10px !important;
+      width: calc(100vw - 20px) !important;
+      max-width: calc(100vw - 20px) !important;
+    }
+
+    .project-modal-content {
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+
+    .project-modal-footer {
+      position: sticky !important;
+      bottom: 0 !important;
+      background: white !important;
+      padding-top: 15px !important;
+      margin-top: 15px !important;
+      border-top: 1px solid #e5e7eb !important;
+    }
+  }
 `;
 document.head.appendChild(style);
 
@@ -5182,7 +5208,8 @@ ${functionResult.data.projects.map(project => `
   const headerStyles = getHeaderStyles(currentTheme);
 
   return (
-    <div className={`min-h-screen flex flex-col ${themeStyles.className}`} style={{
+    <>
+      <div className={`min-h-screen flex flex-col ${themeStyles.className}`} style={{
       background: themeStyles.background,
       backgroundSize: themeStyles.backgroundSize,
       animation: themeStyles.animation,
@@ -5865,20 +5892,24 @@ ${functionResult.data.projects.map(project => `
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px'
+            padding: '10px'
           }}
           onClick={() => setShowProjectDetailModal(false)}
         >
           <div
+            className="project-modal"
             style={{
               backgroundColor: 'white',
               borderRadius: '10px',
-              padding: '30px',
+              padding: window.innerWidth <= 768 ? '20px' : '30px',
               maxWidth: '600px',
-              width: '90%',
-              maxHeight: '80vh',
+              width: '95%',
+              maxHeight: window.innerWidth <= 768 ? '90vh' : '80vh',
               overflow: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -5960,6 +5991,9 @@ ${functionResult.data.projects.map(project => `
                 ✕
               </button>
             </div>
+
+            {/* Contenido scrolleable */}
+            <div className="project-modal-content" style={{ flex: 1, overflow: 'auto' }}>
 
             {/* Descripción del proyecto */}
             {selectedProject?.description && (
@@ -6788,6 +6822,19 @@ ${functionResult.data.projects.map(project => `
                   Eliminar Proyecto
                 </button>
               </div>
+
+            </div>
+            {/* End of scrollable content */}
+
+            {/* Footer sticky */}
+            <div className="project-modal-footer" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingTop: '15px',
+              marginTop: '15px',
+              borderTop: '1px solid #e5e7eb'
+            }}>
               <div style={{
                 fontSize: '14px',
                 color: '#6b7280',
@@ -6823,6 +6870,8 @@ ${functionResult.data.projects.map(project => `
                 Cerrar
               </button>
             </div>
+            {/* End of footer */}
+
           </div>
         </div>
       )}
