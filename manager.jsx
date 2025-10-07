@@ -5316,9 +5316,9 @@ ${functionResult.data.projects.map(project => `
 
       {/* Modal de Configuración del Asistente */}
       {showAssistantModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800 flex items-center">
                   <Settings className="mr-2" size={24} />
@@ -5542,9 +5542,9 @@ ${functionResult.data.projects.map(project => `
       {/* Modal de Perfil de Usuario */}
       {showUserProfileModal && (
         <>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800 flex items-center">
                   <User className="mr-2" size={24} />
@@ -5756,9 +5756,9 @@ ${functionResult.data.projects.map(project => `
 
       {/* Modal para crear nuevo proyecto */}
       {showCreateProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-gray-900">Crear Nuevo Proyecto</h3>
                 <button
@@ -6831,7 +6831,7 @@ ${functionResult.data.projects.map(project => `
 
       {/* Chat Bubble Flotante para Asistente IA */}
       {chatBubbleOpen && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 w-[90vw] max-w-96 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col md:left-auto md:right-6 md:transform-none md:translate-x-0 md:w-96">
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-sm h-80 sm:h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col md:left-auto md:right-6 md:transform-none md:translate-x-0 md:w-96 md:h-96">
           {/* Header del Chat */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
             <div className="flex items-center space-x-2">
@@ -7006,8 +7006,8 @@ ${functionResult.data.projects.map(project => `
 
       {/* Modal de tiempo real al completar tarea */}
       {showTimeModal && completingTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4 text-gray-800">
               ¡Tarea completada! 🎉
             </h3>
@@ -7071,8 +7071,8 @@ ${functionResult.data.projects.map(project => `
 
       {/* Modal para editar tarea usando Portal */}
       {showEditTaskModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" style={{zIndex: 99999999}}>
-          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4" style={{zIndex: 99999999}}>
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Editar Tarea
             </h3>
@@ -7382,8 +7382,8 @@ ${functionResult.data.projects.map(project => `
 
       {/* Modal de selección de proyecto y tareas */}
       {showProjectSelectionModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-90vw mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
             {modalStep === 1 ? (
               /* Paso 1: Seleccionar Proyecto */
               <>
