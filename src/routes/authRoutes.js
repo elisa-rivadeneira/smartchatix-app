@@ -62,7 +62,34 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const user = await userDB.verifyToken(token);
+    // Primero intentar verificar como token normal
+    let user;
+    try {
+      user = await userDB.verifyToken(token);
+    } catch (normalTokenError) {
+      // Si falla, intentar como token de Google OAuth
+      try {
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'tu_jwt_secret_super_seguro_aqui';
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        // Si es un token de Google OAuth, crear objeto de usuario
+        if (decoded.provider === 'google') {
+          user = {
+            id: decoded.googleId,
+            email: decoded.email,
+            name: decoded.name || 'Usuario Google',
+            avatar: null,
+            provider: 'google'
+          };
+        } else {
+          throw new Error('Token no válido');
+        }
+      } catch (googleTokenError) {
+        throw normalTokenError; // Usar el error original
+      }
+    }
+
     console.log(`✅ Token válido para usuario: ${user.email}`);
     req.user = user;
     next();

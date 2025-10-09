@@ -1,6 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const AssistantManager = require('./src/assistantManager');
 const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
 
@@ -81,7 +85,109 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Configuración de sesiones
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'tu_session_secret_super_seguro_aqui',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // En producción cambiar a true con HTTPS
+}));
+
+// Configuración de Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Configurar estrategia de Google OAuth
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: "/auth/google/callback"
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    // Aquí guardarías el usuario en tu base de datos
+    // Por ahora, devolvemos el perfil directamente
+    const user = {
+      id: profile.id,
+      email: profile.emails[0].value,
+      name: profile.displayName,
+      picture: profile.photos[0].value,
+      googleId: profile.id
+    };
+    return done(null, user);
+  } catch (error) {
+    return done(error, null);
+  }
+}));
+
+// Serialización de usuario para sesiones
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
 app.use(express.static('dist'));
+
+// Google OAuth routes
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    try {
+      // Generar token JWT para el usuario de Google
+      const jwt = require('jsonwebtoken');
+      const JWT_SECRET = process.env.JWT_SECRET || 'tu_jwt_secret_super_seguro_aqui';
+
+      const token = jwt.sign(
+        {
+          id: req.user.id,
+          email: req.user.email,
+          googleId: req.user.googleId,
+          provider: 'google'
+        },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      // Determinar URL del frontend
+      const frontendUrl = process.env.NODE_ENV === 'production'
+        ? 'https://app.smartchatix.com'
+        : 'http://localhost:5173';
+
+      // Redireccionar al frontend con éxito y token
+      res.redirect(`${frontendUrl}/?login=success&user=${encodeURIComponent(JSON.stringify(req.user))}&token=${encodeURIComponent(token)}`);
+    } catch (error) {
+      console.error('Error generating token for Google user:', error);
+      const frontendUrl = process.env.NODE_ENV === 'production'
+        ? 'https://app.smartchatix.com'
+        : 'http://localhost:5173';
+      res.redirect(`${frontendUrl}/?error=auth_failed`);
+    }
+  }
+);
+
+app.get('/auth/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error al cerrar sesión' });
+    }
+    res.redirect('/');
+  });
+});
+
+app.get('/auth/user', (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json(req.user);
+  } else {
+    res.status(401).json({ error: 'No autenticado' });
+  }
+});
 
 // Auth routes
 app.use('/api/auth', authRoutes);
