@@ -3524,23 +3524,47 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
       console.log('🔍 [DEBUG] Cuerpo de la petición a OpenAI:', requestBody);
 
-      // Llamada a OpenAI API con autenticación
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Llamada a Gemini API
+      const geminiRequestBody = {
+        contents: [
+          {
+            parts: [
+              {
+                text: `Contexto: Eres un coach motivacional, aliado estratégico y asistente de proyectos. Tu rol es ayudar al usuario a gestionar proyectos, motivarlos y dar consejos estratégicos.
+
+Sistema prompt: ${await buildSystemPrompt() || 'Eres un asistente personal útil.'}
+
+Historial de conversación:
+${formatConversationHistory().map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+
+Usuario: ${currentMessage}`
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 1,
+          topP: 1,
+          maxOutputTokens: 1000,
+        }
+      };
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(geminiRequestBody)
       });
 
       if (!response.ok) {
-        throw new Error(`Error de OpenAI: ${response.status}`);
+        throw new Error(`Error de Gemini: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('🔍 [DEBUG] Respuesta completa de OpenAI:', result);
-      const message = result.choices[0].message;
+      console.log('🔍 [DEBUG] Respuesta completa de Gemini:', result);
+      const message = { content: result.candidates[0].content.parts[0].text };
       console.log('🔍 [DEBUG] Mensaje del asistente:', message);
 
       let assistantResponse = message.content;
