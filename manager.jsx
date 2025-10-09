@@ -3500,95 +3500,84 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
     setIsAssistantTyping(true);
 
     try {
-      console.log('🔍 [DEBUG] Enviando funciones al asistente:', assistantFunctions);
       console.log('🔍 [DEBUG] Mensaje del usuario:', currentMessage);
 
-      const requestBody = {
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: await buildSystemPrompt() || 'Eres un asistente personal útil.'
-          },
-          ...formatConversationHistory(),
-          {
-            role: 'user',
-            content: currentMessage || 'Hola'
-          }
-        ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
-        functions: assistantFunctions,
-        function_call: "auto",
-        max_tokens: 1000,
-        temperature: 0.7
-      };
+      // Detectar si el usuario quiere usar funciones de base de datos
+      const functionKeywords = [
+        'proyectos', 'proyecto', 'tarea', 'tareas', 'progreso', 'estado de proyectos',
+        'mostrar proyectos', 'listar proyectos', 'crear proyecto', 'nuevo proyecto',
+        'agregar tarea', 'añadir tarea', 'actualizar', 'cambiar prioridad', 'fecha límite',
+        'deadline', 'eliminar proyecto', 'completar proyecto', 'enfoque diario', 'tareas pendientes',
+        'que proyectos', 'cuáles proyectos', 'status', 'resumen', 'actualiz', 'al ', '%',
+        'terminado', 'acabar', 'completar', 'listo', 'lanzar', 'lanzamiento'
+      ];
 
-      console.log('🔍 [DEBUG] Cuerpo de la petición a OpenAI:', requestBody);
+      const needsFunctionCall = functionKeywords.some(keyword =>
+        currentMessage.toLowerCase().includes(keyword)
+      );
 
-      // Llamada a Gemini API
-      const geminiRequestBody = {
-        contents: [
-          {
-            parts: [
-              {
-                text: `Contexto: Eres un coach motivacional, aliado estratégico y asistente de proyectos. Tu rol es ayudar al usuario a gestionar proyectos, motivarlos y dar consejos estratégicos.
+      console.log('🔍 [DEBUG] Mensaje en minúsculas:', currentMessage.toLowerCase());
+      console.log('🔍 [DEBUG] ¿Necesita función?', needsFunctionCall);
+      console.log('🔍 [DEBUG] Palabras clave encontradas:', functionKeywords.filter(keyword =>
+        currentMessage.toLowerCase().includes(keyword)
+      ));
 
-Sistema prompt: ${await buildSystemPrompt() || 'Eres un asistente personal útil.'}
-
-Historial de conversación:
-${formatConversationHistory().map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-
-Usuario: ${currentMessage}`
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 1,
-          topP: 1,
-          maxOutputTokens: 1000,
-        }
-      };
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(geminiRequestBody)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error de Gemini: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('🔍 [DEBUG] Respuesta completa de Gemini:', result);
-      const message = { content: result.candidates[0].content.parts[0].text };
-      console.log('🔍 [DEBUG] Mensaje del asistente:', message);
-
-      let assistantResponse = message.content;
+      let assistantResponse = '';
       let functionResults = [];
 
-      // Verificar si hay function calls
-      if (message.function_call) {
-        console.log('🔍 [DEBUG] Function call detectado:', message.function_call);
-        const functionName = message.function_call.name;
-        const functionArgs = JSON.parse(message.function_call.arguments);
+      if (needsFunctionCall) {
+        console.log('🔍 [DEBUG] Detectada solicitud de función de base de datos');
 
-        // Ejecutar la función
-        const functionResult = await executeAssistantFunction(functionName, functionArgs);
-        console.log('🔍 [DEBUG] Resultado de executeAssistantFunction:', functionResult);
+        // Detectar qué función específica necesita ejecutar
+        let functionToExecute = '';
+        let parameters = {};
+
+        const lowerMessage = currentMessage.toLowerCase();
+
+        // Detectar actualizaciones de progreso
+        const progressMatch = lowerMessage.match(/(?:actualiz|actualic|actualizar|actualizarlo|al|hasta el?)\s*(\d+)%/);
+
+        if (progressMatch) {
+          console.log('🔍 [DEBUG] Detectado cambio de progreso:', progressMatch[1] + '%');
+          // Primero obtener estado actual para saber qué proyecto/tarea actualizar
+          const currentStatus = await executeAssistantFunction('get_projects_status', {});
+
+          if (currentStatus.success && currentStatus.data.projects.length > 0) {
+            // Buscar la tarea más reciente o en progreso
+            const activeProject = currentStatus.data.projects.find(p => p.status === 'activo') || currentStatus.data.projects[0];
+            const recentTask = activeProject.pendingTasks[0] || activeProject.completedTasks[0];
+
+            if (recentTask) {
+              console.log('🔍 [DEBUG] Actualizando tarea:', activeProject.title, '->', recentTask.title, 'al', progressMatch[1] + '%');
+              await executeAssistantFunction('update_task_progress', {
+                project_title: activeProject.title,
+                task_title: recentTask.title,
+                progress: parseInt(progressMatch[1])
+              });
+            }
+          }
+
+          functionToExecute = 'get_projects_status'; // Luego obtener estado actualizado
+        } else if (lowerMessage.includes('proyecto') && (lowerMessage.includes('mostrar') || lowerMessage.includes('listar') || lowerMessage.includes('que') || lowerMessage.includes('cuál') || lowerMessage.includes('estado'))) {
+          functionToExecute = 'get_projects_status';
+        } else if (lowerMessage.includes('crear') && lowerMessage.includes('proyecto')) {
+          functionToExecute = 'get_projects_status';
+        } else if (lowerMessage.includes('tarea') && (lowerMessage.includes('agregar') || lowerMessage.includes('añadir'))) {
+          functionToExecute = 'get_projects_status';
+        } else {
+          functionToExecute = 'get_projects_status';
+        }
+
+        console.log('🔍 [DEBUG] Ejecutando función:', functionToExecute, parameters);
+
+        // Ejecutar la función directamente
+        const functionResult = await executeAssistantFunction(functionToExecute, parameters);
         functionResults.push(functionResult);
 
-        // Para funciones como get_projects_status, necesitamos hacer una segunda llamada con los datos
-        if (functionName === 'get_projects_status' && functionResult.success && functionResult.data) {
-          console.log('🔍 [DEBUG] Haciendo segunda llamada con datos estructurados');
-
-          // Formatear los datos para el contexto del asistente
-          console.log('🔍 [DEBUG] functionResult.data:', JSON.stringify(functionResult.data, null, 2));
-
-          const dataContext = `DATOS ACTUALES DE PROYECTOS:
+        if (functionResult.success && functionResult.data) {
+          // Crear contexto con datos actuales
+          const dataContext = `
+DATOS ACTUALES DE PROYECTOS:
 Resumen: ${functionResult.data.summary.totalActiveProjects} proyectos activos, ${functionResult.data.summary.totalPendingTasks} tareas pendientes, ${functionResult.data.summary.totalCompletedTasks} tareas completadas.
 
 Proyectos detallados:
@@ -3599,72 +3588,168 @@ ${functionResult.data.projects.map(project => `
   Tareas completadas: ${project.completedTasks.map(t => t.title).join(', ') || 'Ninguna'}
 `).join('\n')}`;
 
-          console.log('🔍 [DEBUG] dataContext enviado al asistente:', dataContext);
+          // Llamada a Gemini con contexto de datos
+          const geminiRequestBody = {
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `Eres un coach motivacional profesional y experimentado. Tu personalidad es:
+- Entusiasta y positivo, pero realista
+- Celebras los logros, por pequeños que sean
+- Haces preguntas estratégicas para ayudar a priorizar
+- Usas un lenguaje natural y conversacional
+- Te involucras emocionalmente en el progreso del usuario
 
-          // Segunda llamada a OpenAI con el contexto de datos
-          const secondRequestBody = {
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: 'system',
-                content: await buildSystemPrompt()
-              },
-              {
-                role: 'system',
-                content: dataContext
-              },
-              ...formatConversationHistory(),
-              {
-                role: 'user',
-                content: currentMessage || 'Hola'
-              },
-              {
-                role: 'assistant',
-                content: null,
-                function_call: message.function_call
-              },
-              {
-                role: 'function',
-                name: functionName,
-                content: JSON.stringify(functionResult)
+${dataContext}
+
+Historial reciente:
+${formatConversationHistory().slice(-3).map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+
+Usuario acaba de decir: "${currentMessage}"
+
+Como coach motivacional profesional:
+1. CELEBRA primero cualquier progreso o logro mencionado con entusiasmo genuino
+2. HAZ una pregunta estratégica o da un consejo práctico específico
+3. USA un tono conversacional, como si estuvieras hablando cara a cara
+4. CONECTA emocionalmente con la situación del usuario
+5. SUGIERE próximos pasos concretos
+
+Responde de manera natural y conversacional, como lo haría un coach experto que realmente se preocupa por el éxito del usuario.`
+                  }
+                ]
               }
-            ].filter(msg => msg.content !== null || msg.function_call),
-            max_tokens: 1000,
-            temperature: 0.7
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 1,
+              topP: 1,
+              maxOutputTokens: 1000,
+            }
           };
 
-          const secondResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
             },
-            body: JSON.stringify(secondRequestBody)
+            body: JSON.stringify(geminiRequestBody)
           });
 
-          if (secondResponse.ok) {
-            const secondResult = await secondResponse.json();
-            assistantResponse = secondResult.choices[0].message.content;
-            console.log('🔍 [DEBUG] Respuesta con datos estructurados:', assistantResponse);
+          if (!response.ok) {
+            throw new Error(`Error de Gemini: ${response.status}`);
+          }
+
+          const result = await response.json();
+          console.log('🔍 [DEBUG] Gemini result (con datos):', JSON.stringify(result, null, 2));
+
+          if (result.candidates && result.candidates.length > 0) {
+            const candidate = result.candidates[0];
+            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+              assistantResponse = candidate.content.parts[0].text;
+            } else if (candidate.finishReason === 'SAFETY') {
+              assistantResponse = `✅ ${functionResult.message}\n\n🛡️ La respuesta fue filtrada por seguridad. Aquí tienes los datos de tus proyectos.`;
+            } else {
+              console.error('🚨 Candidato sin contenido válido:', candidate);
+              assistantResponse = `✅ ${functionResult.message}`;
+            }
+          } else if (result.error) {
+            console.error('🚨 Error en API de Gemini:', result.error);
+            assistantResponse = `✅ ${functionResult.message}\n\n⚠️ Error en respuesta de IA: ${result.error.message}`;
           } else {
-            console.error('Error en segunda llamada a OpenAI');
-            assistantResponse = functionResult.message;
+            console.error('🚨 Estructura inesperada completa:', result);
+            assistantResponse = `✅ ${functionResult.message}`;
           }
         } else {
-          // Para otras funciones, usar el comportamiento anterior
-          console.log('🔍 [DEBUG] assistantResponse antes de procesar:', assistantResponse);
-          if (functionResult.success) {
-            assistantResponse = assistantResponse
-              ? `${assistantResponse}\n\n✅ ${functionResult.message}`
-              : `✅ ${functionResult.message}`;
-          } else {
-            assistantResponse = assistantResponse
-              ? `${assistantResponse}\n\n❌ ${functionResult.message}`
-              : `❌ ${functionResult.message}`;
-          }
+          assistantResponse = `❌ ${functionResult.message}`;
         }
-        console.log('🔍 [DEBUG] assistantResponse después de procesar:', assistantResponse);
+      } else {
+        // Llamada normal a Gemini para coaching sin funciones
+        console.log('🔍 [DEBUG] Usando llamada normal a Gemini (sin funciones)');
+
+        try {
+          const systemPrompt = await buildSystemPrompt() || 'Eres un asistente personal útil.';
+          const conversationHistory = formatConversationHistory();
+
+          console.log('🔍 [DEBUG] System prompt obtenido:', systemPrompt?.substring(0, 100) + '...');
+          console.log('🔍 [DEBUG] Conversation history:', conversationHistory?.length, 'mensajes');
+
+          const promptText = `Contexto: Eres un coach motivacional, aliado estratégico y asistente de proyectos. Tu rol es ayudar al usuario a gestionar proyectos, motivarlos y dar consejos estratégicos.
+
+Sistema prompt: ${systemPrompt}
+
+Historial de conversación:
+${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+
+Usuario: ${currentMessage}`;
+
+          console.log('🔍 [DEBUG] Prompt final enviado a Gemini:', promptText.substring(0, 200) + '...');
+
+          const geminiRequestBody = {
+            contents: [
+              {
+                parts: [
+                  {
+                    text: promptText
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 1,
+              topP: 1,
+              maxOutputTokens: 1000,
+            }
+          };
+
+          console.log('🔍 [DEBUG] Enviando request a Gemini...');
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(geminiRequestBody)
+          });
+
+          console.log('🔍 [DEBUG] Response status:', response.status);
+          console.log('🔍 [DEBUG] Response ok:', response.ok);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('🚨 Error response body:', errorText);
+            throw new Error(`Error de Gemini: ${response.status} - ${errorText}`);
+          }
+
+          const result = await response.json();
+          console.log('🔍 [DEBUG] Gemini result completo:', JSON.stringify(result, null, 2));
+
+          if (result.candidates && result.candidates.length > 0) {
+            const candidate = result.candidates[0];
+            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+              assistantResponse = candidate.content.parts[0].text;
+              console.log('🔍 [DEBUG] Assistant response extraída:', assistantResponse);
+            } else if (candidate.finishReason === 'SAFETY') {
+              assistantResponse = '🛡️ La respuesta fue filtrada por seguridad. ¿Podrías reformular tu pregunta?';
+            } else {
+              console.error('🚨 Candidato sin contenido válido:', candidate);
+              assistantResponse = 'Lo siento, no pude generar una respuesta en este momento.';
+            }
+          } else if (result.error) {
+            console.error('🚨 Error en API de Gemini:', result.error);
+            throw new Error(`Error de Gemini API: ${result.error.message}`);
+          } else {
+            console.error('🚨 Estructura inesperada de respuesta:', result);
+            assistantResponse = 'Respuesta de Gemini en formato inesperado';
+          }
+
+        } catch (innerError) {
+          console.error('🚨 Error en llamada normal a Gemini:', innerError);
+          throw innerError;
+        }
       }
+
 
       const assistantMessage = {
         id: Date.now() + 1,
@@ -3700,13 +3785,15 @@ ${functionResult.data.projects.map(project => `
       }
 
     } catch (error) {
-      console.error('Error enviando mensaje:', error);
+      console.error('🚨 Error enviando mensaje:', error);
+      console.error('🚨 Error stack:', error.stack);
+      console.error('🚨 Error message:', error.message);
 
-      // Mensaje de error para el usuario con respuesta de demostración
+      // Mensaje de error para el usuario con información de debug
       const errorMessage = {
         id: Date.now() + 1,
         sender: 'assistant',
-        text: `Entiendo tu mensaje: "${currentMessage}". El servicio de IA está temporalmente no disponible, pero el chat bubble funciona perfectamente. ¡Puedes ver cómo se visualizan los mensajes!`,
+        text: `❌ Error de conexión: ${error.message}\n\nPor favor revisa la consola del navegador para más detalles.`,
         timestamp: new Date().toLocaleTimeString()
       };
 
