@@ -745,6 +745,26 @@ router.post('/chat-messages', authenticateToken, async (req, res) => {
   }
 });
 
+// Endpoint para respuesta local (restaurado)
+router.post('/chat/message', authenticateToken, (req, res) => {
+  const { message, content } = req.body;
+  const messageText = message || content;
+
+  res.json({
+    response: `✅ SISTEMA LOCAL FUNCIONANDO - ${new Date().toLocaleTimeString()}
+
+Tu mensaje: "${messageText}"
+
+🎯 El chat está funcionando perfectamente
+🔧 Estamos debuggeando la conexión con OpenAI
+💬 Mientras tanto, puedes usar este sistema local
+
+¿En qué puedo ayudarte?`,
+    timestamp: new Date().toISOString(),
+    processed: true
+  });
+});
+
 // === RUTAS PARA SISTEMA DE MEMORIA CONVERSACIONAL ===
 
 // Ruta para guardar insights
