@@ -14,22 +14,231 @@
       "description": "Desarrollo de aplicación",
       "createdAt": "2025-09-22T19:24:20.202Z",
       "status": "active"
+    },
+    {
+      "id": 1760068413864,
+      "title": "dfdfd",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:53:33.864Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068424369,
+      "title": "sdsdsd",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:53:44.369Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068525060,
+      "title": "ffffffffff",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:55:25.060Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068578108,
+      "title": "ssss",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:56:18.108Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068594357,
+      "title": "ssssd",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:56:34.357Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068602755,
+      "title": "ssssdd",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:56:42.755Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068613970,
+      "title": "ssssddsdsd",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:56:53.970Z",
+      "tasks": []
+    },
+    {
+      "id": 1760068627846,
+      "title": "ssssddsdsdnn",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T03:57:07.846Z",
+      "tasks": []
+    },
+    {
+      "id": 1760069030977,
+      "title": "sasa",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T04:03:50.977Z",
+      "tasks": []
+    },
+    {
+      "id": 1760069046099,
+      "title": "projecto creado",
+      "priority": "media",
+      "deadline": "2025-10-09",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T04:04:06.099Z",
+      "tasks": []
+    },
+    {
+      "id": 1760069058995,
+      "title": "projecto creado v3",
+      "priority": "media",
+      "deadline": "2025-10-10",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T04:04:18.995Z",
+      "tasks": []
+    },
+    {
+      "id": 1760069080506,
+      "title": "projecto creado v3",
+      "priority": "media",
+      "deadline": "2025-10-16",
+      "description": "descripcion proyecto lorem ipsum",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T04:04:40.506Z",
+      "tasks": []
+    },
+    {
+      "id": 1760103579680,
+      "title": "fdf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T13:39:39.680Z",
+      "tasks": []
+    },
+    {
+      "id": 1760103584980,
+      "title": "xccx",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T13:39:44.980Z",
+      "tasks": []
+    },
+    {
+      "id": 1760103717615,
+      "title": "dds",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T13:41:57.615Z",
+      "tasks": []
+    },
+    {
+      "id": 1760104448916,
+      "title": "nuevo proyecto",
+      "priority": "media",
+      "deadline": "2025-10-11",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T13:54:08.916Z",
+      "tasks": []
+    },
+    {
+      "id": 1760105465333,
+      "title": "dfdsf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T14:11:05.333Z",
+      "tasks": []
+    },
+    {
+      "id": 1760106889617,
+      "title": "sdsdsd",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T14:34:49.617Z",
+      "tasks": []
+    },
+    {
+      "id": 1760107129034,
+      "title": "vdf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T14:38:49.034Z",
+      "tasks": []
     }
   ],
   "priorities": [],
   "habits": [],
   "achievements": [],
-  "lastInteraction": "2025-09-22T19:24:20.203Z",
+  "lastInteraction": "2025-10-10T14:38:49.035Z",
   "dailyStats": {
-    "streak": 1,
-    "totalDays": 11,
-    "lastActiveDate": "Thu Oct 09 2025"
+    "streak": 2,
+    "totalDays": 12,
+    "lastActiveDate": "Fri Oct 10 2025"
   },
   "context": {
     "recentTopics": [],
     "ongoingTasks": [],
     "nextActions": [
-      "Continuar trabajando en el proyecto: Proyecto Web"
+      "Continuar trabajando en el proyecto: undefined"
     ]
   }
 }

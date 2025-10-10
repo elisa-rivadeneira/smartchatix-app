@@ -6,13 +6,15 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const AssistantManager = require('./src/assistantManager');
+const UserDatabase = require('./src/database/userDatabase');
 const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Initialize assistant
+// Initialize assistant and database
 const assistant = new AssistantManager();
+const userDB = new UserDatabase();
 let assistantContext = null;
 
 // Middleware de logging
@@ -290,11 +292,16 @@ app.post('/api/assistant/response', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/assistant/project', authenticateToken, (req, res) => {
+app.post('/api/assistant/project', authenticateToken, async (req, res) => {
   const projectData = req.body;
 
   try {
-    const project = assistant.addProject(projectData);
+    // Guardar en la base de datos SQLite
+    const project = await userDB.createProject(req.user.userId, projectData);
+
+    // Opcionalmente, también guardar en el UserMemory para compatibilidad
+    assistant.addProject(projectData);
+
     res.json(project);
   } catch (error) {
     console.error('Error adding project:', error);

@@ -541,6 +541,49 @@ class UserDatabase {
     });
   }
 
+  async createProject(userId, projectData) {
+    return new Promise((resolve, reject) => {
+      const projectId = uuidv4();
+
+      const query = `
+        INSERT INTO user_projects (
+          id, user_id, title, description, priority, status, progress, deadline
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        projectId,
+        userId,
+        projectData.title,
+        projectData.description || '',
+        projectData.priority || 'media',
+        projectData.status || 'active',
+        projectData.progress || 0,
+        projectData.deadline || null
+      ];
+
+      this.db.run(query, values, function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        // Devolver el proyecto creado con el mismo formato que el frontend espera
+        resolve({
+          id: projectId,
+          title: projectData.title,
+          description: projectData.description || '',
+          priority: projectData.priority || 'media',
+          status: projectData.status || 'active',
+          progress: projectData.progress || 0,
+          deadline: projectData.deadline || '',
+          createdAt: new Date().toISOString(),
+          tasks: []
+        });
+      });
+    });
+  }
+
   // Cerrar conexión
   close() {
     if (this.db) {

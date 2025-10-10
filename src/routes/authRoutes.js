@@ -77,6 +77,7 @@ const authenticateToken = async (req, res, next) => {
         if (decoded.provider === 'google') {
           user = {
             id: decoded.googleId,
+            userId: decoded.googleId, // ← Agregar userId para compatibilidad
             email: decoded.email,
             name: decoded.name || 'Usuario Google',
             avatar: null,
@@ -642,12 +643,16 @@ router.delete('/projects/:projectId', authenticateToken, async (req, res) => {
 
 // Eliminar tarea de proyecto
 router.delete('/project-tasks/:taskId', authenticateToken, async (req, res) => {
+  console.log('🔥 [DELETE ENDPOINT] ¡ENTRANDO AL ENDPOINT!');
   try {
     const { taskId } = req.params;
     const userId = req.user.userId;
 
+    console.log('🗑️ [DEBUG DELETE] Parámetros:', { taskId, userId, userObj: req.user });
+
     // Verificar que la tarea pertenece al usuario
     const taskQuery = 'SELECT * FROM project_tasks WHERE id = ? AND user_id = ?';
+    console.log('🗑️ [DEBUG DELETE] Query:', taskQuery, [taskId, userId]);
     userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
       if (err) {
         console.error('Error verificando tarea:', err);
@@ -655,8 +660,11 @@ router.delete('/project-tasks/:taskId', authenticateToken, async (req, res) => {
       }
 
       if (!task) {
+        console.log('🗑️ [DEBUG DELETE] Tarea no encontrada para:', { taskId, userId });
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
+
+      console.log('🗑️ [DEBUG DELETE] Tarea encontrada:', task);
 
       // Eliminar la tarea
       const deleteQuery = 'DELETE FROM project_tasks WHERE id = ? AND user_id = ?';

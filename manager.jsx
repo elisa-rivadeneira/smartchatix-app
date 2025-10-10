@@ -144,13 +144,14 @@ const getApiBase = () => {
   // En producción (cualquier dominio que no sea localhost)
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
     console.log('📱 Manager modo producción detectado:', hostname);
-    return '/api/auth';
+
+    return '/api';
   }
 
   // En desarrollo - usar variable de entorno si está disponible
   const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
   console.log('🔧 Manager modo desarrollo detectado, usando:', devHost);
-  return `http://${devHost}:3001/api/auth`;
+  return `http://${devHost}:3001/api`;
 };
 
 // Helper function para manejar fechas correctamente evitando problemas de zona horaria
@@ -178,11 +179,10 @@ const formatDateForInput = (date) => {
 
 
 const PersonalCoachAssistant = () => {
-  console.log('PersonalCoachAssistant component iniciando...');
 
   const { user, loading: authLoading, isAuthenticated, login, logout, authenticatedFetch } = useAuth();
 
-  console.log('Auth state:', { user, authLoading, isAuthenticated });
+  // console.log('Auth state:', { user, authLoading, isAuthenticated });
 
   const [projects, setProjects] = useState([]);
   const [dailyTasks, setDailyTasks] = useState([]);
@@ -246,6 +246,8 @@ const PersonalCoachAssistant = () => {
     const saved = localStorage.getItem('timerMode');
     return saved || 'una_tarea'; // 'una_tarea' o 'multiples'
   });
+  const [timerTick, setTimerTick] = useState(0); // Para forzar re-renders del timer
+  const globalTimerRef = useRef(null); // Referencia para el timer global
 
   // Estados para el asistente
   const [assistantConfig, setAssistantConfig] = useState({
@@ -638,7 +640,7 @@ const PersonalCoachAssistant = () => {
   // Función para cargar datos específicos del usuario
   const loadUserData = useCallback(async () => {
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/profile`);
+      const response = await authenticatedFetch(`${getApiBase()}/auth/profile`);
       if (response.ok) {
         const data = await response.json();
 
@@ -729,26 +731,35 @@ const PersonalCoachAssistant = () => {
     localStorage.setItem('timerMode', timerMode);
   }, [timerMode]);
 
-  // Restaurar timers activos al cargar la página
-  useEffect(() => {
-    Object.keys(activeTimers).forEach(taskId => {
-      if (!timerIntervals[taskId]) {
-        // Reanudar timer activo
-        const originalStartTime = activeTimers[taskId];
-        const intervalId = setInterval(() => {
-          setActiveTimers(prev => ({ ...prev, [taskId]: originalStartTime }));
-        }, 1000);
-        setTimerIntervals(prev => ({ ...prev, [taskId]: intervalId }));
-      }
-    });
+  // Gestión del timer global para evitar re-renders innecesarios
+  const startGlobalTimer = () => {
+    if (!globalTimerRef.current) {
+      globalTimerRef.current = setInterval(() => {
+        setTimerTick(prev => prev + 1);
+      }, 1000);
+    }
+  };
 
-    // Cleanup en unmount
-    return () => {
-      Object.values(timerIntervals).forEach(intervalId => {
-        if (intervalId) clearInterval(intervalId);
-      });
-    };
-  }, []); // Solo ejecutar una vez al montar
+  const stopGlobalTimer = () => {
+    if (globalTimerRef.current) {
+      clearInterval(globalTimerRef.current);
+      globalTimerRef.current = null;
+    }
+  };
+
+  // Gestionar timer global basado en timers activos
+  useEffect(() => {
+    const hasActiveTimers = Object.keys(activeTimers).length > 0;
+    if (hasActiveTimers) {
+      startGlobalTimer();
+    } else {
+      stopGlobalTimer();
+    }
+
+    return () => stopGlobalTimer();
+  }, [activeTimers]);
+
+  // Ya no necesitamos timers individuales - se maneja con el timer global
 
   // Inicializar soporte de voz
   useEffect(() => {
@@ -947,15 +958,34 @@ const PersonalCoachAssistant = () => {
       }
     }
 
+    // Auto-agregar tarea de proyecto a tareas diarias cuando se inicia el timer
+    const projectTask = projects.flatMap(p =>
+      p.tasks.map(task => ({ ...task, projectId: p.id, projectTitle: p.title }))
+    ).find(t => t.id.toString() === taskId.toString());
+
+    if (projectTask) {
+      // Es una tarea de proyecto, agregarla automáticamente a las tareas diarias
+      const existingDailyTask = dailyTasks.find(dt =>
+        dt.projectId === projectTask.projectId && dt.projectTaskId === projectTask.id
+      );
+
+      if (!existingDailyTask) {
+        const dailyTask = {
+          id: projectTask.id, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
+          text: projectTask.title,
+          completed: projectTask.completed,
+          createdAt: new Date().toLocaleDateString(),
+          projectId: projectTask.projectId,
+          projectTaskId: projectTask.id
+        };
+        setDailyTasks(prev => [...prev, dailyTask]);
+      }
+    }
+
     const startTime = Date.now();
     setActiveTimers(prev => ({ ...prev, [taskId]: startTime }));
 
-    // Crear un intervalo para forzar re-renders cada segundo
-    const intervalId = setInterval(() => {
-      setActiveTimers(prev => ({ ...prev, [taskId]: startTime }));
-    }, 1000);
-
-    setTimerIntervals(prev => ({ ...prev, [taskId]: intervalId }));
+    // El timer global se encarga de los re-renders
   };
 
   const pauseTimer = (taskId) => {
@@ -971,20 +1001,10 @@ const PersonalCoachAssistant = () => {
       }));
 
       // Limpiar timer activo
-      if (timerIntervals[taskId]) {
-        clearInterval(timerIntervals[taskId]);
-      }
-
       setActiveTimers(prev => {
         const newTimers = { ...prev };
         delete newTimers[taskId];
         return newTimers;
-      });
-
-      setTimerIntervals(prev => {
-        const newIntervals = { ...prev };
-        delete newIntervals[taskId];
-        return newIntervals;
       });
     }
   };
@@ -1005,21 +1025,11 @@ const PersonalCoachAssistant = () => {
 
     const durationHours = totalTime / (1000 * 60 * 60);
 
-    // Limpiar todos los timers
-    if (timerIntervals[taskId]) {
-      clearInterval(timerIntervals[taskId]);
-    }
-
+    // Limpiar timer activo
     setActiveTimers(prev => {
       const newTimers = { ...prev };
       delete newTimers[taskId];
       return newTimers;
-    });
-
-    setTimerIntervals(prev => {
-      const newIntervals = { ...prev };
-      delete newIntervals[taskId];
-      return newIntervals;
     });
 
     setPausedTimers(prev => {
@@ -1313,19 +1323,17 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
 
-        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
+        const response = await authenticatedFetch(`${getApiBase()}/assistant/project`, {
           method: 'POST',
-          body: JSON.stringify({ project: projectData })
+          body: JSON.stringify(projectData)
         });
 
         if (response.ok) {
           const data = await response.json();
-          if (data.success) {
-            // Actualizar estado local con el proyecto guardado
-            setProjects([...projects, { ...data.project, tasks: [] }]);
-            setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
-            setShowCreateProject(false);
-          }
+          // El servidor devuelve directamente el proyecto
+          setProjects([...projects, { ...data, tasks: [] }]);
+          setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+          setShowCreateProject(false);
         }
       } catch (error) {
         console.error('Error guardando proyecto:', error);
@@ -1378,7 +1386,7 @@ const PersonalCoachAssistant = () => {
     console.log('🔥 INICIANDO ELIMINACIÓN DE PROYECTO:', projectId);
     try {
       // Eliminar del backend primero
-      const deleteUrl = `${getApiBase()}/projects/${projectId}`;
+      const deleteUrl = `${getApiBase()}/auth/projects/${projectId}`;
       console.log('🗑️ Eliminando proyecto con URL:', deleteUrl);
 
       const response = await authenticatedFetch(deleteUrl, {
@@ -1613,7 +1621,7 @@ const PersonalCoachAssistant = () => {
         };
 
         // Guardar en la base de datos
-        const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
+        const response = await authenticatedFetch(`${getApiBase()}/auth/project-tasks`, {
           method: 'POST',
           body: JSON.stringify({
             projectId: projectId,
@@ -1803,7 +1811,7 @@ const PersonalCoachAssistant = () => {
 
     if (!existingDailyTask) {
       const dailyTask = {
-        id: Date.now(),
+        id: task.id, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
         text: task.title,
         completed: task.completed,
         createdAt: new Date().toLocaleDateString(),
@@ -1835,7 +1843,7 @@ const PersonalCoachAssistant = () => {
     };
 
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1913,7 +1921,7 @@ const PersonalCoachAssistant = () => {
     if (!projectTask) return;
 
     const dailyTask = {
-      id: Date.now(),
+      id: taskId, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
       text: projectTask.title || projectTask.text,
       completed: projectTask.completed || false,
       projectId: selectedProjectForTask,
@@ -1924,7 +1932,7 @@ const PersonalCoachAssistant = () => {
     };
 
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1975,7 +1983,7 @@ const PersonalCoachAssistant = () => {
 
     // Crear la tarea diaria vinculada
     const dailyTask = {
-      id: Date.now() + 1, // ID diferente para evitar conflictos
+      id: newTask.id, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
       text: newDailyTask.trim(),
       completed: false,
       projectId: selectedProjectForTask,
@@ -1986,7 +1994,7 @@ const PersonalCoachAssistant = () => {
     };
 
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2083,9 +2091,10 @@ const PersonalCoachAssistant = () => {
 
 
   const deleteProjectTask = async (projectId, taskId) => {
+    console.log('🗑️ [DEBUG] deleteProjectTask llamada con:', { projectId, taskId });
     try {
       // Eliminar de la base de datos primero
-      const deleteUrl = `${getApiBase()}/project-tasks/${taskId}`;
+      const deleteUrl = `${getApiBase()}/auth/project-tasks/${taskId}`;
       console.log('🗑️ Eliminando tarea con URL:', deleteUrl);
       const response = await authenticatedFetch(deleteUrl, {
         method: 'DELETE'
@@ -2093,7 +2102,13 @@ const PersonalCoachAssistant = () => {
 
       if (!response.ok) {
         console.error('Error eliminando tarea del servidor');
-        return;
+        // Si la tarea no existe en el servidor (404), eliminarla solo localmente
+        if (response.status === 404) {
+          console.log('🗑️ Tarea no existe en servidor, eliminando solo localmente');
+          // Eliminar localmente y continuar
+        } else {
+          return; // Otros errores sí deben detener la ejecución
+        }
       }
 
       // Si la eliminación del servidor fue exitosa, actualizar el estado local
@@ -2195,7 +2210,7 @@ const PersonalCoachAssistant = () => {
         const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
         const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
 
-        await authenticatedFetch(`${getApiBase()}/projects/${projectId}`, {
+        await authenticatedFetch(`${getApiBase()}/auth/projects/${projectId}`, {
           method: 'PUT',
           body: JSON.stringify({
             project: {
@@ -2311,7 +2326,7 @@ const PersonalCoachAssistant = () => {
 
         // Opcional: guardar en base de datos en segundo plano
         try {
-          const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
+          const response = await authenticatedFetch(`${getApiBase()}/auth/project-tasks`, {
             method: 'POST',
             body: JSON.stringify({
               projectId: projectId,
@@ -3049,7 +3064,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
       // Guardar cambios en la base de datos
       try {
-        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
           method: 'PUT',
           body: JSON.stringify({
             project: { ...project, status: params.status }
@@ -3110,7 +3125,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
       // Guardar cambios en la base de datos
       try {
-        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
           method: 'PUT',
           body: JSON.stringify({
             project: { ...project, deadline: newDeadline }
@@ -3154,7 +3169,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
       // Guardar cambios en la base de datos
       try {
-        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
           method: 'PUT',
           body: JSON.stringify({
             project: { ...project, priority: params.priority }
@@ -3197,7 +3212,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
       // Guardar cambios en la base de datos
       try {
-        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
           method: 'PUT',
           body: JSON.stringify({
             project: { ...project, title: newTitle, description: newDescription }
@@ -3243,7 +3258,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
       // Eliminar proyecto de la base de datos
       try {
-        await authenticatedFetch(`${getApiBase()}/projects/${project.id}`, {
+        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
           method: 'DELETE'
         });
 
@@ -3277,7 +3292,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         function_results: functionResults ? JSON.stringify(functionResults) : null
       };
 
-      await authenticatedFetch(`${getApiBase()}/chat/message`, {
+      await authenticatedFetch(`${getApiBase()}/auth/chat-messages`, {
         method: 'POST',
         body: JSON.stringify(messageData)
       });
@@ -3297,7 +3312,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         importance_level: importance
       };
 
-      await authenticatedFetch(`${getApiBase()}/insights`, {
+      await authenticatedFetch(`${getApiBase()}/auth/insights`, {
         method: 'POST',
         body: JSON.stringify(insight)
       });
@@ -3315,7 +3330,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         deadline
       };
 
-      await authenticatedFetch(`${getApiBase()}/commitments`, {
+      await authenticatedFetch(`${getApiBase()}/auth/commitments`, {
         method: 'POST',
         body: JSON.stringify(commitmentData)
       });
@@ -3335,7 +3350,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         celebration_level: level
       };
 
-      await authenticatedFetch(`${getApiBase()}/achievements`, {
+      await authenticatedFetch(`${getApiBase()}/auth/achievements`, {
         method: 'POST',
         body: JSON.stringify(achievementData)
       });
@@ -3348,9 +3363,9 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
   const getConversationalMemory = async () => {
     try {
       const [insightsRes, commitmentsRes, achievementsRes] = await Promise.all([
-        authenticatedFetch(`${getApiBase()}/insights`),
-        authenticatedFetch(`${getApiBase()}/commitments`),
-        authenticatedFetch(`${getApiBase()}/achievements`)
+        authenticatedFetch(`${getApiBase()}/auth/insights`),
+        authenticatedFetch(`${getApiBase()}/auth/commitments`),
+        authenticatedFetch(`${getApiBase()}/auth/achievements`)
       ]);
 
       const insights = await insightsRes.json();
@@ -3858,7 +3873,7 @@ Usuario: ${currentMessage}`;
 
   const deleteTask = async (taskId) => {
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${taskId}`, {
+      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks/${taskId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -4254,7 +4269,7 @@ Usuario: ${currentMessage}`;
                   <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">¡Comienza tu día productivo!</h3>
                   <p className="text-sm text-gray-500 mb-4 px-4">Agrega tus tareas prioritarias para hoy</p>
                   <button
-                    onClick={() => setShowAddTaskForm(true)}
+                    onClick={openProjectSelectionModal}
                     className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                   >
                     Agregar primera tarea
@@ -4267,17 +4282,19 @@ Usuario: ${currentMessage}`;
               )}
             </div>
 
-            {/* Botón de agregar tarea - Optimizado para móvil */}
-            <div className="mt-3 md:mt-4 flex-shrink-0">
-              <button
-                onClick={openProjectSelectionModal}
-                className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
-              >
-                <Plus size={16} className="mr-2" />
-                <span className="hidden sm:inline">Agregar nueva tarea</span>
-                <span className="sm:hidden">Nueva tarea</span>
-              </button>
-            </div>
+            {/* Botón de agregar tarea - Solo mostrar cuando hay tareas */}
+            {dailyTasks.length > 0 && (
+              <div className="mt-3 md:mt-4 flex-shrink-0">
+                <button
+                  onClick={openProjectSelectionModal}
+                  className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
+                >
+                  <Plus size={16} className="mr-2" />
+                  <span className="hidden sm:inline">Agregar nueva tarea</span>
+                  <span className="sm:hidden">Nueva tarea</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Panel lateral - Responsive: aparece abajo en móvil, a la derecha en desktop */}
@@ -4748,7 +4765,7 @@ Usuario: ${currentMessage}`;
   const saveAssistantConfig = async () => {
     try {
       // Guardar configuración del asistente
-      const response = await authenticatedFetch(`${getApiBase()}/assistant-config`, {
+      const response = await authenticatedFetch(`${getApiBase()}/auth/assistant-config`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -4785,7 +4802,7 @@ Usuario: ${currentMessage}`;
         }
 
         // Implementar cambio de contraseña
-        const response = await authenticatedFetch(`${getApiBase()}/change-password`, {
+        const response = await authenticatedFetch(`${getApiBase()}/auth/change-password`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -6199,7 +6216,7 @@ Usuario: ${currentMessage}`;
                       setSelectedProject(prev => ({ ...prev, priority: newPriority }));
 
                       try {
-                        await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                        await authenticatedFetch(`${getApiBase()}/auth/projects/${selectedProject?.id}`, {
                           method: 'PUT',
                           body: JSON.stringify({
                             project: { priority: newPriority }
@@ -6244,7 +6261,7 @@ Usuario: ${currentMessage}`;
                         setSelectedProject(prev => ({ ...prev, status: newStatus }));
 
                         try {
-                          await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                          await authenticatedFetch(`${getApiBase()}/auth/projects/${selectedProject?.id}`, {
                             method: 'PUT',
                             body: JSON.stringify({
                               project: { status: newStatus }
