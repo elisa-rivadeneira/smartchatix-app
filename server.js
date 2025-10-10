@@ -99,10 +99,14 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Configurar estrategia de Google OAuth
+const callbackURL = process.env.NODE_ENV === 'production'
+  ? 'https://app.smartchatix.com/auth/google/callback'
+  : '/auth/google/callback';
+
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "/auth/google/callback"
+  callbackURL: callbackURL
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Aquí guardarías el usuario en tu base de datos
