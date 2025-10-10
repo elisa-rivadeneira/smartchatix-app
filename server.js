@@ -171,17 +171,19 @@ if (googleClientId && googleClientSecret) {
         );
 
         // Determinar URL del frontend
-        const frontendUrl = process.env.NODE_ENV === 'production'
-          ? 'https://app.smartchatix.com'
-          : 'http://localhost:5173';
+        const frontendUrl = process.env.FRONTEND_URL ||
+          (process.env.NODE_ENV === 'production'
+            ? 'https://app.smartchatix.com'
+            : 'http://localhost:5173');
 
         // Redireccionar al frontend con éxito y token
         res.redirect(`${frontendUrl}/?login=success&user=${encodeURIComponent(JSON.stringify(req.user))}&token=${encodeURIComponent(token)}`);
       } catch (error) {
         console.error('Error generating token for Google user:', error);
-        const frontendUrl = process.env.NODE_ENV === 'production'
-          ? 'https://app.smartchatix.com'
-          : 'http://localhost:5173';
+        const frontendUrl = process.env.FRONTEND_URL ||
+          (process.env.NODE_ENV === 'production'
+            ? 'https://app.smartchatix.com'
+            : 'http://localhost:5173');
         res.redirect(`${frontendUrl}/?error=auth_failed`);
       }
     }
@@ -196,9 +198,10 @@ if (googleClientId && googleClientSecret) {
   });
 
   app.get('/auth/google/callback', (req, res) => {
-    const frontendUrl = process.env.NODE_ENV === 'production'
-      ? 'https://app.smartchatix.com'
-      : 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'https://app.smartchatix.com'
+        : 'http://localhost:5173');
     res.redirect(`${frontendUrl}/?error=oauth_not_configured`);
   });
 }
