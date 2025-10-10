@@ -103,26 +103,35 @@ const callbackURL = process.env.NODE_ENV === 'production'
   ? 'https://app.smartchatix.com/auth/google/callback'
   : '/auth/google/callback';
 
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: callbackURL
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    // Aquí guardarías el usuario en tu base de datos
-    // Por ahora, devolvemos el perfil directamente
-    const user = {
-      id: profile.id,
-      email: profile.emails[0].value,
-      name: profile.displayName,
-      picture: profile.photos[0].value,
-      googleId: profile.id
-    };
-    return done(null, user);
-  } catch (error) {
-    return done(error, null);
-  }
-}));
+// Verificar que las variables de Google OAuth estén configuradas
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+if (!googleClientId || !googleClientSecret) {
+  console.log('⚠️  Google OAuth credentials not configured. Google login will be disabled.');
+  console.log('   Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables to enable Google login.');
+} else {
+  passport.use(new GoogleStrategy({
+    clientID: googleClientId,
+    clientSecret: googleClientSecret,
+    callbackURL: callbackURL
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Aquí guardarías el usuario en tu base de datos
+      // Por ahora, devolvemos el perfil directamente
+      const user = {
+        id: profile.id,
+        email: profile.emails[0].value,
+        name: profile.displayName,
+        picture: profile.photos[0].value,
+        googleId: profile.id
+      };
+      return done(null, user);
+    } catch (error) {
+      return done(error, null);
+    }
+  }));
+}
 
 // Serialización de usuario para sesiones
 passport.serializeUser((user, done) => {
@@ -135,46 +144,63 @@ passport.deserializeUser((user, done) => {
 
 app.use(express.static('dist'));
 
-// Google OAuth routes
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+// Google OAuth routes (solo si las credenciales están configuradas)
+if (googleClientId && googleClientSecret) {
+  app.get('/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
 
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => {
-    try {
-      // Generar token JWT para el usuario de Google
-      const jwt = require('jsonwebtoken');
-      const JWT_SECRET = process.env.JWT_SECRET || 'tu_jwt_secret_super_seguro_aqui';
+  app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req, res) => {
+      try {
+        // Generar token JWT para el usuario de Google
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'tu_jwt_secret_super_seguro_aqui';
 
-      const token = jwt.sign(
-        {
-          id: req.user.id,
-          email: req.user.email,
-          googleId: req.user.googleId,
-          provider: 'google'
-        },
-        JWT_SECRET,
-        { expiresIn: '30d' }
-      );
+        const token = jwt.sign(
+          {
+            id: req.user.id,
+            email: req.user.email,
+            googleId: req.user.googleId,
+            provider: 'google'
+          },
+          JWT_SECRET,
+          { expiresIn: '30d' }
+        );
 
-      // Determinar URL del frontend
-      const frontendUrl = process.env.NODE_ENV === 'production'
-        ? 'https://app.smartchatix.com'
-        : 'http://localhost:5173';
+        // Determinar URL del frontend
+        const frontendUrl = process.env.NODE_ENV === 'production'
+          ? 'https://app.smartchatix.com'
+          : 'http://localhost:5173';
 
-      // Redireccionar al frontend con éxito y token
-      res.redirect(`${frontendUrl}/?login=success&user=${encodeURIComponent(JSON.stringify(req.user))}&token=${encodeURIComponent(token)}`);
-    } catch (error) {
-      console.error('Error generating token for Google user:', error);
-      const frontendUrl = process.env.NODE_ENV === 'production'
-        ? 'https://app.smartchatix.com'
-        : 'http://localhost:5173';
-      res.redirect(`${frontendUrl}/?error=auth_failed`);
+        // Redireccionar al frontend con éxito y token
+        res.redirect(`${frontendUrl}/?login=success&user=${encodeURIComponent(JSON.stringify(req.user))}&token=${encodeURIComponent(token)}`);
+      } catch (error) {
+        console.error('Error generating token for Google user:', error);
+        const frontendUrl = process.env.NODE_ENV === 'production'
+          ? 'https://app.smartchatix.com'
+          : 'http://localhost:5173';
+        res.redirect(`${frontendUrl}/?error=auth_failed`);
+      }
     }
-  }
-);
+  );
+} else {
+  // Rutas de fallback cuando Google OAuth no está configurado
+  app.get('/auth/google', (req, res) => {
+    res.status(503).json({
+      error: 'Google OAuth not configured',
+      message: 'Please configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables'
+    });
+  });
+
+  app.get('/auth/google/callback', (req, res) => {
+    const frontendUrl = process.env.NODE_ENV === 'production'
+      ? 'https://app.smartchatix.com'
+      : 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/?error=oauth_not_configured`);
+  });
+}
 
 app.get('/auth/logout', (req, res) => {
   req.logout((err) => {

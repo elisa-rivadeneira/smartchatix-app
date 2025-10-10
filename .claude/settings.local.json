@@ -60,7 +60,9 @@
       "Bash(./gradlew:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git reflog:*)",
+      "Bash(git gc:*)"
     ],
     "deny": [],
     "ask": []
