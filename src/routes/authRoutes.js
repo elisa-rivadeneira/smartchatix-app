@@ -273,7 +273,13 @@ router.get('/verify', authenticateToken, (req, res) => {
 // Rutas protegidas para datos de usuario
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const config = await userDB.getUserAssistantConfig(req.user.userId);
+    let config = null;
+    try {
+      config = await userDB.getUserAssistantConfig(req.user.userId);
+    } catch (configError) {
+      console.log('Config no encontrada, continuando sin ella');
+    }
+
     const projects = await userDB.getUserProjects(req.user.userId);
     const dailyTasks = await userDB.getUserDailyTasks(req.user.userId);
 
@@ -352,7 +358,7 @@ router.put('/assistant-config', authenticateToken, async (req, res) => {
 // Guardar proyecto
 router.post('/projects', authenticateToken, async (req, res) => {
   try {
-    const { project } = req.body;
+    const project = req.body;
     const userId = req.user.userId;
     const projectId = require('crypto').randomUUID();
 
@@ -740,9 +746,9 @@ router.put('/change-password', (req, res, next) => {
 // Guardar mensaje de chat
 router.post('/chat-messages', authenticateToken, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { id, type, content, function_results } = req.body;
     const userId = req.user.userId;
-    const messageId = require('crypto').randomUUID();
+    const messageId = id || require('crypto').randomUUID();
 
     const query = `
       INSERT INTO chat_messages (
@@ -753,9 +759,9 @@ router.post('/chat-messages', authenticateToken, async (req, res) => {
     userDB.db.run(query, [
       messageId,
       userId,
-      message.type,
-      message.content,
-      JSON.stringify(message.functionResults || [])
+      type,
+      content,
+      function_results
     ], function(err) {
       if (err) {
         console.error('Error guardando mensaje:', err);
@@ -766,7 +772,9 @@ router.post('/chat-messages', authenticateToken, async (req, res) => {
         success: true,
         message: {
           id: messageId,
-          ...message,
+          type,
+          content,
+          function_results,
           user_id: userId
         }
       });

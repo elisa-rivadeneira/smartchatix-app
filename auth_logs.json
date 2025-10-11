@@ -447,5 +447,29 @@
       "userAgent": "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
       "token": "eyJhbGciOiJIUzI1NiIs..."
     }
+  },
+  {
+    "timestamp": "2025-10-10T17:07:25.567Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/verify",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2025-10-11T02:34:35.989Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/projects",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
   }
 ]

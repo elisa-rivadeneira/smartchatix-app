@@ -1323,7 +1323,7 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
 
-        const response = await authenticatedFetch(`${getApiBase()}/assistant/project`, {
+        const response = await authenticatedFetch(`${getApiBase()}/auth/projects`, {
           method: 'POST',
           body: JSON.stringify(projectData)
         });
@@ -2142,8 +2142,8 @@ const PersonalCoachAssistant = () => {
   const updateTaskProgress = async (projectId, taskId, newProgress) => {
     const progressValue = Math.max(0, Math.min(100, parseInt(newProgress) || 0));
 
-    // Actualizar estado local
-    setProjects(projects.map(project => {
+    // Actualizar estado local usando función para garantizar estado actual
+    setProjects(currentProjects => currentProjects.map(project => {
       if (project.id === projectId) {
         const updatedTasks = project.tasks.map(task => {
           if (task.id === taskId) {
@@ -2470,7 +2470,7 @@ const PersonalCoachAssistant = () => {
             description: "Fecha límite en formato YYYY-MM-DD (opcional)"
           }
         },
-        required: ["title", "priority"]
+        required: ["title"]
       }
     },
     {
@@ -2640,6 +2640,15 @@ const PersonalCoachAssistant = () => {
     }
   ];
 
+  // Herramientas en formato Gemini
+  const geminiTools = [
+    {
+      functionDeclarations: assistantFunctions
+    }
+  ];
+
+  console.log('🔍 [DEBUG] Gemini Tools configuradas:', JSON.stringify(geminiTools, null, 2));
+
   // Función para ejecutar las acciones del asistente
   const executeAssistantFunction = async (functionName, parameters) => {
     console.log('🔍 [DEBUG] executeAssistantFunction llamada con:', functionName, parameters);
@@ -2673,20 +2682,44 @@ const PersonalCoachAssistant = () => {
   };
 
   // Implementaciones de las funciones del asistente
-  const createProjectFromAssistant = (params) => {
+  const createProjectFromAssistant = async (params) => {
+    console.log('🚀 [DEBUG] createProjectFromAssistant EJECUTÁNDOSE con params:', params);
     try {
-      const project = {
-        id: Date.now(),
+      const projectData = {
         title: params.title,
         description: params.description || '',
-        priority: params.priority,
+        priority: params.priority || 'media',
         deadline: params.deadline || '',
         status: 'activo',
         progress: 0,
         createdAt: new Date().toLocaleDateString(),
         tasks: []
       };
-      setProjects(prev => [...prev, project]);
+
+      // Guardar en la base de datos
+      console.log('🔍 [DEBUG] Enviando proyecto a BD:', projectData);
+      const response = await authenticatedFetch(`${getApiBase()}/auth/projects`, {
+        method: 'POST',
+        body: JSON.stringify({ project: projectData })
+      });
+
+      console.log('🔍 [DEBUG] Response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 [DEBUG] Proyecto guardado en BD:', data);
+        // El servidor devuelve directamente el proyecto con ID de BD
+        setProjects(prev => [...prev, { ...data, tasks: [] }]);
+      } else {
+        const errorText = await response.text();
+        console.error('🚨 [DEBUG] Error guardando en BD:', response.status, errorText);
+        // Fallback: guardar localmente si hay error de conexión
+        const project = {
+          id: Date.now(),
+          ...projectData
+        };
+        setProjects(prev => [...prev, project]);
+      }
 
       // Mensajes motivadores personalizados según la prioridad
       let motivationalMessage = "";
@@ -2790,7 +2823,7 @@ const PersonalCoachAssistant = () => {
     return task;
   };
 
-  const addProjectTaskFromAssistant = (params) => {
+  const addProjectTaskFromAssistant = async (params) => {
     try {
       const project = findProjectByTitle(params.project_title);
       if (!project) {
@@ -2798,7 +2831,6 @@ const PersonalCoachAssistant = () => {
       }
 
       const task = {
-        id: Date.now(),
         title: params.task_title,
         description: params.description || '',
         completed: false,
@@ -2806,11 +2838,40 @@ const PersonalCoachAssistant = () => {
         createdAt: new Date().toLocaleDateString()
       };
 
-      setProjects(prev => prev.map(p =>
-        p.id === project.id
-          ? { ...p, tasks: [...p.tasks, task] }
-          : p
-      ));
+      // Guardar en la base de datos
+      console.log('🔍 [DEBUG] Enviando tarea a BD:', { projectId: project.id, task });
+      const response = await authenticatedFetch(`${getApiBase()}/auth/project-tasks`, {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: project.id,
+          task: task
+        })
+      });
+
+      console.log('🔍 [DEBUG] Response status (tarea):', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 [DEBUG] Tarea guardada en BD:', data);
+        if (data.success) {
+          // Actualizar estado local con la tarea guardada
+          setProjects(prev => prev.map(p =>
+            p.id === project.id
+              ? { ...p, tasks: [...p.tasks, { ...task, id: data.task.id }] }
+              : p
+          ));
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('🚨 [DEBUG] Error guardando tarea en BD:', response.status, errorText);
+        // Fallback: guardar localmente si hay error de conexión
+        const localTask = { id: Date.now(), ...task };
+        setProjects(prev => prev.map(p =>
+          p.id === project.id
+            ? { ...p, tasks: [...p.tasks, localTask] }
+            : p
+        ));
+      }
 
       const taskCount = project.tasks.length + 1; // +1 porque acabamos de agregar una
       const encouragement = taskCount === 1
@@ -2829,17 +2890,83 @@ const PersonalCoachAssistant = () => {
 
   const updateTaskProgressFromAssistant = async (params) => {
     try {
-      const project = findProjectByTitle(params.project_title);
-      if (!project) {
+      const progressValue = Math.max(0, Math.min(100, parseInt(params.progress) || 0));
+      let projectFound = null;
+      let taskFound = null;
+
+      // Buscar proyecto y tarea, y actualizar en una sola operación
+      setProjects(currentProjects => {
+        const updatedProjects = currentProjects.map(project => {
+          // Buscar proyecto por título
+          const normalize = (str) => {
+            return str.toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9\s]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+          };
+
+          const normalizedSearch = normalize(params.project_title);
+          const normalizedTitle = normalize(project.title);
+
+          if (normalizedTitle === normalizedSearch || normalizedTitle.includes(normalizedSearch)) {
+            projectFound = project;
+
+            // Buscar tarea dentro del proyecto
+            const updatedTasks = project.tasks.map(task => {
+              const normalizedTaskSearch = normalize(params.task_title);
+              const normalizedTaskTitle = normalize(task.title);
+
+              if (normalizedTaskTitle === normalizedTaskSearch || normalizedTaskTitle.includes(normalizedTaskSearch)) {
+                taskFound = task;
+                console.log(`🔍 [DEBUG] Actualizando tarea "${task.title}" de ${task.progress}% a ${progressValue}%`);
+
+                return {
+                  ...task,
+                  progress: progressValue,
+                  completed: progressValue === 100
+                };
+              }
+              return task;
+            });
+
+            // Calcular progreso promedio del proyecto
+            const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+            const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
+
+            return { ...project, tasks: updatedTasks, progress: averageProgress };
+          }
+          return project;
+        });
+
+        return updatedProjects;
+      });
+
+      if (!projectFound) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
 
-      const task = findTaskByTitle(project, params.task_title);
-      if (!task) {
-        return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${project.title}".` };
+      if (!taskFound) {
+        return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${projectFound.title}".` };
       }
 
-      await updateTaskProgress(project.id, task.id, params.progress);
+      // Intentar guardar en la base de datos (actualizar proyecto completo)
+      try {
+        const updatedProject = projects.find(p => p.id === projectFound.id);
+        if (updatedProject) {
+          const response = await authenticatedFetch(`${getApiBase()}/auth/projects/${projectFound.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ project: updatedProject })
+          });
+
+          if (!response.ok) {
+            console.warn('No se pudo sincronizar con la base de datos, pero se actualizó localmente');
+          }
+        }
+      } catch (error) {
+        console.warn('Error sincronizando con BD:', error);
+      }
 
       // Mensajes motivacionales según el progreso
       let progressMessage = "";
@@ -2857,7 +2984,7 @@ const PersonalCoachAssistant = () => {
 
       return {
         success: true,
-        message: `${progressMessage} He actualizado "${task.title}" al ${params.progress}%. ${params.progress === 100 ? "¿Qué sigue ahora?" : "¿Necesitas ajustar algo más?"}`
+        message: `${progressMessage} He actualizado "${taskFound.title}" al ${params.progress}%. ${params.progress === 100 ? "¿Qué sigue ahora?" : "¿Necesitas ajustar algo más?"}`
       };
     } catch (error) {
       return { success: false, message: "Error al actualizar el progreso: " + error.message };
@@ -3518,6 +3645,8 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       console.log('🔍 [DEBUG] Mensaje del usuario:', currentMessage);
 
       // Detectar si el usuario quiere usar funciones de base de datos
+      console.log('🔍 [DEBUG] Evaluando mensaje para function calling:', currentMessage);
+
       const functionKeywords = [
         'proyectos', 'proyecto', 'tarea', 'tareas', 'progreso', 'estado de proyectos',
         'mostrar proyectos', 'listar proyectos', 'crear proyecto', 'nuevo proyecto',
@@ -3531,110 +3660,59 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         currentMessage.toLowerCase().includes(keyword)
       );
 
-      console.log('🔍 [DEBUG] Mensaje en minúsculas:', currentMessage.toLowerCase());
-      console.log('🔍 [DEBUG] ¿Necesita función?', needsFunctionCall);
-      console.log('🔍 [DEBUG] Palabras clave encontradas:', functionKeywords.filter(keyword =>
-        currentMessage.toLowerCase().includes(keyword)
-      ));
+      console.log('🔍 [DEBUG] Necesita function call?:', needsFunctionCall);
+      console.log('🔍 [DEBUG] Keywords encontradas:', functionKeywords.filter(k => currentMessage.toLowerCase().includes(k)));
 
       let assistantResponse = '';
       let functionResults = [];
 
       if (needsFunctionCall) {
-        console.log('🔍 [DEBUG] Detectada solicitud de función de base de datos');
+        console.log('🔍 [DEBUG] Usando Gemini con function calling');
 
-        // Detectar qué función específica necesita ejecutar
-        let functionToExecute = '';
-        let parameters = {};
+        // Llamada directa a Gemini con function calling
+        const conversationHistory = formatConversationHistory();
+        console.log('🔍 [DEBUG] Conversation history for functions:', conversationHistory.length, 'mensajes');
 
-        const lowerMessage = currentMessage.toLowerCase();
+        // Convertir historial al formato de Gemini
+        const contents = [];
 
-        // Detectar actualizaciones de progreso
-        const progressMatch = lowerMessage.match(/(?:actualiz|actualic|actualizar|actualizarlo|al|hasta el?)\s*(\d+)%/);
+        // Agregar mensaje de sistema
+        contents.push({
+          role: 'user',
+          parts: [{
+            text: `Eres un asistente de gestión de proyectos. SIEMPRE DEBES USAR LAS FUNCIONES DISPONIBLES para:
 
-        if (progressMatch) {
-          console.log('🔍 [DEBUG] Detectado cambio de progreso:', progressMatch[1] + '%');
-          // Primero obtener estado actual para saber qué proyecto/tarea actualizar
-          const currentStatus = await executeAssistantFunction('get_projects_status', {});
+- Cuando el usuario dice "crea", "crear", "nuevo proyecto" → Usa create_project
+- Cuando el usuario dice "agrega", "añadir", "nueva tarea" → Usa add_project_task
+- Cuando el usuario dice "actualiza", "progreso", "al X%" → Usa update_task_progress
+- Cuando el usuario pregunta por proyectos, estado → Usa get_projects_status
 
-          if (currentStatus.success && currentStatus.data.projects.length > 0) {
-            // Buscar la tarea más reciente o en progreso
-            const activeProject = currentStatus.data.projects.find(p => p.status === 'activo') || currentStatus.data.projects[0];
-            const recentTask = activeProject.pendingTasks[0] || activeProject.completedTasks[0];
+IMPORTANTE: SIEMPRE usa las funciones, no respondas solo con texto.`
+          }]
+        });
 
-            if (recentTask) {
-              console.log('🔍 [DEBUG] Actualizando tarea:', activeProject.title, '->', recentTask.title, 'al', progressMatch[1] + '%');
-              await executeAssistantFunction('update_task_progress', {
-                project_title: activeProject.title,
-                task_title: recentTask.title,
-                progress: parseInt(progressMatch[1])
-              });
-            }
-          }
+        // Agregar historial de conversación
+        conversationHistory.forEach(msg => {
+          contents.push({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }]
+          });
+        });
 
-          functionToExecute = 'get_projects_status'; // Luego obtener estado actualizado
-        } else if (lowerMessage.includes('proyecto') && (lowerMessage.includes('mostrar') || lowerMessage.includes('listar') || lowerMessage.includes('que') || lowerMessage.includes('cuál') || lowerMessage.includes('estado'))) {
-          functionToExecute = 'get_projects_status';
-        } else if (lowerMessage.includes('crear') && lowerMessage.includes('proyecto')) {
-          functionToExecute = 'get_projects_status';
-        } else if (lowerMessage.includes('tarea') && (lowerMessage.includes('agregar') || lowerMessage.includes('añadir'))) {
-          functionToExecute = 'get_projects_status';
-        } else {
-          functionToExecute = 'get_projects_status';
-        }
+        // Agregar mensaje actual
+        contents.push({
+          role: 'user',
+          parts: [{ text: currentMessage }]
+        });
 
-        console.log('🔍 [DEBUG] Ejecutando función:', functionToExecute, parameters);
-
-        // Ejecutar la función directamente
-        const functionResult = await executeAssistantFunction(functionToExecute, parameters);
-        functionResults.push(functionResult);
-
-        if (functionResult.success && functionResult.data) {
-          // Crear contexto con datos actuales
-          const dataContext = `
-DATOS ACTUALES DE PROYECTOS:
-Resumen: ${functionResult.data.summary.totalActiveProjects} proyectos activos, ${functionResult.data.summary.totalPendingTasks} tareas pendientes, ${functionResult.data.summary.totalCompletedTasks} tareas completadas.
-
-Proyectos detallados:
-${functionResult.data.projects.map(project => `
-- **${project.title}** (${project.priority} prioridad${project.deadline ? `, deadline: ${project.deadline}` : ''})
-  Progreso: ${project.progress}%
-  Tareas pendientes: ${project.pendingTasks.map(t => t.title).join(', ') || 'Ninguna'}
-  Tareas completadas: ${project.completedTasks.map(t => t.title).join(', ') || 'Ninguna'}
-`).join('\n')}`;
-
-          // Llamada a Gemini con contexto de datos
-          const geminiRequestBody = {
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Eres un coach motivacional profesional y experimentado. Tu personalidad es:
-- Entusiasta y positivo, pero realista
-- Celebras los logros, por pequeños que sean
-- Haces preguntas estratégicas para ayudar a priorizar
-- Usas un lenguaje natural y conversacional
-- Te involucras emocionalmente en el progreso del usuario
-
-${dataContext}
-
-Historial reciente:
-${formatConversationHistory().slice(-3).map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-
-Usuario acaba de decir: "${currentMessage}"
-
-Como coach motivacional profesional:
-1. CELEBRA primero cualquier progreso o logro mencionado con entusiasmo genuino
-2. HAZ una pregunta estratégica o da un consejo práctico específico
-3. USA un tono conversacional, como si estuvieras hablando cara a cara
-4. CONECTA emocionalmente con la situación del usuario
-5. SUGIERE próximos pasos concretos
-
-Responde de manera natural y conversacional, como lo haría un coach experto que realmente se preocupa por el éxito del usuario.`
-                  }
-                ]
+        const geminiRequestBody = {
+          contents: contents,
+            tools: geminiTools,
+            toolConfig: {
+              functionCallingConfig: {
+                mode: 'any'
               }
-            ],
+            },
             generationConfig: {
               temperature: 0.7,
               topK: 1,
@@ -3643,6 +3721,9 @@ Responde de manera natural y conversacional, como lo haría un coach experto que
             }
           };
 
+          console.log('🔍 [DEBUG] Request body con datos:', JSON.stringify(geminiRequestBody, null, 2));
+
+        try {
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
@@ -3661,22 +3742,58 @@ Responde de manera natural y conversacional, como lo haría un coach experto que
           if (result.candidates && result.candidates.length > 0) {
             const candidate = result.candidates[0];
             if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-              assistantResponse = candidate.content.parts[0].text;
+              const parts = candidate.content.parts;
+              console.log('🔍 [DEBUG] Parts de la respuesta (con datos):', parts);
+
+              // Buscar function calls
+              let functionResults = [];
+              for (const part of parts) {
+                if (part.functionCall) {
+                  console.log('🔍 [DEBUG] Function call detectado (con datos):', part.functionCall);
+                  const functionName = part.functionCall.name;
+                  const functionArgs = part.functionCall.args;
+
+                  // Ejecutar la función
+                  try {
+                    const result = await executeAssistantFunction(functionName, functionArgs);
+                    functionResults.push(result);
+                    console.log('🔍 [DEBUG] Resultado de función (con datos):', result);
+                  } catch (error) {
+                    console.error('🚨 Error ejecutando función (con datos):', error);
+                    functionResults.push({ success: false, message: 'Error ejecutando función' });
+                  }
+                } else if (part.text) {
+                  assistantResponse = part.text;
+                }
+              }
+
+              // Si hay resultados de funciones, usar el mensaje de la función
+              if (functionResults.length > 0) {
+                const successfulResults = functionResults.filter(r => r.success);
+                if (successfulResults.length > 0) {
+                  assistantResponse = successfulResults[0].message;
+                }
+              } else {
+                // Si no hay function calls, usar el texto normal
+                assistantResponse = candidate.content.parts[0].text;
+              }
+
             } else if (candidate.finishReason === 'SAFETY') {
-              assistantResponse = `✅ ${functionResult.message}\n\n🛡️ La respuesta fue filtrada por seguridad. Aquí tienes los datos de tus proyectos.`;
+              assistantResponse = '🛡️ La respuesta fue filtrada por seguridad. ¿Podrías reformular tu pregunta?';
             } else {
               console.error('🚨 Candidato sin contenido válido:', candidate);
-              assistantResponse = `✅ ${functionResult.message}`;
+              assistantResponse = 'Lo siento, no pude generar una respuesta en este momento.';
             }
           } else if (result.error) {
             console.error('🚨 Error en API de Gemini:', result.error);
-            assistantResponse = `✅ ${functionResult.message}\n\n⚠️ Error en respuesta de IA: ${result.error.message}`;
+            assistantResponse = `⚠️ Error en respuesta de IA: ${result.error.message}`;
           } else {
             console.error('🚨 Estructura inesperada completa:', result);
-            assistantResponse = `✅ ${functionResult.message}`;
+            assistantResponse = 'Respuesta de Gemini en formato inesperado';
           }
-        } else {
-          assistantResponse = `❌ ${functionResult.message}`;
+        } catch (error) {
+          console.error('🚨 Error en llamada a Gemini con functions:', error);
+          assistantResponse = 'Error procesando tu solicitud. Inténtalo de nuevo.';
         }
       } else {
         // Llamada normal a Gemini para coaching sin funciones
@@ -3710,6 +3827,12 @@ Usuario: ${currentMessage}`;
                 ]
               }
             ],
+            tools: geminiTools,
+            toolConfig: {
+              functionCallingConfig: {
+                mode: 'any'
+              }
+            },
             generationConfig: {
               temperature: 0.7,
               topK: 1,
@@ -3719,6 +3842,7 @@ Usuario: ${currentMessage}`;
           };
 
           console.log('🔍 [DEBUG] Enviando request a Gemini...');
+          console.log('🔍 [DEBUG] Request body completo:', JSON.stringify(geminiRequestBody, null, 2));
 
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
             method: 'POST',
@@ -3743,8 +3867,40 @@ Usuario: ${currentMessage}`;
           if (result.candidates && result.candidates.length > 0) {
             const candidate = result.candidates[0];
             if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-              assistantResponse = candidate.content.parts[0].text;
-              console.log('🔍 [DEBUG] Assistant response extraída:', assistantResponse);
+              const parts = candidate.content.parts;
+              console.log('🔍 [DEBUG] Parts de la respuesta:', parts);
+
+              // Buscar function calls
+              let functionResults = [];
+              for (const part of parts) {
+                if (part.functionCall) {
+                  console.log('🔍 [DEBUG] Function call detectado:', part.functionCall);
+                  const functionName = part.functionCall.name;
+                  const functionArgs = part.functionCall.args;
+
+                  // Ejecutar la función
+                  try {
+                    const result = await executeAssistantFunction(functionName, functionArgs);
+                    functionResults.push(result);
+                    console.log('🔍 [DEBUG] Resultado de función:', result);
+                  } catch (error) {
+                    console.error('🚨 Error ejecutando función:', error);
+                    functionResults.push({ success: false, message: 'Error ejecutando función' });
+                  }
+                } else if (part.text) {
+                  assistantResponse = part.text;
+                  console.log('🔍 [DEBUG] Assistant response extraída:', assistantResponse);
+                }
+              }
+
+              // Si hay resultados de funciones, usar el mensaje de la función
+              if (functionResults.length > 0) {
+                const successfulResults = functionResults.filter(r => r.success);
+                if (successfulResults.length > 0) {
+                  assistantResponse = successfulResults[0].message;
+                }
+              }
+
             } else if (candidate.finishReason === 'SAFETY') {
               assistantResponse = '🛡️ La respuesta fue filtrada por seguridad. ¿Podrías reformular tu pregunta?';
             } else {
@@ -6873,55 +7029,16 @@ Usuario: ${currentMessage}`;
               )}
             </div>
 
-            {/* Botones de acción */}
+            {/* Resumen de tareas */}
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
               borderTop: '1px solid #e5e7eb',
-              paddingTop: '20px'
+              paddingTop: '15px',
+              marginBottom: '15px'
             }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => {
-                    // Verificar si el proyecto está activo y tiene tareas
-                    const isActive = selectedProject.status === 'activo';
-                    const hasTasks = selectedProject.tasks && selectedProject.tasks.length > 0;
-
-                    if (isActive && hasTasks) {
-                      alert('No puedes eliminar un proyecto activo que tiene tareas. Puedes cambiarlo a inactivo primero o eliminar todas sus tareas.');
-                      return;
-                    }
-
-                    if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
-                      deleteProject(selectedProject.id);
-                      setShowProjectDetailModal(false);
-                    }
-                  }}
-                  style={{
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Trash2 size={16} />
-                  Eliminar Proyecto
-                </button>
-              </div>
               <div style={{
                 fontSize: '14px',
                 color: '#6b7280',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '15px'
+                textAlign: 'center'
               }}>
                 <span>
                   <span style={{ fontWeight: '600' }}>
@@ -6932,6 +7049,48 @@ Usuario: ${currentMessage}`;
                   </span> tareas completadas
                 </span>
               </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  // Verificar si el proyecto está activo y tiene tareas
+                  const isActive = selectedProject.status === 'activo';
+                  const hasTasks = selectedProject.tasks && selectedProject.tasks.length > 0;
+
+                  if (isActive && hasTasks) {
+                    alert('No puedes eliminar un proyecto activo que tiene tareas. Puedes cambiarlo a inactivo primero o eliminar todas sus tareas.');
+                    return;
+                  }
+
+                  if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
+                    deleteProject(selectedProject.id);
+                    setShowProjectDetailModal(false);
+                  }
+                }}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Trash2 size={16} />
+                Eliminar Proyecto
+              </button>
+
               <button
                 onClick={() => setShowProjectDetailModal(false)}
                 style={{

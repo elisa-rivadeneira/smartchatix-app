@@ -223,12 +223,122 @@
       "progress": 0,
       "createdAt": "2025-10-10T14:38:49.034Z",
       "tasks": []
+    },
+    {
+      "id": 1760112806102,
+      "title": "proyect",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T16:13:26.102Z",
+      "tasks": []
+    },
+    {
+      "id": 1760112924270,
+      "title": "proe",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T16:15:24.270Z",
+      "tasks": []
+    },
+    {
+      "id": 1760115235093,
+      "title": "gff",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T16:53:55.093Z",
+      "tasks": []
+    },
+    {
+      "id": 1760115249163,
+      "title": "fggf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T16:54:09.163Z",
+      "tasks": []
+    },
+    {
+      "id": 1760116058935,
+      "title": "sds",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T17:07:38.935Z",
+      "tasks": []
+    },
+    {
+      "id": 1760116076334,
+      "title": "fg",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T17:07:56.334Z",
+      "tasks": []
+    },
+    {
+      "id": 1760116096975,
+      "title": "dfdf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T17:08:16.975Z",
+      "tasks": []
+    },
+    {
+      "id": 1760116132369,
+      "title": "fdf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-10T17:08:52.369Z",
+      "tasks": []
+    },
+    {
+      "id": 1760149396888,
+      "title": "gfgf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-11T02:23:16.888Z",
+      "tasks": []
+    },
+    {
+      "id": 1760149552780,
+      "title": "dfdf",
+      "priority": "media",
+      "deadline": "",
+      "description": "",
+      "status": "active",
+      "progress": 0,
+      "createdAt": "2025-10-11T02:25:52.780Z",
+      "tasks": []
     }
   ],
   "priorities": [],
   "habits": [],
   "achievements": [],
-  "lastInteraction": "2025-10-10T14:38:49.035Z",
+  "lastInteraction": "2025-10-11T02:25:52.781Z",
   "dailyStats": {
     "streak": 2,
     "totalDays": 12,
