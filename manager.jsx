@@ -2768,12 +2768,8 @@ Responde siempre en español y mantén el tono configurado.`;
     if (result.isConfirmed) {
       try {
         // Llamar al API para archivar la tarea
-        const authToken = localStorage.getItem('authToken');
         const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}/archive`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
+          method: 'PUT'
         });
 
         if (response.ok) {
@@ -2843,12 +2839,8 @@ Responde siempre en español y mantén el tono configurado.`;
     if (result.isConfirmed) {
       try {
         // Llamar al API para desarchiver la tarea
-        const authToken = localStorage.getItem('authToken');
         const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}/unarchive`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
+          method: 'PUT'
         });
 
         if (response.ok) {
