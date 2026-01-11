@@ -457,6 +457,108 @@ router.post('/daily-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar tarea diaria
+router.put('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔥 [UPDATE DAILY-TASK] Nueva petición recibida:', {
+      taskId: req.params.taskId,
+      updates: req.body,
+      userId: req.user.userId,
+      timestamp: new Date().toISOString()
+    });
+
+    const { taskId } = req.params;
+    const { text, completed, projectId, projectTaskId } = req.body;
+    const userId = req.user.userId;
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM daily_tasks WHERE id = ? AND user_id = ?';
+    console.log('🔍 [UPDATE DAILY-TASK] Verificando tarea:', { taskId, userId });
+
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('❌ [UPDATE DAILY-TASK] Error en consulta de tarea:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        console.log('⚠️ [UPDATE DAILY-TASK] Tarea no encontrada:', { taskId, userId });
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+
+      console.log('✅ [UPDATE DAILY-TASK] Tarea verificada correctamente:', task);
+
+      // Construir la query de actualización dinámicamente
+      const updates = [];
+      const values = [];
+
+      if (text !== undefined) {
+        updates.push('text = ?');
+        values.push(text);
+      }
+      if (completed !== undefined) {
+        updates.push('completed = ?');
+        values.push(completed ? 1 : 0);
+      }
+      if (projectId !== undefined) {
+        updates.push('project_id = ?');
+        values.push(projectId);
+      }
+      if (projectTaskId !== undefined) {
+        updates.push('project_task_id = ?');
+        values.push(projectTaskId);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No hay campos para actualizar' });
+      }
+
+      values.push(taskId, userId);
+
+      const updateQuery = `
+        UPDATE daily_tasks
+        SET ${updates.join(', ')}
+        WHERE id = ? AND user_id = ?
+      `;
+
+      console.log('📝 [UPDATE DAILY-TASK] Ejecutando query:', updateQuery, values);
+
+      userDB.db.run(updateQuery, values, function(updateErr) {
+        if (updateErr) {
+          console.error('❌ [UPDATE DAILY-TASK] Error actualizando tarea:', updateErr);
+          return res.status(500).json({ error: 'Error al actualizar tarea' });
+        }
+
+        console.log('✅ [UPDATE DAILY-TASK] Tarea actualizada exitosamente:', {
+          taskId,
+          changes: this.changes
+        });
+
+        const responseData = {
+          success: true,
+          task: {
+            id: taskId,
+            text: text !== undefined ? text : task.text,
+            completed: completed !== undefined ? completed : task.completed,
+            projectId: projectId !== undefined ? projectId : task.project_id,
+            projectTaskId: projectTaskId !== undefined ? projectTaskId : task.project_task_id,
+            user_id: userId
+          }
+        };
+
+        console.log('📤 [UPDATE DAILY-TASK] Enviando respuesta:', responseData);
+        res.json(responseData);
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [UPDATE DAILY-TASK] Error general:', error);
+    res.status(500).json({
+      error: 'Error al actualizar tarea'
+    });
+  }
+});
+
 // Eliminar tarea diaria
 router.delete('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
   try {
@@ -574,6 +676,109 @@ router.post('/project-tasks', authenticateToken, async (req, res) => {
     console.error('❌ [PROJECT-TASKS] Error general en creación de tarea:', error);
     res.status(500).json({
       error: 'Error al crear tarea'
+    });
+  }
+});
+
+// Actualizar tarea de proyecto
+router.put('/project-tasks/:taskId', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔥 [UPDATE PROJECT-TASK] Nueva petición recibida:', {
+      taskId: req.params.taskId,
+      updates: req.body,
+      userId: req.user.userId,
+      timestamp: new Date().toISOString()
+    });
+
+    const { taskId } = req.params;
+    const { title, description, completed, progress } = req.body;
+    const userId = req.user.userId;
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM project_tasks WHERE id = ? AND user_id = ?';
+    console.log('🔍 [UPDATE PROJECT-TASK] Verificando tarea:', { taskId, userId });
+
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('❌ [UPDATE PROJECT-TASK] Error en consulta de tarea:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        console.log('⚠️ [UPDATE PROJECT-TASK] Tarea no encontrada:', { taskId, userId });
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+
+      console.log('✅ [UPDATE PROJECT-TASK] Tarea verificada correctamente:', task);
+
+      // Construir la query de actualización dinámicamente
+      const updates = [];
+      const values = [];
+
+      if (title !== undefined) {
+        updates.push('title = ?');
+        values.push(title);
+      }
+      if (description !== undefined) {
+        updates.push('description = ?');
+        values.push(description);
+      }
+      if (completed !== undefined) {
+        updates.push('completed = ?');
+        values.push(completed ? 1 : 0);
+      }
+      if (progress !== undefined) {
+        updates.push('progress = ?');
+        values.push(progress);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No hay campos para actualizar' });
+      }
+
+      values.push(taskId, userId);
+
+      const updateQuery = `
+        UPDATE project_tasks
+        SET ${updates.join(', ')}
+        WHERE id = ? AND user_id = ?
+      `;
+
+      console.log('📝 [UPDATE PROJECT-TASK] Ejecutando query:', updateQuery, values);
+
+      userDB.db.run(updateQuery, values, function(updateErr) {
+        if (updateErr) {
+          console.error('❌ [UPDATE PROJECT-TASK] Error actualizando tarea:', updateErr);
+          return res.status(500).json({ error: 'Error al actualizar tarea' });
+        }
+
+        console.log('✅ [UPDATE PROJECT-TASK] Tarea actualizada exitosamente:', {
+          taskId,
+          changes: this.changes
+        });
+
+        const responseData = {
+          success: true,
+          task: {
+            id: taskId,
+            title: title !== undefined ? title : task.title,
+            description: description !== undefined ? description : task.description,
+            completed: completed !== undefined ? completed : task.completed,
+            progress: progress !== undefined ? progress : task.progress,
+            project_id: task.project_id,
+            user_id: userId
+          }
+        };
+
+        console.log('📤 [UPDATE PROJECT-TASK] Enviando respuesta:', responseData);
+        res.json(responseData);
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [UPDATE PROJECT-TASK] Error general:', error);
+    res.status(500).json({
+      error: 'Error al actualizar tarea'
     });
   }
 });

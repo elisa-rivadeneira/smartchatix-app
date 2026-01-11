@@ -1360,36 +1360,66 @@ const PersonalCoachAssistant = () => {
     setEditingProjectTaskText(taskTitle);
   };
 
-  const saveEditedProjectTask = () => {
+  const saveEditedProjectTask = async () => {
     if (editingProjectTaskText.trim()) {
-      setProjects(projects.map(project => {
-        if (project.id === editingProjectId) {
-          const updatedTasks = project.tasks.map(task =>
-            task.id === editingProjectTaskId
-              ? { ...task, title: editingProjectTaskText.trim() }
-              : task
-          );
-          return { ...project, tasks: updatedTasks };
-        }
-        return project;
-      }));
+      try {
+        // Guardar en la base de datos
+        const response = await authenticatedFetch(`${getApiBase()}/project-tasks/${editingProjectTaskId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            title: editingProjectTaskText.trim()
+          })
+        });
 
-      // Sincronizar con tareas diarias
-      setDailyTasks(dailyTasks.map(task => {
-        if (task.projectId === editingProjectId && task.projectTaskId === editingProjectTaskId) {
-          return { ...task, text: editingProjectTaskText.trim() };
-        }
-        return task;
-      }));
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Actualizar estado local solo si la API fue exitosa
+            setProjects(projects.map(project => {
+              if (project.id === editingProjectId) {
+                const updatedTasks = project.tasks.map(task =>
+                  task.id === editingProjectTaskId
+                    ? { ...task, title: editingProjectTaskText.trim() }
+                    : task
+                );
+                return { ...project, tasks: updatedTasks };
+              }
+              return project;
+            }));
 
-      // Actualizar selectedProject si está abierto en el modal
-      if (selectedProject && selectedProject.id === editingProjectId) {
-        const updatedTasks = selectedProject.tasks.map(task =>
-          task.id === editingProjectTaskId
-            ? { ...task, title: editingProjectTaskText.trim() }
-            : task
-        );
-        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+            // Sincronizar con tareas diarias
+            setDailyTasks(dailyTasks.map(task => {
+              if (task.projectId === editingProjectId && task.projectTaskId === editingProjectTaskId) {
+                return { ...task, text: editingProjectTaskText.trim() };
+              }
+              return task;
+            }));
+
+            // Actualizar selectedProject si está abierto en el modal
+            if (selectedProject && selectedProject.id === editingProjectId) {
+              const updatedTasks = selectedProject.tasks.map(task =>
+                task.id === editingProjectTaskId
+                  ? { ...task, title: editingProjectTaskText.trim() }
+                  : task
+              );
+              setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error actualizando tarea del proyecto:', error);
+        // Fallback: actualizar localmente si hay error
+        setProjects(projects.map(project => {
+          if (project.id === editingProjectId) {
+            const updatedTasks = project.tasks.map(task =>
+              task.id === editingProjectTaskId
+                ? { ...task, title: editingProjectTaskText.trim() }
+                : task
+            );
+            return { ...project, tasks: updatedTasks };
+          }
+          return project;
+        }));
       }
     }
     setEditingProjectId(null);
@@ -2872,11 +2902,33 @@ Responde siempre en español y mantén el tono configurado.`;
     setEditingTaskText(taskText);
   };
 
-  const saveEditedTask = () => {
+  const saveEditedTask = async () => {
     if (editingTaskText.trim()) {
-      setDailyTasks(dailyTasks.map(task =>
-        task.id === editingTaskId ? { ...task, text: editingTaskText.trim() } : task
-      ));
+      try {
+        // Guardar en la base de datos
+        const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${editingTaskId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            text: editingTaskText.trim()
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Actualizar estado local solo si la API fue exitosa
+            setDailyTasks(dailyTasks.map(task =>
+              task.id === editingTaskId ? { ...task, text: editingTaskText.trim() } : task
+            ));
+          }
+        }
+      } catch (error) {
+        console.error('Error actualizando tarea diaria:', error);
+        // Fallback: actualizar localmente si hay error
+        setDailyTasks(dailyTasks.map(task =>
+          task.id === editingTaskId ? { ...task, text: editingTaskText.trim() } : task
+        ));
+      }
     }
     setEditingTaskId(null);
     setEditingTaskText('');
