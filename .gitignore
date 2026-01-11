@@ -38,3 +38,11 @@ node_modules/
 .env
 database.sqlite
 .nixpacks/
+
+# Database and data files
+data/users.db
+data/smartchatix.db
+*_backup_*.db
+*_backup_*.json
+user_memory.json
+auth_logs.json

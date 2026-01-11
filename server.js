@@ -376,6 +376,159 @@ app.post('/api/assistant/morning-greeting', authenticateToken, (req, res) => {
   }
 });
 
+app.put('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+  const { completed } = req.body;
+
+  if (typeof completed !== 'boolean') {
+    return res.status(400).json({ error: 'El campo completed debe ser un boolean' });
+  }
+
+  try {
+    const result = await userDB.updateDailyTaskCompletion(req.user.userId, taskId, completed);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating task completion:', error);
+    res.status(500).json({ error: 'Error actualizando estado de tarea' });
+  }
+});
+
+app.delete('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+
+  try {
+    const result = await userDB.deleteDailyTask(req.user.userId, taskId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ error: 'Error eliminando tarea' });
+  }
+});
+
+app.put('/api/assistant/task/:taskId/archive', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+
+  try {
+    const result = await userDB.archiveDailyTask(req.user.userId, taskId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error archiving task:', error);
+    res.status(500).json({ error: 'Error archivando tarea' });
+  }
+});
+
+app.put('/api/assistant/task/:taskId/unarchive', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+
+  try {
+    const result = await userDB.unarchiveDailyTask(req.user.userId, taskId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error unarchiving task:', error);
+    res.status(500).json({ error: 'Error restaurando tarea' });
+  }
+});
+
+app.get('/api/assistant/archived-tasks', authenticateToken, async (req, res) => {
+  try {
+    const archivedTasks = await userDB.getUserArchivedTasks(req.user.userId);
+    res.json(archivedTasks);
+  } catch (error) {
+    console.error('Error getting archived tasks:', error);
+    res.status(500).json({ error: 'Error obteniendo tareas archivadas' });
+  }
+});
+
+app.post('/api/daily-tasks', authenticateToken, async (req, res) => {
+  try {
+    const { task } = req.body;
+
+    if (!task || !task.text) {
+      return res.status(400).json({ error: 'Task text is required' });
+    }
+
+    const newTask = await userDB.createDailyTask(req.user.userId, {
+      text: task.text,
+      completed: task.completed || false,
+      projectId: task.projectId || null,
+      projectTaskId: task.projectTaskId || null
+    });
+
+    res.json(newTask);
+  } catch (error) {
+    console.error('Error creating daily task:', error);
+    res.status(500).json({ error: 'Error creating daily task' });
+  }
+});
+
+app.get('/api/projects/:projectId/daily-tasks', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const dailyTasks = await userDB.getProjectDailyTasks(req.user.userId, projectId);
+    res.json(dailyTasks);
+  } catch (error) {
+    console.error('Error getting project daily tasks:', error);
+    res.status(500).json({ error: 'Error getting project daily tasks' });
+  }
+});
+
+// Endpoint para crear nuevos proyectos
+app.post('/api/auth/projects', authenticateToken, async (req, res) => {
+  try {
+    const { project } = req.body;
+    console.log('🚀 Creando proyecto:', project);
+    console.log('👤 Usuario ID:', req.user.userId);
+
+    if (!project || !project.title) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos de proyecto inválidos'
+      });
+    }
+
+    const newProject = await userDB.createProject(req.user.userId, project);
+    console.log('✅ Proyecto creado:', newProject);
+
+    res.json({
+      success: true,
+      project: newProject
+    });
+  } catch (error) {
+    console.error('❌ Error creating project:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error creating project'
+    });
+  }
+});
+
+app.get('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    // Cargar proyectos y tareas diarias
+    const [projects, dailyTasks] = await Promise.all([
+      userDB.getUserProjects(req.user.userId),
+      userDB.getUserDailyTasks(req.user.userId)
+    ]);
+
+    // Intentar cargar configuración del asistente, pero no fallar si no existe
+    let assistantConfig = null;
+    try {
+      assistantConfig = await userDB.getUserAssistantConfig(req.user.userId);
+    } catch (configError) {
+      console.log('Config no encontrada, continuando sin ella');
+    }
+
+    res.json({
+      projects: projects || [],
+      dailyTasks: dailyTasks || [],
+      assistantConfig: assistantConfig || null
+    });
+  } catch (error) {
+    console.error('Error loading user profile:', error);
+    res.status(500).json({ error: 'Error cargando datos de usuario' });
+  }
+});
+
 // Serve React app for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
@@ -403,8 +556,8 @@ const startServer = async () => {
 
   app.listen(PORT, '0.0.0.0', () => {
     const now = new Date().toLocaleString('es-ES');
-    console.log(`🚀 Servidor ejecutándose en http://0.0.0.0:${PORT} - ${now}`);
-    console.log(`📡 Accesible desde localhost: http://localhost:${PORT}`);
+    console.log(`🚀🚀🚀🚀🚀 Servidor ejecutándoseeeeeeeeeeee aqui en http://0.0.0.0:${PORT} - ${now}`);
+    console.log(`📡📡📡 NUEVO CAMBIOOK  Accesible desde localhost: http://localhost:${PORT}`);
     console.log(`📱 Accesible desde red local: http://[tu-ip-local]:${PORT} - ${now}`);
     console.log(`📡 API disponible en /api/ - ${now}`);
   });

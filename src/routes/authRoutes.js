@@ -358,7 +358,18 @@ router.put('/assistant-config', authenticateToken, async (req, res) => {
 // Guardar proyecto
 router.post('/projects', authenticateToken, async (req, res) => {
   try {
-    const project = req.body;
+    const project = req.body.project;
+    console.log('🚀 Creando proyecto desde authRoutes:', project);
+    console.log('👤 Usuario ID:', req.user.userId);
+
+    if (!project || !project.title) {
+      console.log('❌ Datos de proyecto inválidos:', project);
+      return res.status(400).json({
+        success: false,
+        error: 'Datos de proyecto inválidos'
+      });
+    }
+
     const userId = req.user.userId;
     const projectId = require('crypto').randomUUID();
 

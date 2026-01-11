@@ -494,11 +494,29 @@ class UserDatabase {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT * FROM daily_tasks
-        WHERE user_id = ?
+        WHERE user_id = ? AND (archived = 0 OR archived IS NULL)
         ORDER BY created_at DESC
       `;
 
       this.db.all(query, [userId], (err, tasks) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(tasks || []);
+      });
+    });
+  }
+
+  async getProjectDailyTasks(userId, projectId) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT * FROM daily_tasks
+        WHERE user_id = ? AND project_id = ? AND (archived = 0 OR archived IS NULL)
+        ORDER BY created_at DESC
+      `;
+
+      this.db.all(query, [userId, projectId], (err, tasks) => {
         if (err) {
           reject(err);
           return;
@@ -580,6 +598,156 @@ class UserDatabase {
           createdAt: new Date().toISOString(),
           tasks: []
         });
+      });
+    });
+  }
+
+  async updateDailyTaskCompletion(userId, taskId, completed) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        UPDATE daily_tasks
+        SET completed = ?
+        WHERE id = ? AND user_id = ?
+      `;
+
+      this.db.run(query, [completed ? 1 : 0, taskId, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (this.changes === 0) {
+          reject(new Error('Tarea no encontrada o no pertenece al usuario'));
+          return;
+        }
+
+        resolve({ success: true, taskId, completed });
+      });
+    });
+  }
+
+  async deleteDailyTask(userId, taskId) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        DELETE FROM daily_tasks
+        WHERE id = ? AND user_id = ?
+      `;
+
+      this.db.run(query, [taskId, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (this.changes === 0) {
+          reject(new Error('Tarea no encontrada o no pertenece al usuario'));
+          return;
+        }
+
+        resolve({ success: true, taskId });
+      });
+    });
+  }
+
+  async archiveDailyTask(userId, taskId) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        UPDATE daily_tasks
+        SET archived = 1, completed_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND user_id = ?
+      `;
+
+      this.db.run(query, [taskId, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (this.changes === 0) {
+          reject(new Error('Tarea no encontrada o no pertenece al usuario'));
+          return;
+        }
+
+        resolve({ success: true, taskId });
+      });
+    });
+  }
+
+  async unarchiveDailyTask(userId, taskId) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        UPDATE daily_tasks
+        SET archived = 0, completed = 0, completed_at = NULL
+        WHERE id = ? AND user_id = ?
+      `;
+
+      this.db.run(query, [taskId, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (this.changes === 0) {
+          reject(new Error('Tarea no encontrada o no pertenece al usuario'));
+          return;
+        }
+
+        resolve({ success: true, taskId });
+      });
+    });
+  }
+
+  async createDailyTask(userId, taskData) {
+    return new Promise((resolve, reject) => {
+      const taskId = uuidv4();
+      const query = `
+        INSERT INTO daily_tasks (id, user_id, text, completed, project_id, project_task_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        taskId,
+        userId,
+        taskData.text,
+        taskData.completed || false,
+        taskData.projectId || null,
+        taskData.projectTaskId || null
+      ];
+
+      this.db.run(query, values, function(err) {
+        if (err) {
+          console.error('Error creating daily task:', err);
+          reject(err);
+          return;
+        }
+
+        resolve({
+          id: taskId,
+          user_id: userId,
+          text: taskData.text,
+          completed: taskData.completed || false,
+          project_id: taskData.projectId || null,
+          project_task_id: taskData.projectTaskId || null,
+          created_at: new Date().toISOString()
+        });
+      });
+    });
+  }
+
+  async getUserArchivedTasks(userId) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT * FROM daily_tasks
+        WHERE user_id = ? AND archived = 1
+        ORDER BY completed_at DESC
+      `;
+
+      this.db.all(query, [userId], (err, tasks) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(tasks || []);
       });
     });
   }

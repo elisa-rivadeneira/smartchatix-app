@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Pause, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock } from 'lucide-react';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
-import { getPromptConfig } from './src/config/promptConfig';
+import Swal from 'sweetalert2';
 
 // Estilos CSS para diseño retro-futurista años 80 synthwave
 const style = document.createElement('style');
@@ -84,7 +83,8 @@ style.textContent = `
   }
 
   .neon-border {
-    border-bottom: 2px solid #ff00ff;
+    border: 2px solid #ff00ff;
+    border-radius: 8px;
     background: linear-gradient(45deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
     backdrop-filter: blur(10px);
     animation: synthPulse 3s ease-in-out infinite;
@@ -144,61 +144,34 @@ const getApiBase = () => {
   // En producción (cualquier dominio que no sea localhost)
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
     console.log('📱 Manager modo producción detectado:', hostname);
-
-    return '/api';
+    return '/api/auth';
   }
 
   // En desarrollo - usar variable de entorno si está disponible
   const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
   console.log('🔧 Manager modo desarrollo detectado, usando:', devHost);
-  return `http://${devHost}:3001/api`;
+  return `http://${devHost}:3001/api/auth`;
 };
 
-// Helper function para manejar fechas correctamente evitando problemas de zona horaria
-const parseLocalDate = (dateString) => {
-  if (!dateString) return null;
-
-  // Si es un string de fecha YYYY-MM-DD, parsearlo como fecha local
-  if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    const [year, month, day] = dateString.split('-').map(Number);
-    return new Date(year, month - 1, day); // month is 0-indexed
-  }
-
-  return new Date(dateString);
-};
-
-// Helper function para formatear fecha como YYYY-MM-DD
-const formatDateForInput = (date) => {
-  if (!date) return '';
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 
 const PersonalCoachAssistant = () => {
+  console.log("*testeoooo.jsx");
 
   const { user, loading: authLoading, isAuthenticated, login, logout, authenticatedFetch } = useAuth();
 
-  // console.log('Auth state:', { user, authLoading, isAuthenticated });
-
   const [projects, setProjects] = useState([]);
   const [dailyTasks, setDailyTasks] = useState([]);
+  const [archivedTasks, setArchivedTasks] = useState([]);
   const [newProject, setNewProject] = useState({ title: '', priority: 'media', deadline: '', description: '' });
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState('');
   const [newDailyTask, setNewDailyTask] = useState('');
   const [selectedProjectForTask, setSelectedProjectForTask] = useState('');
+  const [lastUsedProject, setLastUsedProject] = useState('');
   const [selectedProjectTasks, setSelectedProjectTasks] = useState([]);
+  const [selectedProjectDailyTasks, setSelectedProjectDailyTasks] = useState([]);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
-  const [addTaskStep, setAddTaskStep] = useState(1); // 1: seleccionar proyecto, 2: seleccionar tarea o crear nueva
-  const [selectedProjectTaskId, setSelectedProjectTaskId] = useState('');
-  const [addTaskMode, setAddTaskMode] = useState(''); // 'existing' o 'new'
-  const [showProjectSelectionModal, setShowProjectSelectionModal] = useState(false);
-  const [modalStep, setModalStep] = useState(1); // 1: seleccionar proyecto, 2: tareas/crear nueva
-  const [showNewTaskInput, setShowNewTaskInput] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
 
   // Nuevos estados para gestión de tareas de proyectos
@@ -219,35 +192,11 @@ const PersonalCoachAssistant = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [projectToChangeStatus, setProjectToChangeStatus] = useState(null);
+  const [isCreatingProjectForTask, setIsCreatingProjectForTask] = useState(false);
+  const [isCreatingInlineProject, setIsCreatingInlineProject] = useState(false);
+  const [newInlineProjectName, setNewInlineProjectName] = useState('');
   const [newTaskText, setNewTaskText] = useState('');
-  const [newTaskEstimatedHours, setNewTaskEstimatedHours] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
-  const [editTaskName, setEditTaskName] = useState('');
-  const [editTaskDescription, setEditTaskDescription] = useState('');
-  const [editEstimatedHours, setEditEstimatedHours] = useState('');
-  const [editEstimatedMinutes, setEditEstimatedMinutes] = useState('');
-  const [editActualHours, setEditActualHours] = useState('');
-  const [editActualMinutes, setEditActualMinutes] = useState('');
-  const [editTaskProject, setEditTaskProject] = useState(''); // Para vincular tareas diarias con proyectos
-  const [showTimeModal, setShowTimeModal] = useState(false);
-  const [completingTask, setCompletingTask] = useState(null);
-  const [activeTimers, setActiveTimers] = useState(() => {
-    const saved = localStorage.getItem('activeTimers');
-    return saved ? JSON.parse(saved) : {};
-  }); // {taskId: startTime}
-  const [timerIntervals, setTimerIntervals] = useState({}); // {taskId: intervalId}
-  const [pausedTimers, setPausedTimers] = useState(() => {
-    const saved = localStorage.getItem('pausedTimers');
-    return saved ? JSON.parse(saved) : {};
-  }); // {taskId: accumulatedTime}
-  const [timerMode, setTimerMode] = useState(() => {
-    const saved = localStorage.getItem('timerMode');
-    return saved || 'una_tarea'; // 'una_tarea' o 'multiples'
-  });
-  const [timerTick, setTimerTick] = useState(0); // Para forzar re-renders del timer
-  const globalTimerRef = useRef(null); // Referencia para el timer global
 
   // Estados para el asistente
   const [assistantConfig, setAssistantConfig] = useState({
@@ -317,6 +266,10 @@ const PersonalCoachAssistant = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isConfigSaved, setIsConfigSaved] = useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+
+  // Estados para timers de tareas
+  const [taskTimers, setTaskTimers] = useState({});
+  const [activeTimer, setActiveTimer] = useState(null);
 
   // Función para obtener estilos del theme
   const getThemeStyles = (theme) => {
@@ -498,78 +451,11 @@ const PersonalCoachAssistant = () => {
   });
 
   const messagesEndRef = useRef(null);
-  const longPressTimerRef = useRef(null);
 
   // Estados para funciones de voz
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [selectedVoice, setSelectedVoice] = useState(null);
-  const [voiceSpeed, setVoiceSpeed] = useState(1.1);
-  const [availableVoices, setAvailableVoices] = useState([]);
-
-  // Detectar si está en móvil
-  const isMobile = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  };
-
-  // Función para cargar y mostrar voces disponibles
-  const loadAvailableVoices = () => {
-    if (synthesisRef.current) {
-      const voices = synthesisRef.current.getVoices();
-      const spanishVoices = voices.filter(voice =>
-        voice.lang.startsWith('es-') || voice.lang.startsWith('es_')
-      );
-
-      const voiceDetails = spanishVoices.map(voice => ({
-        name: voice.name,
-        lang: voice.lang,
-        localService: voice.localService,
-        default: voice.default,
-        quality: voice.name.toLowerCase().includes('neural') ||
-                voice.name.toLowerCase().includes('premium') ||
-                voice.name.toLowerCase().includes('enhanced') ? 'Premium' : 'Básica'
-      }));
-
-      console.log('🎤 Voces en español disponibles:', voiceDetails);
-
-      // Sugerir mejoras según la plataforma
-      const premiumVoices = voiceDetails.filter(v => v.quality === 'Premium');
-      const mobile = isMobile();
-
-      if (premiumVoices.length === 0) {
-        console.log('💡 Para mejorar la calidad de voz:');
-        if (mobile) {
-          console.log('📱 Móvil detectado:');
-          console.log('   Android: Configuración > Idioma > Síntesis de voz > Instalar voces');
-          console.log('   iOS: Las voces de alta calidad se descargan automáticamente');
-        } else {
-          console.log('🖥️ Escritorio:');
-          console.log('   Windows: Configuración > Hora e idioma > Voz > Agregar voces');
-          console.log('   macOS: Preferencias > Accesibilidad > Contenido hablado');
-          console.log('   Linux: sudo apt install espeak-ng-data-* (para más voces)');
-        }
-      } else {
-        console.log(`✅ ${premiumVoices.length} voz(es) de calidad premium detectadas`);
-      }
-
-      setAvailableVoices(spanishVoices);
-
-      // Seleccionar automáticamente la mejor voz disponible si no hay una seleccionada
-      if (!selectedVoice && spanishVoices.length > 0) {
-        const preferredVoice = spanishVoices.find(voice =>
-          voice.name.toLowerCase().includes('neural') ||
-          voice.name.toLowerCase().includes('premium') ||
-          voice.name.toLowerCase().includes('enhanced') ||
-          voice.name.toLowerCase().includes('natural') ||
-          voice.name.toLowerCase().includes('microsoft') ||
-          voice.name.toLowerCase().includes('google')
-        ) || spanishVoices[0];
-
-        setSelectedVoice(preferredVoice);
-      }
-    }
-  };
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
 
@@ -640,13 +526,14 @@ const PersonalCoachAssistant = () => {
   // Función para cargar datos específicos del usuario
   const loadUserData = useCallback(async () => {
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/auth/profile`);
+      const authToken = localStorage.getItem('authToken');
+      const response = await fetch(`http://localhost:3001/api/profile`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
-
-        console.log('🔍 [DEBUG] Datos recibidos del backend:', data);
-        console.log('🔍 [DEBUG] Proyectos en respuesta:', data.projects);
-        console.log('🔍 [DEBUG] Número de proyectos:', data.projects?.length);
 
         // Cargar proyectos del usuario
         setProjects(data.projects || []);
@@ -668,6 +555,17 @@ const PersonalCoachAssistant = () => {
             voiceEnabled: data.assistantConfig.voice_enabled !== 0
           });
         }
+
+        // Cargar tareas archivadas
+        const archivedResponse = await fetch(`http://localhost:3001/api/assistant/archived-tasks`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        if (archivedResponse.ok) {
+          const archivedData = await archivedResponse.json();
+          setArchivedTasks(archivedData);
+        }
       }
     } catch (error) {
       console.error('Error cargando datos del usuario:', error);
@@ -678,14 +576,35 @@ const PersonalCoachAssistant = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       loadUserData();
-      // Cargar voces disponibles para selección
-      setTimeout(loadAvailableVoices, 1000);
-      // También cargar cuando cambien las voces del sistema
-      if (synthesisRef.current) {
-        synthesisRef.current.onvoiceschanged = loadAvailableVoices;
-      }
     }
   }, [isAuthenticated, user]); // Removed loadUserData from dependencies to prevent infinite loop
+
+  // Cargar tareas archivadas cuando se cambie a esa vista
+  useEffect(() => {
+    const loadArchived = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`http://localhost:3001/api/assistant/archived-tasks`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          const archived = await response.json();
+          setArchivedTasks(archived);
+        }
+      } catch (error) {
+        console.error('Error loading archived tasks:', error);
+      }
+    };
+
+    if (activeView === 'archived' && isAuthenticated) {
+      loadArchived();
+    }
+  }, [activeView, isAuthenticated]);
 
   // Recalcular progreso cuando cambien las tareas de los proyectos
   // Removed problematic useEffect that was causing infinite loops
@@ -696,71 +615,6 @@ const PersonalCoachAssistant = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Cargar configuración de voz desde localStorage
-  useEffect(() => {
-    try {
-      const savedVoiceConfig = localStorage.getItem('voiceConfig');
-      if (savedVoiceConfig) {
-        const config = JSON.parse(savedVoiceConfig);
-        setVoiceEnabled(config.voiceEnabled || false);
-        setVoiceSpeed(config.voiceSpeed || 1.1);
-
-        // Cargar la voz seleccionada si existe
-        if (config.selectedVoice && availableVoices.length > 0) {
-          const voice = availableVoices.find(v => v.name === config.selectedVoice.name);
-          if (voice) {
-            setSelectedVoice(voice);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error cargando configuración de voz:', error);
-    }
-  }, [availableVoices]); // Se ejecuta cuando las voces están disponibles
-
-  // Efectos para persistencia de timers
-  useEffect(() => {
-    localStorage.setItem('activeTimers', JSON.stringify(activeTimers));
-  }, [activeTimers]);
-
-  useEffect(() => {
-    localStorage.setItem('pausedTimers', JSON.stringify(pausedTimers));
-  }, [pausedTimers]);
-
-  useEffect(() => {
-    localStorage.setItem('timerMode', timerMode);
-  }, [timerMode]);
-
-  // Gestión del timer global para evitar re-renders innecesarios
-  const startGlobalTimer = () => {
-    if (!globalTimerRef.current) {
-      globalTimerRef.current = setInterval(() => {
-        setTimerTick(prev => prev + 1);
-      }, 1000);
-    }
-  };
-
-  const stopGlobalTimer = () => {
-    if (globalTimerRef.current) {
-      clearInterval(globalTimerRef.current);
-      globalTimerRef.current = null;
-    }
-  };
-
-  // Gestionar timer global basado en timers activos
-  useEffect(() => {
-    const hasActiveTimers = Object.keys(activeTimers).length > 0;
-    if (hasActiveTimers) {
-      startGlobalTimer();
-    } else {
-      stopGlobalTimer();
-    }
-
-    return () => stopGlobalTimer();
-  }, [activeTimers]);
-
-  // Ya no necesitamos timers individuales - se maneja con el timer global
-
   // Inicializar soporte de voz
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -768,10 +622,8 @@ const PersonalCoachAssistant = () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
 
-      // Configuración específica para móvil vs desktop
-      const mobile = isMobile();
-      recognitionRef.current.continuous = !mobile; // En móvil, no usar continuous
-      recognitionRef.current.interimResults = !mobile; // En móvil, solo resultados finales
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'es-ES';
       recognitionRef.current.maxAlternatives = 1;
 
@@ -795,7 +647,6 @@ const PersonalCoachAssistant = () => {
       };
 
       recognitionRef.current.onresult = (event) => {
-        const mobile = isMobile();
         let finalTranscript = '';
         let interimTranscript = '';
 
@@ -803,27 +654,19 @@ const PersonalCoachAssistant = () => {
           const result = event.results[i];
           if (result.isFinal) {
             finalTranscript += result[0].transcript;
-          } else if (!mobile) { // Solo usar interim en desktop
+          } else {
             interimTranscript += result[0].transcript;
           }
         }
 
-        if (mobile) {
-          // En móvil: solo usar resultados finales y no acumular
-          if (finalTranscript) {
-            const cleanedText = finalTranscript.trim();
-            finalTranscriptRef.current = cleanedText; // No acumular, reemplazar
-            setNewMessage(cleanedText);
-          }
-        } else {
-          // En desktop: comportamiento original
-          if (finalTranscript) {
-            finalTranscriptRef.current += finalTranscript + ' ';
-          }
-
-          const fullText = (finalTranscriptRef.current + interimTranscript).trim();
-          setNewMessage(fullText);
+        // Acumular el texto final
+        if (finalTranscript) {
+          finalTranscriptRef.current += finalTranscript + ' ';
         }
+
+        // Mostrar el texto acumulado + el texto temporal
+        const fullText = (finalTranscriptRef.current + interimTranscript).trim();
+        setNewMessage(fullText);
 
         // Resetear timeout para detener grabación después de pausa
         if (timeoutRef.current) {
@@ -831,8 +674,7 @@ const PersonalCoachAssistant = () => {
           console.log('Timeout reseteado - nueva actividad detectada');
         }
 
-        // Timeout más corto en móvil
-        const timeoutDuration = mobile ? 1500 : 2000;
+        // Si no hay actividad por 2 segundos, terminar la grabación
         timeoutRef.current = setTimeout(() => {
           console.log('Timeout ejecutado - deteniendo reconocimiento');
           if (recognitionRef.current) {
@@ -842,7 +684,7 @@ const PersonalCoachAssistant = () => {
               console.log('Reconocimiento ya detenido');
             }
           }
-        }, timeoutDuration);
+        }, 2000);
       };
 
       recognitionRef.current.onerror = (event) => {
@@ -860,6 +702,42 @@ const PersonalCoachAssistant = () => {
       synthesisRef.current = window.speechSynthesis;
     }
   }, []);
+
+  // Efecto para establecer el proyecto por defecto cuando se abre el formulario
+  useEffect(() => {
+    if (showAddTaskForm && !selectedProjectForTask && lastUsedProject) {
+      setSelectedProjectForTask(lastUsedProject);
+    }
+  }, [showAddTaskForm, lastUsedProject]);
+
+  // Efecto para establecer proyecto por defecto basado en la última tarea creada
+  useEffect(() => {
+    if (dailyTasks.length > 0 && !lastUsedProject) {
+      // Encontrar la tarea más reciente que tenga proyecto
+      const lastTaskWithProject = dailyTasks
+        .filter(task => task.projectId)
+        .sort((a, b) => new Date(b.created_at || b.id) - new Date(a.created_at || a.id))[0];
+
+      if (lastTaskWithProject) {
+        setLastUsedProject(lastTaskWithProject.projectId);
+        if (showAddTaskForm && !selectedProjectForTask) {
+          setSelectedProjectForTask(lastTaskWithProject.projectId);
+        }
+      }
+    }
+  }, [dailyTasks, showAddTaskForm]);
+
+  // Efecto para actualizar los timers activos cada segundo
+  useEffect(() => {
+    if (activeTimer) {
+      const interval = setInterval(() => {
+        // Forzar re-render para actualizar el display del tiempo
+        setTaskTimers(prev => ({ ...prev }));
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [activeTimer]);
 
   // Funciones de voz
   const startListening = () => {
@@ -890,237 +768,6 @@ const PersonalCoachAssistant = () => {
       }
       finalTranscriptRef.current = '';
     }
-  };
-
-  // Función para manejar el envío del tiempo real
-  const handleTimeSubmit = async (actualHours) => {
-    if (!completingTask) return;
-
-    try {
-      // Actualizar la tarea con el tiempo real
-      const updatedTask = {
-        ...completingTask,
-        actual_hours: actualHours,
-        completed: true
-      };
-
-      // Actualizar en el estado local
-      setProjects(prevProjects =>
-        prevProjects.map(project =>
-          project.id === completingTask.projectId
-            ? {
-                ...project,
-                tasks: project.tasks.map(task =>
-                  task.id === completingTask.id ? updatedTask : task
-                )
-              }
-            : project
-        )
-      );
-
-      // Aquí podrías hacer una llamada al backend para guardar el tiempo real
-      console.log('Tiempo real guardado:', {
-        taskId: completingTask.id,
-        estimated: completingTask.estimated_hours,
-        actual: actualHours
-      });
-
-      // Cerrar modal
-      setShowTimeModal(false);
-      setCompletingTask(null);
-
-    } catch (error) {
-      console.error('Error guardando tiempo real:', error);
-    }
-  };
-
-  // Funciones para el timer
-  const startTimer = (taskId) => {
-    const activeTimerIds = Object.keys(activeTimers);
-
-    if (timerMode === 'una_tarea' && activeTimerIds.length > 0) {
-      // Una tarea a la vez: pausar automáticamente otros timers
-      const currentTask = dailyTasks.find(t => t.id.toString() === activeTimerIds[0]) ||
-                         projects.flatMap(p => p.tasks).find(t => t.id.toString() === activeTimerIds[0]);
-
-      const newTask = dailyTasks.find(t => t.id.toString() === taskId) ||
-                     projects.flatMap(p => p.tasks).find(t => t.id.toString() === taskId);
-
-      if (confirm(`Tienes una tarea en curso. ¿Pausar "${currentTask?.text || currentTask?.title || 'tarea actual'}" para empezar "${newTask?.text || newTask?.title || 'nueva tarea'}"?`)) {
-        activeTimerIds.forEach(id => pauseTimer(id));
-      } else {
-        return; // No iniciar el nuevo timer
-      }
-    } else if (timerMode === 'multiples' && activeTimerIds.length > 0) {
-      // Múltiples tareas: advertir sobre múltiples timers
-      if (!confirm(`Ya tienes ${activeTimerIds.length} tarea(s) corriendo. ¿Quieres agregar otra tarea más?`)) {
-        return; // No iniciar el nuevo timer
-      }
-    }
-
-    // Auto-agregar tarea de proyecto a tareas diarias cuando se inicia el timer
-    const projectTask = projects.flatMap(p =>
-      p.tasks.map(task => ({ ...task, projectId: p.id, projectTitle: p.title }))
-    ).find(t => t.id.toString() === taskId.toString());
-
-    if (projectTask) {
-      // Es una tarea de proyecto, agregarla automáticamente a las tareas diarias
-      const existingDailyTask = dailyTasks.find(dt =>
-        dt.projectId === projectTask.projectId && dt.projectTaskId === projectTask.id
-      );
-
-      if (!existingDailyTask) {
-        const dailyTask = {
-          id: projectTask.id, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
-          text: projectTask.title,
-          completed: projectTask.completed,
-          createdAt: new Date().toLocaleDateString(),
-          projectId: projectTask.projectId,
-          projectTaskId: projectTask.id
-        };
-        setDailyTasks(prev => [...prev, dailyTask]);
-      }
-    }
-
-    const startTime = Date.now();
-    setActiveTimers(prev => ({ ...prev, [taskId]: startTime }));
-
-    // El timer global se encarga de los re-renders
-  };
-
-  const pauseTimer = (taskId) => {
-    const startTime = activeTimers[taskId];
-    if (startTime) {
-      const elapsed = Date.now() - startTime;
-      const previousTime = pausedTimers[taskId] || 0;
-
-      // Guardar tiempo acumulado
-      setPausedTimers(prev => ({
-        ...prev,
-        [taskId]: previousTime + elapsed
-      }));
-
-      // Limpiar timer activo
-      setActiveTimers(prev => {
-        const newTimers = { ...prev };
-        delete newTimers[taskId];
-        return newTimers;
-      });
-    }
-  };
-
-  const resumeTimer = (taskId) => {
-    // Continuar desde donde se pausó
-    startTimer(taskId);
-  };
-
-  const completeTask = (taskId) => {
-    // Calcular tiempo total
-    let totalTime = pausedTimers[taskId] || 0;
-
-    if (activeTimers[taskId]) {
-      const elapsed = Date.now() - activeTimers[taskId];
-      totalTime += elapsed;
-    }
-
-    const durationHours = totalTime / (1000 * 60 * 60);
-
-    // Limpiar timer activo
-    setActiveTimers(prev => {
-      const newTimers = { ...prev };
-      delete newTimers[taskId];
-      return newTimers;
-    });
-
-    setPausedTimers(prev => {
-      const newPaused = { ...prev };
-      delete newPaused[taskId];
-      return newPaused;
-    });
-
-    return durationHours;
-  };
-
-  const stopTimer = (taskId) => {
-    // Mantener función original para compatibilidad
-    return completeTask(taskId);
-  };
-
-  const getTimerDisplay = (taskId) => {
-    const startTime = activeTimers[taskId];
-    const pausedTime = pausedTimers[taskId] || 0;
-
-    let totalElapsed = pausedTime;
-
-    if (startTime) {
-      // Timer activo: sumar tiempo actual
-      totalElapsed += (Date.now() - startTime);
-    }
-
-    if (totalElapsed === 0 && !startTime) return null;
-
-    const hours = Math.floor(totalElapsed / (1000 * 60 * 60));
-    const minutes = Math.floor((totalElapsed % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((totalElapsed % (1000 * 60)) / 1000);
-
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  // Función para formatear horas en formato legible
-  const formatHours = (hours) => {
-    if (!hours || hours === 0) return "0min";
-
-    const totalMinutes = Math.round(hours * 60);
-
-    if (totalMinutes < 60) {
-      return `${totalMinutes}min`;
-    }
-
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-
-    if (m === 0) {
-      return `${h}h`;
-    }
-
-    return `${h}h ${m}min`;
-  };
-
-  // Función para convertir texto como "1h 30min" o "45min" a horas decimales
-  const parseTimeInput = (timeStr) => {
-    if (!timeStr || timeStr.trim() === '') return null;
-
-    const str = timeStr.toLowerCase().trim();
-
-    // Patrones: "1h 30min", "1h30min", "1.5h", "45min", "2h", "90"
-    const hourMinPattern = /(\d+)h\s*(\d+)min/;
-    const hourOnlyPattern = /(\d+)h$/;
-    const minOnlyPattern = /(\d+)min$/;
-    const decimalPattern = /^(\d*\.?\d+)h?$/;
-
-    let totalHours = 0;
-
-    if (hourMinPattern.test(str)) {
-      const match = str.match(hourMinPattern);
-      totalHours = parseInt(match[1]) + parseInt(match[2]) / 60;
-    } else if (hourOnlyPattern.test(str)) {
-      const match = str.match(hourOnlyPattern);
-      totalHours = parseInt(match[1]);
-    } else if (minOnlyPattern.test(str)) {
-      const match = str.match(minOnlyPattern);
-      totalHours = parseInt(match[1]) / 60;
-    } else if (decimalPattern.test(str)) {
-      const match = str.match(decimalPattern);
-      totalHours = parseFloat(match[1]);
-    } else {
-      // Asumir que es un número simple en horas
-      const num = parseFloat(str);
-      if (!isNaN(num)) {
-        totalHours = num;
-      }
-    }
-
-    return totalHours > 0 ? totalHours : null;
   };
 
   const speakText = (text) => {
@@ -1159,39 +806,10 @@ const PersonalCoachAssistant = () => {
       }
 
       const utterance = new SpeechSynthesisUtterance(chunks[chunkIndex]);
-
-      // Usar la voz seleccionada por el usuario o la automática
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        utterance.lang = selectedVoice.lang;
-      } else {
-        utterance.lang = 'es-ES';
-      }
-
-      // Detectar si el texto contiene preguntas para ajustar entonación
-      const hasQuestion = /[¿?]/.test(text);
-      const isQuestion = hasQuestion || text.trim().endsWith('?');
-
-      // Configuración optimizada según plataforma y tipo de contenido
-      const mobile = isMobile();
-      if (mobile) {
-        // Móviles tienen mejores voces, optimizar para velocidad y naturalidad
-        utterance.rate = voiceSpeed;
-        utterance.pitch = isQuestion ? 1.15 : 1.0; // Pitch más alto para preguntas
-        utterance.volume = 1.0;
-      } else {
-        // Escritorio: velocidad personalizable para mejor fluidez
-        utterance.rate = voiceSpeed;
-        utterance.pitch = isQuestion ? 1.1 : 0.95; // Pitch más alto para preguntas
-        utterance.volume = 0.9;
-      }
-
-      // Ajustar inflexión para preguntas añadiendo pausas estratégicas
-      if (isQuestion) {
-        // Añadir pequeñas pausas antes de signos de interrogación para mejor entonación
-        text = text.replace(/([^.!?])\?/g, '$1... ?')
-                  .replace(/¿([^?]+)\?/g, '¿ $1 ?');
-      }
+      utterance.lang = 'es-ES';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
 
       utterance.onend = () => {
         // Pequeña pausa entre fragmentos
@@ -1225,93 +843,6 @@ const PersonalCoachAssistant = () => {
     }
   };
 
-  // Función para extraer texto limpio para voz (sin reportes técnicos)
-  const extractConversationalText = (fullText) => {
-    // Patrones que identifican reportes técnicos que NO deben leerse por voz
-    const reportPatterns = [
-      /📊.*?REPORTE.*?:/i,
-      /##.*?PROYECTOS.*?:/i,
-      /##.*?TAREAS.*?:/i,
-      /##.*?ESTADO.*?:/i,
-      /##.*?PROGRESO.*?:/i,
-      /\*\*.*?Proyectos.*?:/i,
-      /\*\*.*?Tareas.*?:/i,
-      /\*\*.*?Estado.*?:/i,
-      /- \*\*.*?\*\*.*?:/,
-      /\d+\.\s+\*\*.*?\*\*.*?:/,
-      /\|\s*Proyecto\s*\|/i,
-      /\|\s*Tarea\s*\|/i,
-      /\|\s*Estado\s*\|/i,
-      /.*?\(\d+%.*?completado\)/i, // Evitar leer "(65% completado)"
-      /.*?\(0%.*?completado\)/i,   // Evitar leer "(0% completado)"
-      /Testing.*?SmartChatix.*?\(/i, // Evitar leer nombres técnicos de tareas
-      /Subir.*?Versión.*?\(/i,
-      /Configurar.*?Base.*?\(/i
-    ];
-
-    // Si contiene patrones de reporte, extraer solo la parte conversacional al final
-    for (let pattern of reportPatterns) {
-      if (pattern.test(fullText)) {
-        // Buscar la última parte que sea conversacional (después de reportes)
-        const lines = fullText.split('\n');
-        let conversationalLines = [];
-        let foundConversational = false;
-
-        // Buscar desde el final hacia atrás para encontrar texto conversacional
-        for (let i = lines.length - 1; i >= 0; i--) {
-          const line = lines[i].trim();
-
-          // Si es una línea vacía, continuar
-          if (!line) continue;
-
-          // Si contiene patrones de reporte, parar
-          if (reportPatterns.some(p => p.test(line))) {
-            break;
-          }
-
-          // Si es texto conversacional, agregarlo
-          if (line.length > 0 && !line.startsWith('|') && !line.startsWith('#')) {
-            conversationalLines.unshift(line);
-            foundConversational = true;
-          }
-        }
-
-        if (foundConversational && conversationalLines.length > 0) {
-          fullText = conversationalLines.join(' ');
-        } else {
-          // Si no hay parte conversacional, crear una respuesta analítica genérica
-          // Analizar el contenido para generar resumen inteligente
-          const projectCount = (fullText.match(/\*\*.*?\*\*.*?:/g) || []).length;
-          const hasDeadlines = /octubre|deadline|fecha.*límite/i.test(fullText);
-          const hasLowProgress = /0%|5%|10%/i.test(fullText);
-
-          if (projectCount > 3) {
-            return hasLowProgress
-              ? `¡Órale! Tienes ${projectCount} proyectos y varios están estancados. ¿Cuál vamos a empujar primero?`
-              : `¡Órale! Tienes ${projectCount} proyectos en marcha. ¿En cuál te concentras hoy?`;
-          } else if (hasDeadlines && hasLowProgress) {
-            return "¡Órale! Varias tareas están en 0% y se acerca el deadline. ¡Necesitamos acelerar YA!";
-          } else {
-            return "¡Órale! Sigamos empujando esos proyectos. Todo va tomando forma.";
-          }
-        }
-        break;
-      }
-    }
-
-    // Limpiar markdown y emojis del texto conversacional
-    let cleanText = fullText
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/[📊🚀✅📝🎯💡🔸⏰📋🤔🎉💭⚡💪🎊🔥💥]/g, '')
-      .replace(/##\s*/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    return cleanText || "¡Sigamos adelante!";
-  };
-
   const addProject = async () => {
     if (newProject.title.trim()) {
       try {
@@ -1323,17 +854,27 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
 
-        const response = await authenticatedFetch(`${getApiBase()}/auth/projects`, {
+        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
           method: 'POST',
-          body: JSON.stringify(projectData)
+          body: JSON.stringify({ project: projectData })
         });
 
         if (response.ok) {
           const data = await response.json();
-          // El servidor devuelve directamente el proyecto
-          setProjects([...projects, { ...data, tasks: [] }]);
-          setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
-          setShowCreateProject(false);
+          if (data.success) {
+            // Actualizar estado local con el proyecto guardado
+            const newProject = { ...data.project, tasks: [] };
+            setProjects([...projects, newProject]);
+
+            // Si se está creando para una tarea, seleccionarlo automáticamente
+            if (isCreatingProjectForTask) {
+              setSelectedProjectForTask(newProject.id);
+              setIsCreatingProjectForTask(false);
+            }
+
+            setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+            setShowCreateProject(false);
+          }
         }
       } catch (error) {
         console.error('Error guardando proyecto:', error);
@@ -1347,8 +888,69 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
         setProjects([...projects, project]);
+
+        // Si se está creando para una tarea, seleccionarlo automáticamente
+        if (isCreatingProjectForTask) {
+          setSelectedProjectForTask(project.id);
+          setIsCreatingProjectForTask(false);
+        }
+
         setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
         setShowCreateProject(false);
+      }
+    }
+  };
+
+  const createInlineProject = async () => {
+    if (newInlineProjectName.trim()) {
+      try {
+        const projectData = {
+          title: newInlineProjectName.trim(),
+          priority: 'media',
+          deadline: '',
+          description: '',
+          status: 'activo',
+          progress: 0,
+          createdAt: new Date().toLocaleDateString(),
+          tasks: []
+        };
+
+        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
+          method: 'POST',
+          body: JSON.stringify({ project: projectData })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Actualizar estado local con el proyecto guardado
+            const newProject = { ...data.project, tasks: [] };
+            setProjects([...projects, newProject]);
+            // Seleccionar automáticamente el proyecto recién creado
+            setSelectedProjectForTask(newProject.id);
+            // Limpiar estado
+            setNewInlineProjectName('');
+            setIsCreatingInlineProject(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error guardando proyecto inline:', error);
+        // Fallback: guardar localmente si hay error de conexión
+        const project = {
+          id: Date.now(),
+          title: newInlineProjectName.trim(),
+          priority: 'media',
+          deadline: '',
+          description: '',
+          status: 'activo',
+          progress: 0,
+          createdAt: new Date().toLocaleDateString(),
+          tasks: []
+        };
+        setProjects([...projects, project]);
+        setSelectedProjectForTask(project.id);
+        setNewInlineProjectName('');
+        setIsCreatingInlineProject(false);
       }
     }
   };
@@ -1386,7 +988,7 @@ const PersonalCoachAssistant = () => {
     console.log('🔥 INICIANDO ELIMINACIÓN DE PROYECTO:', projectId);
     try {
       // Eliminar del backend primero
-      const deleteUrl = `${getApiBase()}/auth/projects/${projectId}`;
+      const deleteUrl = `${getApiBase()}/projects/${projectId}`;
       console.log('🗑️ Eliminando proyecto con URL:', deleteUrl);
 
       const response = await authenticatedFetch(deleteUrl, {
@@ -1504,110 +1106,6 @@ const PersonalCoachAssistant = () => {
 
 
   // Funciones para gestión de tareas de proyectos
-  const openEditTaskModal = (task) => {
-    setEditingTask(task);
-    setEditTaskName(task.title || task.text || '');
-    setEditTaskDescription(task.description || '');
-
-    // Convertir horas decimales a horas y minutos (estimado)
-    const totalEstimatedHours = task.estimated_hours || 0;
-    const estimatedHours = Math.floor(totalEstimatedHours);
-    const estimatedMinutes = Math.round((totalEstimatedHours - estimatedHours) * 60);
-
-    setEditEstimatedHours(estimatedHours > 0 ? estimatedHours.toString() : '');
-    setEditEstimatedMinutes(estimatedMinutes > 0 ? estimatedMinutes.toString() : '');
-
-    // Convertir horas decimales a horas y minutos (real)
-    const totalActualHours = task.actual_hours || 0;
-    const actualHours = Math.floor(totalActualHours);
-    const actualMinutes = Math.round((totalActualHours - actualHours) * 60);
-
-    setEditActualHours(actualHours > 0 ? actualHours.toString() : '');
-    setEditActualMinutes(actualMinutes > 0 ? actualMinutes.toString() : '');
-
-    // Setear proyecto vinculado si es una tarea diaria
-    setEditTaskProject(task.projectId || '');
-
-    setShowEditTaskModal(true);
-  };
-
-  const closeEditTaskModal = () => {
-    setShowEditTaskModal(false);
-    setEditingTask(null);
-    setEditTaskName('');
-    setEditTaskDescription('');
-    setEditEstimatedHours('');
-    setEditEstimatedMinutes('');
-    setEditActualHours('');
-    setEditActualMinutes('');
-    setEditTaskProject('');
-  };
-
-  const saveTaskChanges = async () => {
-    if (!editTaskName.trim() || !editingTask) return;
-
-    // Detectar si es una tarea diaria o de proyecto
-    const isDailyTask = dailyTasks.some(task => task.id === editingTask.id);
-
-    if (isDailyTask) {
-      // Usar función específica para tareas diarias
-      await saveDailyTaskChanges();
-    } else {
-      // Usar función específica para tareas de proyecto
-      await saveProjectTaskChanges();
-    }
-  };
-
-  const saveProjectTaskChanges = async () => {
-    if (!editTaskName.trim() || !editingTask) return;
-
-    // Calcular tiempo estimado total en horas
-    const estimatedHours = parseInt(editEstimatedHours) || 0;
-    const estimatedMinutes = parseInt(editEstimatedMinutes) || 0;
-    const totalEstimatedHours = estimatedHours + (estimatedMinutes / 60);
-
-    // Calcular tiempo real total en horas
-    const actualHours = parseInt(editActualHours) || 0;
-    const actualMinutes = parseInt(editActualMinutes) || 0;
-    const totalActualHours = actualHours + (actualMinutes / 60);
-
-    const updatedTask = {
-      ...editingTask,
-      title: editTaskName.trim(),
-      text: editTaskName.trim(),
-      description: editTaskDescription.trim(),
-      estimated_hours: totalEstimatedHours > 0 ? totalEstimatedHours : null,
-      actual_hours: totalActualHours > 0 ? totalActualHours : null,
-    };
-
-    try {
-      // Actualizar en backend si es necesario
-      // ... aquí iría la llamada al API
-
-      // Actualizar el estado local
-      setProjects(projects.map(project => {
-        const updatedTasks = project.tasks.map(task =>
-          task.id === editingTask.id ? updatedTask : task
-        );
-        return { ...project, tasks: updatedTasks };
-      }));
-
-      // Actualizar selectedProject también
-      if (selectedProject) {
-        setSelectedProject(prev => ({
-          ...prev,
-          tasks: prev.tasks.map(task =>
-            task.id === editingTask.id ? updatedTask : task
-          )
-        }));
-      }
-
-      closeEditTaskModal();
-    } catch (error) {
-      console.error('Error actualizando tarea:', error);
-    }
-  };
-
   const addProjectTask = async (projectId) => {
     const taskText = newProjectTask[projectId];
     if (taskText && taskText.trim()) {
@@ -1621,7 +1119,7 @@ const PersonalCoachAssistant = () => {
         };
 
         // Guardar en la base de datos
-        const response = await authenticatedFetch(`${getApiBase()}/auth/project-tasks`, {
+        const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
           method: 'POST',
           body: JSON.stringify({
             projectId: projectId,
@@ -1738,29 +1236,6 @@ const PersonalCoachAssistant = () => {
   };
 
   const toggleProjectTaskCompletion = (projectId, taskId, completed) => {
-    // Si se está completando la tarea y tiene tiempo estimado, mostrar modal
-    if (completed) {
-      const project = projects.find(p => p.id === projectId);
-      const task = project?.tasks.find(t => t.id === taskId);
-
-      // Si hay un timer activo, detenerlo y obtener el tiempo
-      let timerHours = 0;
-      if (activeTimers[taskId]) {
-        timerHours = stopTimer(taskId);
-      }
-
-      if (task && task.estimated_hours && !task.actual_hours) {
-        // Mostrar modal de tiempo real con el tiempo del timer como sugerencia
-        setCompletingTask({
-          ...task,
-          projectId: projectId,
-          suggestedHours: timerHours > 0 ? Math.round(timerHours * 100) / 100 : null // Redondear a 2 decimales
-        });
-        setShowTimeModal(true);
-        return; // No completar aún, se completará cuando se envíe el tiempo
-      }
-    }
-
     setProjects(projects.map(project => {
       if (project.id === projectId) {
         const updatedTasks = project.tasks.map(task => {
@@ -1811,7 +1286,7 @@ const PersonalCoachAssistant = () => {
 
     if (!existingDailyTask) {
       const dailyTask = {
-        id: task.id, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
+        id: Date.now(),
         text: task.title,
         completed: task.completed,
         createdAt: new Date().toLocaleDateString(),
@@ -1835,15 +1310,12 @@ const PersonalCoachAssistant = () => {
       id: Date.now(),
       text: newDailyTask.trim(),
       completed: false,
-      projectId: selectedProjectForTask === 'personal' ? null : selectedProjectForTask,
-      projectTaskId: null,
-      estimated_hours: null,
-      actual_hours: null,
-      description: ''
+      projectId: selectedProjectForTask || null,
+      projectTaskId: null
     };
 
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks`, {
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1852,9 +1324,14 @@ const PersonalCoachAssistant = () => {
       });
 
       if (response.ok) {
-        setDailyTasks([...dailyTasks, task]);
-        // Para tareas personales, resetear completamente
-        resetAddTaskForm();
+        const data = await response.json();
+        setNewDailyTask('');
+        // Guardar el proyecto usado como último proyecto
+        setLastUsedProject(selectedProjectForTask);
+        // No resetear selectedProjectForTask para mantenerlo por defecto
+
+        // Recargar todos los datos para asegurar consistencia de IDs
+        await loadUserData();
       } else {
         console.error('Error al guardar tarea diaria');
       }
@@ -1862,159 +1339,10 @@ const PersonalCoachAssistant = () => {
       console.error('Error:', error);
       // Si falla la petición, al menos actualizar localmente
       setDailyTasks([...dailyTasks, task]);
-      // Para tareas personales, resetear completamente
-      resetAddTaskForm();
-    }
-  };
-
-  // Funciones para el nuevo flujo de agregar tareas
-  const resetAddTaskForm = () => {
-    setShowAddTaskForm(false);
-    setShowProjectSelectionModal(false);
-    setModalStep(1);
-    setSelectedProjectForTask('');
-    setSelectedProjectTaskId('');
-    setAddTaskMode('');
-    setNewDailyTask('');
-    setShowNewTaskInput(false);
-  };
-
-  const handleProjectSelection = (projectId) => {
-    setSelectedProjectForTask(projectId);
-
-    if (projectId === 'personal') {
-      // Proyecto personal - mostrar entrada de tarea en el modal
-      setAddTaskMode('personal');
-      setModalStep(2);
-    } else if (projectId) {
-      // Proyecto específico - mostrar tareas disponibles en el modal
-      const project = projects.find(p => p.id === projectId);
-      if (project) {
-        const availableTasks = project.tasks.filter(task =>
-          !dailyTasks.some(dt => dt.projectId === projectId && dt.projectTaskId === task.id)
-        );
-        setSelectedProjectTasks(availableTasks);
-      }
-      setAddTaskMode('project');
-      setModalStep(2);
-    }
-  };
-
-  const openProjectSelectionModal = () => {
-    setShowProjectSelectionModal(true);
-    setModalStep(1);
-  };
-
-  const goBackToProjectSelection = () => {
-    setModalStep(1);
-    setSelectedProjectForTask('');
-    setAddTaskMode('');
-    setNewDailyTask('');
-  };
-
-  const addExistingProjectTask = async (taskId) => {
-    if (!taskId || !selectedProjectForTask) return;
-
-    const project = projects.find(p => p.id === selectedProjectForTask);
-    const projectTask = project?.tasks.find(t => t.id === taskId);
-
-    if (!projectTask) return;
-
-    const dailyTask = {
-      id: taskId, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
-      text: projectTask.title || projectTask.text,
-      completed: projectTask.completed || false,
-      projectId: selectedProjectForTask,
-      projectTaskId: taskId,
-      estimated_hours: projectTask.estimated_hours || null,
-      actual_hours: projectTask.actual_hours || null,
-      description: projectTask.description || ''
-    };
-
-    try {
-      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ task: dailyTask }),
-      });
-
-      if (response.ok) {
-        setDailyTasks([...dailyTasks, dailyTask]);
-        // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
-        resetAddTaskForm();
-      } else {
-        console.error('Error al guardar tarea diaria');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      // Si falla la petición, al menos actualizar localmente
-      setDailyTasks([...dailyTasks, dailyTask]);
-      // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
-      resetAddTaskForm();
-    }
-  };
-
-  const addNewTaskToProject = async () => {
-    if (!newDailyTask.trim() || !selectedProjectForTask) return;
-
-    // Crear la tarea en el proyecto primero
-    const newTask = {
-      id: Date.now(),
-      title: newDailyTask.trim(),
-      text: newDailyTask.trim(),
-      description: '',
-      completed: false,
-      progress: 0,
-      estimated_hours: null,
-      actual_hours: null,
-      createdAt: new Date().toLocaleDateString()
-    };
-
-    // Actualizar el proyecto con la nueva tarea
-    setProjects(prevProjects => {
-      return prevProjects.map(project =>
-        project.id === selectedProjectForTask
-          ? { ...project, tasks: [...project.tasks, newTask] }
-          : project
-      );
-    });
-
-    // Crear la tarea diaria vinculada
-    const dailyTask = {
-      id: newTask.id, // Usar el mismo ID de la tarea de proyecto para sincronizar timers
-      text: newDailyTask.trim(),
-      completed: false,
-      projectId: selectedProjectForTask,
-      projectTaskId: newTask.id,
-      estimated_hours: null,
-      actual_hours: null,
-      description: ''
-    };
-
-    try {
-      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ task: dailyTask }),
-      });
-
-      if (response.ok) {
-        setDailyTasks([...dailyTasks, dailyTask]);
-        // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
-        resetAddTaskForm();
-      } else {
-        console.error('Error al guardar tarea diaria');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      // Si falla la petición, al menos actualizar localmente
-      setDailyTasks([...dailyTasks, dailyTask]);
-      // Cerrar modal para ver la tarea agregada en "Tareas de Hoy"
-      resetAddTaskForm();
+      setNewDailyTask('');
+      // Guardar el proyecto usado como último proyecto
+      setLastUsedProject(selectedProjectForTask);
+      // No resetear selectedProjectForTask para mantenerlo por defecto
     }
   };
 
@@ -2091,10 +1419,9 @@ const PersonalCoachAssistant = () => {
 
 
   const deleteProjectTask = async (projectId, taskId) => {
-    console.log('🗑️ [DEBUG] deleteProjectTask llamada con:', { projectId, taskId });
     try {
       // Eliminar de la base de datos primero
-      const deleteUrl = `${getApiBase()}/auth/project-tasks/${taskId}`;
+      const deleteUrl = `${getApiBase()}/project-tasks/${taskId}`;
       console.log('🗑️ Eliminando tarea con URL:', deleteUrl);
       const response = await authenticatedFetch(deleteUrl, {
         method: 'DELETE'
@@ -2102,13 +1429,7 @@ const PersonalCoachAssistant = () => {
 
       if (!response.ok) {
         console.error('Error eliminando tarea del servidor');
-        // Si la tarea no existe en el servidor (404), eliminarla solo localmente
-        if (response.status === 404) {
-          console.log('🗑️ Tarea no existe en servidor, eliminando solo localmente');
-          // Eliminar localmente y continuar
-        } else {
-          return; // Otros errores sí deben detener la ejecución
-        }
+        return;
       }
 
       // Si la eliminación del servidor fue exitosa, actualizar el estado local
@@ -2139,11 +1460,10 @@ const PersonalCoachAssistant = () => {
   };
 
   // Función para actualizar el porcentaje de progreso de una tarea
-  const updateTaskProgress = async (projectId, taskId, newProgress) => {
+  const updateTaskProgress = (projectId, taskId, newProgress) => {
     const progressValue = Math.max(0, Math.min(100, parseInt(newProgress) || 0));
 
-    // Actualizar estado local usando función para garantizar estado actual
-    setProjects(currentProjects => currentProjects.map(project => {
+    setProjects(projects.map(project => {
       if (project.id === projectId) {
         const updatedTasks = project.tasks.map(task => {
           if (task.id === taskId) {
@@ -2155,12 +1475,7 @@ const PersonalCoachAssistant = () => {
           }
           return task;
         });
-
-        // Calcular el progreso promedio del proyecto
-        const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
-        const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
-
-        return { ...project, tasks: updatedTasks, progress: averageProgress };
+        return { ...project, tasks: updatedTasks };
       }
       return project;
     }));
@@ -2172,58 +1487,6 @@ const PersonalCoachAssistant = () => {
       }
       return task;
     }));
-
-    // Actualizar selectedProject si es el mismo proyecto
-    if (selectedProject && selectedProject.id === projectId) {
-      const updatedTasks = selectedProject.tasks.map(task => {
-        if (task.id === taskId) {
-          return {
-            ...task,
-            progress: progressValue,
-            completed: progressValue === 100
-          };
-        }
-        return task;
-      });
-
-      const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
-      const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
-
-      setSelectedProject({ ...selectedProject, tasks: updatedTasks, progress: averageProgress });
-    }
-
-    // Guardar cambios en la base de datos
-    try {
-      const projectToUpdate = projects.find(p => p.id === projectId);
-      if (projectToUpdate) {
-        const updatedTasks = projectToUpdate.tasks.map(task => {
-          if (task.id === taskId) {
-            return {
-              ...task,
-              progress: progressValue,
-              completed: progressValue === 100
-            };
-          }
-          return task;
-        });
-
-        const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
-        const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
-
-        await authenticatedFetch(`${getApiBase()}/auth/projects/${projectId}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            project: {
-              ...projectToUpdate,
-              tasks: updatedTasks,
-              progress: averageProgress
-            }
-          })
-        });
-      }
-    } catch (error) {
-      console.error('Error guardando progreso de tarea:', error);
-    }
 
     updateProjectProgressFromTasks(projectId);
 
@@ -2293,9 +1556,6 @@ const PersonalCoachAssistant = () => {
           description: '',
           completed: false,
           progress: 0,
-          estimated_hours: newTaskEstimatedHours ? parseTimeInput(newTaskEstimatedHours) : null,
-          actual_hours: null,
-          time_started: null,
           createdAt: new Date().toLocaleDateString(),
           id: Date.now() // Temporary ID
         };
@@ -2320,13 +1580,12 @@ const PersonalCoachAssistant = () => {
 
         // Limpiar el input y salir del modo edición
         setNewTaskText('');
-        setNewTaskEstimatedHours('');
         setIsAddingTask(false);
         console.log('✅ Tarea agregada localmente, input limpiado');
 
         // Opcional: guardar en base de datos en segundo plano
         try {
-          const response = await authenticatedFetch(`${getApiBase()}/auth/project-tasks`, {
+          const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
             method: 'POST',
             body: JSON.stringify({
               projectId: projectId,
@@ -2371,6 +1630,153 @@ const PersonalCoachAssistant = () => {
         alert('Error al agregar la tarea');
       }
     }
+  };
+
+  // Funciones para timers de tareas
+  const startTimer = async (taskId) => {
+    // Pausar cualquier timer activo
+    if (activeTimer) {
+      pauseTimer(activeTimer);
+    }
+
+    // Encontrar la tarea en los proyectos para obtener su información
+    let taskToAdd = null;
+    let projectId = null;
+
+    for (const project of projects) {
+      const foundTask = project.tasks?.find(task => task.id === taskId);
+      if (foundTask) {
+        taskToAdd = foundTask;
+        projectId = project.id;
+        break;
+      }
+    }
+
+    // Si encontramos la tarea y no está ya en las tareas diarias de hoy, agregarla
+    if (taskToAdd && projectId) {
+      const today = new Date().toLocaleDateString();
+      const existingDailyTask = dailyTasks.find(task =>
+        task.projectTaskId === taskId && task.projectId === projectId
+      );
+
+      if (!existingDailyTask) {
+        try {
+          const dailyTask = {
+            text: taskToAdd.text || taskToAdd.title || 'Tarea sin título',
+            completed: false,
+            projectId: projectId,
+            projectTaskId: taskId,
+            createdAt: today,
+            isFromProject: true
+          };
+
+          // Guardar en la base de datos
+          const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+            method: 'POST',
+            body: JSON.stringify({ task: dailyTask })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              // Actualizar estado local
+              setDailyTasks(prev => [...prev, { ...dailyTask, id: data.task.id }]);
+            }
+          } else {
+            // Fallback: agregar localmente si falla la BD
+            setDailyTasks(prev => [...prev, { ...dailyTask, id: Date.now() }]);
+          }
+        } catch (error) {
+          console.error('Error adding task to daily tasks:', error);
+          // Fallback: agregar localmente
+          const dailyTask = {
+            id: Date.now(),
+            text: taskToAdd.text || taskToAdd.title || 'Tarea sin título',
+            completed: false,
+            projectId: projectId,
+            projectTaskId: taskId,
+            createdAt: today,
+            isFromProject: true
+          };
+          setDailyTasks(prev => [...prev, dailyTask]);
+        }
+      }
+    }
+
+    // Inicializar o reanudar el timer para esta tarea
+    const currentTime = Date.now();
+    setTaskTimers(prev => ({
+      ...prev,
+      [taskId]: {
+        ...prev[taskId],
+        isActive: true,
+        startTime: currentTime,
+        totalTime: prev[taskId]?.totalTime || 0
+      }
+    }));
+    setActiveTimer(taskId);
+  };
+
+  const pauseTimer = (taskId) => {
+    const timer = taskTimers[taskId];
+    if (timer && timer.isActive) {
+      const currentTime = Date.now();
+      const sessionTime = currentTime - timer.startTime;
+
+      setTaskTimers(prev => ({
+        ...prev,
+        [taskId]: {
+          ...prev[taskId],
+          isActive: false,
+          totalTime: timer.totalTime + sessionTime,
+          startTime: null
+        }
+      }));
+
+      if (activeTimer === taskId) {
+        setActiveTimer(null);
+      }
+    }
+  };
+
+  const resetTimer = (taskId) => {
+    setTaskTimers(prev => ({
+      ...prev,
+      [taskId]: {
+        isActive: false,
+        totalTime: 0,
+        startTime: null
+      }
+    }));
+
+    if (activeTimer === taskId) {
+      setActiveTimer(null);
+    }
+  };
+
+  const formatTime = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+  };
+
+  const getTaskElapsedTime = (taskId) => {
+    const timer = taskTimers[taskId];
+    if (!timer) return '0:00';
+
+    let totalTime = timer.totalTime;
+    if (timer.isActive && timer.startTime) {
+      totalTime += Date.now() - timer.startTime;
+    }
+
+    return formatTime(totalTime);
   };
 
   // Funciones para el asistente
@@ -2470,7 +1876,7 @@ const PersonalCoachAssistant = () => {
             description: "Fecha límite en formato YYYY-MM-DD (opcional)"
           }
         },
-        required: ["title"]
+        required: ["title", "priority"]
       }
     },
     {
@@ -2545,181 +1951,42 @@ const PersonalCoachAssistant = () => {
         properties: {},
         required: []
       }
-    },
-    {
-      name: "update_project_status",
-      description: "Cambiar el estado de un proyecto (activo/inactivo/completado)",
-      parameters: {
-        type: "object",
-        properties: {
-          project_title: {
-            type: "string",
-            description: "Título del proyecto a actualizar"
-          },
-          status: {
-            type: "string",
-            enum: ["activo", "inactivo", "completado"],
-            description: "Nuevo estado del proyecto"
-          }
-        },
-        required: ["project_title", "status"]
-      }
-    },
-    {
-      name: "update_project_deadline",
-      description: "Cambiar o establecer la fecha límite de un proyecto",
-      parameters: {
-        type: "object",
-        properties: {
-          project_title: {
-            type: "string",
-            description: "Título del proyecto a actualizar"
-          },
-          deadline: {
-            type: "string",
-            description: "Nueva fecha límite en formato YYYY-MM-DD (ej: 2024-12-31) o 'remove' para eliminar"
-          }
-        },
-        required: ["project_title", "deadline"]
-      }
-    },
-    {
-      name: "update_project_priority",
-      description: "Cambiar la prioridad de un proyecto",
-      parameters: {
-        type: "object",
-        properties: {
-          project_title: {
-            type: "string",
-            description: "Título del proyecto a actualizar"
-          },
-          priority: {
-            type: "string",
-            enum: ["baja", "media", "alta"],
-            description: "Nueva prioridad del proyecto"
-          }
-        },
-        required: ["project_title", "priority"]
-      }
-    },
-    {
-      name: "update_project_details",
-      description: "Cambiar el título o descripción de un proyecto",
-      parameters: {
-        type: "object",
-        properties: {
-          project_title: {
-            type: "string",
-            description: "Título actual del proyecto a actualizar"
-          },
-          new_title: {
-            type: "string",
-            description: "Nuevo título del proyecto (opcional)"
-          },
-          new_description: {
-            type: "string",
-            description: "Nueva descripción del proyecto (opcional)"
-          }
-        },
-        required: ["project_title"]
-      }
-    },
-    {
-      name: "delete_project",
-      description: "Eliminar un proyecto completamente (solo si no tiene tareas pendientes)",
-      parameters: {
-        type: "object",
-        properties: {
-          project_title: {
-            type: "string",
-            description: "Título del proyecto a eliminar"
-          }
-        },
-        required: ["project_title"]
-      }
     }
   ];
-
-  // Herramientas en formato Gemini
-  const geminiTools = [
-    {
-      functionDeclarations: assistantFunctions
-    }
-  ];
-
-  console.log('🔍 [DEBUG] Gemini Tools configuradas:', JSON.stringify(geminiTools, null, 2));
 
   // Función para ejecutar las acciones del asistente
-  const executeAssistantFunction = async (functionName, parameters) => {
-    console.log('🔍 [DEBUG] executeAssistantFunction llamada con:', functionName, parameters);
-
+  const executeAssistantFunction = (functionName, parameters) => {
     switch (functionName) {
       case "create_project":
         return createProjectFromAssistant(parameters);
       case "add_project_task":
         return addProjectTaskFromAssistant(parameters);
       case "update_task_progress":
-        return await updateTaskProgressFromAssistant(parameters);
+        return updateTaskProgressFromAssistant(parameters);
       case "add_task_to_daily_focus":
         return addTaskToDailyFocusFromAssistant(parameters);
       case "get_projects_status":
-        console.log('🔍 [DEBUG] Ejecutando get_projects_status');
         return getProjectsStatusFromAssistant();
-      case "update_project_status":
-        return await updateProjectStatusFromAssistant(parameters);
-      case "update_project_deadline":
-        return await updateProjectDeadlineFromAssistant(parameters);
-      case "update_project_priority":
-        return await updateProjectPriorityFromAssistant(parameters);
-      case "update_project_details":
-        return await updateProjectDetailsFromAssistant(parameters);
-      case "delete_project":
-        return await deleteProjectFromAssistant(parameters);
       default:
-        console.log('🔍 [DEBUG] Función no reconocida:', functionName);
         return { success: false, message: "Función no reconocida" };
     }
   };
 
   // Implementaciones de las funciones del asistente
-  const createProjectFromAssistant = async (params) => {
-    console.log('🚀 [DEBUG] createProjectFromAssistant EJECUTÁNDOSE con params:', params);
+  const createProjectFromAssistant = (params) => {
     try {
-      const projectData = {
+      const project = {
+        id: Date.now(),
         title: params.title,
         description: params.description || '',
-        priority: params.priority || 'media',
+        priority: params.priority,
         deadline: params.deadline || '',
         status: 'activo',
         progress: 0,
         createdAt: new Date().toLocaleDateString(),
         tasks: []
       };
-
-      // Guardar en la base de datos
-      console.log('🔍 [DEBUG] Enviando proyecto a BD:', projectData);
-      const response = await authenticatedFetch(`${getApiBase()}/auth/projects`, {
-        method: 'POST',
-        body: JSON.stringify({ project: projectData })
-      });
-
-      console.log('🔍 [DEBUG] Response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🔍 [DEBUG] Proyecto guardado en BD:', data);
-        // El servidor devuelve directamente el proyecto con ID de BD
-        setProjects(prev => [...prev, { ...data, tasks: [] }]);
-      } else {
-        const errorText = await response.text();
-        console.error('🚨 [DEBUG] Error guardando en BD:', response.status, errorText);
-        // Fallback: guardar localmente si hay error de conexión
-        const project = {
-          id: Date.now(),
-          ...projectData
-        };
-        setProjects(prev => [...prev, project]);
-      }
+      setProjects(prev => [...prev, project]);
 
       // Mensajes motivadores personalizados según la prioridad
       let motivationalMessage = "";
@@ -2736,7 +2003,7 @@ const PersonalCoachAssistant = () => {
       }
 
       const deadlineMessage = params.deadline
-        ? `Con fecha límite para el ${parseLocalDate(params.deadline).toLocaleDateString()}, `
+        ? `Con fecha límite para el ${new Date(params.deadline).toLocaleDateString()}, `
         : "";
 
       return {
@@ -2751,86 +2018,15 @@ const PersonalCoachAssistant = () => {
     }
   };
 
-  // Función para búsqueda inteligente de proyectos (tolerante a tildes y variaciones)
-  const findProjectByTitle = (searchTitle) => {
-    if (!searchTitle) return null;
-
-    // Normalizar texto removiendo tildes y caracteres especiales
-    const normalize = (str) => {
-      return str.toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remover tildes
-        .replace(/[^a-z0-9\s]/g, '') // Remover caracteres especiales
-        .replace(/\s+/g, ' ') // Normalizar espacios
-        .trim();
-    };
-
-    const normalizedSearch = normalize(searchTitle);
-
-    // Buscar coincidencia exacta primero
-    let project = projects.find(p => normalize(p.title) === normalizedSearch);
-
-    // Si no encuentra exacta, buscar que contenga las palabras principales
-    if (!project) {
-      const searchWords = normalizedSearch.split(' ').filter(word => word.length > 2);
-      project = projects.find(p => {
-        const normalizedTitle = normalize(p.title);
-        return searchWords.every(word => normalizedTitle.includes(word));
-      });
-    }
-
-    // Si aún no encuentra, buscar coincidencia parcial
-    if (!project) {
-      project = projects.find(p => normalize(p.title).includes(normalizedSearch));
-    }
-
-    return project;
-  };
-
-  // Función para búsqueda inteligente de tareas dentro de un proyecto
-  const findTaskByTitle = (project, searchTitle) => {
-    if (!project || !searchTitle || !project.tasks) return null;
-
-    // Normalizar texto removiendo tildes y caracteres especiales
-    const normalize = (str) => {
-      return str.toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remover tildes
-        .replace(/[^a-z0-9\s]/g, '') // Remover caracteres especiales
-        .replace(/\s+/g, ' ') // Normalizar espacios
-        .trim();
-    };
-
-    const normalizedSearch = normalize(searchTitle);
-
-    // Buscar coincidencia exacta primero
-    let task = project.tasks.find(t => normalize(t.title) === normalizedSearch);
-
-    // Si no encuentra exacta, buscar que contenga las palabras principales
-    if (!task) {
-      const searchWords = normalizedSearch.split(' ').filter(word => word.length > 2);
-      task = project.tasks.find(t => {
-        const normalizedTitle = normalize(t.title);
-        return searchWords.every(word => normalizedTitle.includes(word));
-      });
-    }
-
-    // Si aún no encuentra, buscar coincidencia parcial
-    if (!task) {
-      task = project.tasks.find(t => normalize(t.title).includes(normalizedSearch));
-    }
-
-    return task;
-  };
-
-  const addProjectTaskFromAssistant = async (params) => {
+  const addProjectTaskFromAssistant = (params) => {
     try {
-      const project = findProjectByTitle(params.project_title);
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}". ¿Quieres que primero creemos ese proyecto?` };
       }
 
       const task = {
+        id: Date.now(),
         title: params.task_title,
         description: params.description || '',
         completed: false,
@@ -2838,40 +2034,11 @@ const PersonalCoachAssistant = () => {
         createdAt: new Date().toLocaleDateString()
       };
 
-      // Guardar en la base de datos
-      console.log('🔍 [DEBUG] Enviando tarea a BD:', { projectId: project.id, task });
-      const response = await authenticatedFetch(`${getApiBase()}/auth/project-tasks`, {
-        method: 'POST',
-        body: JSON.stringify({
-          projectId: project.id,
-          task: task
-        })
-      });
-
-      console.log('🔍 [DEBUG] Response status (tarea):', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🔍 [DEBUG] Tarea guardada en BD:', data);
-        if (data.success) {
-          // Actualizar estado local con la tarea guardada
-          setProjects(prev => prev.map(p =>
-            p.id === project.id
-              ? { ...p, tasks: [...p.tasks, { ...task, id: data.task.id }] }
-              : p
-          ));
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('🚨 [DEBUG] Error guardando tarea en BD:', response.status, errorText);
-        // Fallback: guardar localmente si hay error de conexión
-        const localTask = { id: Date.now(), ...task };
-        setProjects(prev => prev.map(p =>
-          p.id === project.id
-            ? { ...p, tasks: [...p.tasks, localTask] }
-            : p
-        ));
-      }
+      setProjects(prev => prev.map(p =>
+        p.id === project.id
+          ? { ...p, tasks: [...p.tasks, task] }
+          : p
+      ));
 
       const taskCount = project.tasks.length + 1; // +1 porque acabamos de agregar una
       const encouragement = taskCount === 1
@@ -2888,85 +2055,19 @@ const PersonalCoachAssistant = () => {
     }
   };
 
-  const updateTaskProgressFromAssistant = async (params) => {
+  const updateTaskProgressFromAssistant = (params) => {
     try {
-      const progressValue = Math.max(0, Math.min(100, parseInt(params.progress) || 0));
-      let projectFound = null;
-      let taskFound = null;
-
-      // Buscar proyecto y tarea, y actualizar en una sola operación
-      setProjects(currentProjects => {
-        const updatedProjects = currentProjects.map(project => {
-          // Buscar proyecto por título
-          const normalize = (str) => {
-            return str.toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9\s]/g, '')
-              .replace(/\s+/g, ' ')
-              .trim();
-          };
-
-          const normalizedSearch = normalize(params.project_title);
-          const normalizedTitle = normalize(project.title);
-
-          if (normalizedTitle === normalizedSearch || normalizedTitle.includes(normalizedSearch)) {
-            projectFound = project;
-
-            // Buscar tarea dentro del proyecto
-            const updatedTasks = project.tasks.map(task => {
-              const normalizedTaskSearch = normalize(params.task_title);
-              const normalizedTaskTitle = normalize(task.title);
-
-              if (normalizedTaskTitle === normalizedTaskSearch || normalizedTaskTitle.includes(normalizedTaskSearch)) {
-                taskFound = task;
-                console.log(`🔍 [DEBUG] Actualizando tarea "${task.title}" de ${task.progress}% a ${progressValue}%`);
-
-                return {
-                  ...task,
-                  progress: progressValue,
-                  completed: progressValue === 100
-                };
-              }
-              return task;
-            });
-
-            // Calcular progreso promedio del proyecto
-            const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
-            const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
-
-            return { ...project, tasks: updatedTasks, progress: averageProgress };
-          }
-          return project;
-        });
-
-        return updatedProjects;
-      });
-
-      if (!projectFound) {
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
+      if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
 
-      if (!taskFound) {
-        return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${projectFound.title}".` };
+      const task = project.tasks.find(t => t.title.toLowerCase().includes(params.task_title.toLowerCase()));
+      if (!task) {
+        return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${project.title}".` };
       }
 
-      // Intentar guardar en la base de datos (actualizar proyecto completo)
-      try {
-        const updatedProject = projects.find(p => p.id === projectFound.id);
-        if (updatedProject) {
-          const response = await authenticatedFetch(`${getApiBase()}/auth/projects/${projectFound.id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ project: updatedProject })
-          });
-
-          if (!response.ok) {
-            console.warn('No se pudo sincronizar con la base de datos, pero se actualizó localmente');
-          }
-        }
-      } catch (error) {
-        console.warn('Error sincronizando con BD:', error);
-      }
+      updateTaskProgress(project.id, task.id, params.progress);
 
       // Mensajes motivacionales según el progreso
       let progressMessage = "";
@@ -2984,7 +2085,7 @@ const PersonalCoachAssistant = () => {
 
       return {
         success: true,
-        message: `${progressMessage} He actualizado "${taskFound.title}" al ${params.progress}%. ${params.progress === 100 ? "¿Qué sigue ahora?" : "¿Necesitas ajustar algo más?"}`
+        message: `${progressMessage} He actualizado "${task.title}" al ${params.progress}%. ${params.progress === 100 ? "¿Qué sigue ahora?" : "¿Necesitas ajustar algo más?"}`
       };
     } catch (error) {
       return { success: false, message: "Error al actualizar el progreso: " + error.message };
@@ -2993,12 +2094,12 @@ const PersonalCoachAssistant = () => {
 
   const addTaskToDailyFocusFromAssistant = (params) => {
     try {
-      const project = findProjectByTitle(params.project_title);
+      const project = projects.find(p => p.title.toLowerCase().includes(params.project_title.toLowerCase()));
       if (!project) {
         return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
       }
 
-      const task = findTaskByTitle(project, params.task_title);
+      const task = project.tasks.find(t => t.title.toLowerCase().includes(params.task_title.toLowerCase()));
       if (!task) {
         return { success: false, message: `No se encontró la tarea "${params.task_title}" en el proyecto "${project.title}".` };
       }
@@ -3028,22 +2129,7 @@ const PersonalCoachAssistant = () => {
 
   const getProjectsStatusFromAssistant = () => {
     try {
-      console.log('🔍 [DEBUG] getProjectsStatusFromAssistant - proyectos disponibles:', projects);
-      console.log('🔍 [DEBUG] Número de proyectos:', projects.length);
-      console.log('🔍 [DEBUG] Usuario autenticado:', isAuthenticated);
-      console.log('🔍 [DEBUG] Estado de carga:', authLoading);
-
-      // Verificar si los datos están cargados
-      if (authLoading) {
-        console.log('🔍 [DEBUG] Datos aún cargando...');
-        return {
-          success: true,
-          message: "Estoy cargando tus datos, dame un momento..."
-        };
-      }
-
-      if (!projects || projects.length === 0) {
-        console.log('🔍 [DEBUG] No hay proyectos disponibles');
+      if (projects.length === 0) {
         return {
           success: true,
           message: `📋 Actualmente no tienes proyectos creados.
@@ -3060,25 +2146,10 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       const activeProjects = projects.filter(p => p.status === 'activo');
       const completedTasks = projects.reduce((sum, p) => sum + p.tasks.filter(t => t.completed).length, 0);
 
-      console.log('🔍 [DEBUG] Proyectos activos encontrados:', activeProjects);
-      console.log('🔍 [DEBUG] Número de proyectos activos:', activeProjects.length);
-      console.log('🔍 [DEBUG] Tareas completadas en total:', completedTasks);
-
-      // Mostrar detalles de cada proyecto
-      activeProjects.forEach((project, index) => {
-        console.log(`🔍 [DEBUG] Proyecto ${index + 1}: ${project.title} - Status: ${project.status} - Tareas: ${project.tasks?.length || 0}`);
-        if (project.tasks) {
-          project.tasks.forEach((task, taskIndex) => {
-            console.log(`  🔍 [DEBUG] Tarea ${taskIndex + 1}: ${task.title} - Completada: ${task.completed} - Progreso: ${task.progress || 0}%`);
-          });
-        }
-      });
-
       // Generar un mensaje más conversacional y humano
       let statusMessage = "";
 
       if (activeProjects.length === 0) {
-        console.log('🔍 [DEBUG] No se encontraron proyectos activos');
         statusMessage = "Veo que no tienes proyectos activos en este momento. ¿Te gustaría que te ayude a planificar alguno nuevo o hay algo específico en lo que quieras trabajar hoy?";
       } else if (activeProjects.length === 1) {
         const project = activeProjects[0];
@@ -3092,7 +2163,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
           statusMessage = `Tu proyecto "${project.title}" ${progressText} Has completado ${completedProjectTasks} de ${totalProjectTasks} tareas`;
 
           if (project.deadline) {
-            const deadlineDate = parseLocalDate(project.deadline);
+            const deadlineDate = new Date(project.deadline);
             const today = new Date();
             const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
             if (daysLeft <= 3) {
@@ -3111,7 +2182,7 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
 
         const urgentProjects = activeProjects.filter(p => {
           if (!p.deadline) return false;
-          const deadlineDate = parseLocalDate(p.deadline);
+          const deadlineDate = new Date(p.deadline);
           const today = new Date();
           const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
           return daysLeft <= 7;
@@ -3132,420 +2203,44 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
         statusMessage += " ¿Cuál quieres priorizar?";
       }
 
-      console.log('🔍 [DEBUG] Mensaje generado:', statusMessage);
-
-      // Agregar datos estructurados para que el asistente pueda responder preguntas específicas
-      const structuredData = {
-        projects: activeProjects.map(project => ({
-          title: project.title,
-          status: project.status,
-          priority: project.priority,
-          deadline: project.deadline,
-          progress: project.progress || 0,
-          tasks: project.tasks?.map(task => ({
-            title: task.title,
-            completed: task.completed,
-            progress: task.progress || 0
-          })) || [],
-          pendingTasks: project.tasks?.filter(task => !task.completed) || [],
-          completedTasks: project.tasks?.filter(task => task.completed) || []
-        })),
-        summary: {
-          totalActiveProjects: activeProjects.length,
-          totalTasks: activeProjects.reduce((sum, p) => sum + (p.tasks?.length || 0), 0),
-          totalPendingTasks: activeProjects.reduce((sum, p) => sum + (p.tasks?.filter(t => !t.completed).length || 0), 0),
-          totalCompletedTasks: completedTasks
-        }
-      };
-
-      const result = {
+      return {
         success: true,
-        message: statusMessage,
-        data: structuredData
+        message: statusMessage
       };
-      console.log('🔍 [DEBUG] Resultado de getProjectsStatusFromAssistant:', result);
-      return result;
     } catch (error) {
       return { success: false, message: "Error al obtener información de proyectos: " + error.message };
     }
   };
 
-  const updateProjectStatusFromAssistant = async (params) => {
-    try {
-      const project = findProjectByTitle(params.project_title);
-      if (!project) {
-        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
-      }
-
-      // Actualizar el estado del proyecto
-      setProjects(prevProjects =>
-        prevProjects.map(p =>
-          p.id === project.id ? { ...p, status: params.status } : p
-        )
-      );
-
-      // Actualizar selectedProject si es el mismo
-      if (selectedProject && selectedProject.id === project.id) {
-        setSelectedProject(prev => ({ ...prev, status: params.status }));
-      }
-
-      // Guardar cambios en la base de datos
-      try {
-        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            project: { ...project, status: params.status }
-          })
-        });
-
-        // Recargar datos para sincronizar con la base de datos
-        await loadUserData();
-      } catch (error) {
-        console.error('Error guardando estado del proyecto:', error);
-      }
-
-      let statusMessage = "";
-      switch (params.status) {
-        case 'inactivo':
-          statusMessage = `✅ Perfecto, he marcado el proyecto "${project.title}" como inactivo. Ya no aparecerá en tu lista de proyectos activos.`;
-          break;
-        case 'completado':
-          statusMessage = `🎉 ¡Excelente! Has completado el proyecto "${project.title}". ¡Felicitaciones por terminar este proyecto!`;
-          break;
-        case 'activo':
-          statusMessage = `✅ El proyecto "${project.title}" está ahora activo y aparecerá en tu lista de trabajo.`;
-          break;
-        default:
-          statusMessage = `✅ He actualizado el estado del proyecto "${project.title}" a ${params.status}.`;
-      }
-
-      return { success: true, message: statusMessage };
-    } catch (error) {
-      return { success: false, message: "Error al actualizar el estado del proyecto: " + error.message };
-    }
-  };
-
-  const updateProjectDeadlineFromAssistant = async (params) => {
-    try {
-      console.log('🔍 [DEBUG] updateProjectDeadlineFromAssistant llamada con params:', params);
-      console.log('🔍 [DEBUG] Fecha recibida del asistente:', params.deadline);
-
-      const project = findProjectByTitle(params.project_title);
-      if (!project) {
-        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
-      }
-
-      const newDeadline = params.deadline === 'remove' ? null : params.deadline;
-      console.log('🔍 [DEBUG] Nueva fecha procesada:', newDeadline);
-
-      // Actualizar el deadline del proyecto
-      setProjects(prevProjects =>
-        prevProjects.map(p =>
-          p.id === project.id ? { ...p, deadline: newDeadline } : p
-        )
-      );
-
-      // Actualizar selectedProject si es el mismo
-      if (selectedProject && selectedProject.id === project.id) {
-        setSelectedProject(prev => ({ ...prev, deadline: newDeadline }));
-      }
-
-      // Guardar cambios en la base de datos
-      try {
-        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            project: { ...project, deadline: newDeadline }
-          })
-        });
-
-        // Recargar datos para sincronizar con la base de datos
-        await loadUserData();
-      } catch (error) {
-        console.error('Error guardando deadline del proyecto:', error);
-      }
-
-      const statusMessage = newDeadline
-        ? `✅ He actualizado la fecha límite del proyecto "${project.title}" para el ${newDeadline}.`
-        : `✅ He eliminado la fecha límite del proyecto "${project.title}".`;
-
-      return { success: true, message: statusMessage };
-    } catch (error) {
-      return { success: false, message: "Error al actualizar la fecha límite: " + error.message };
-    }
-  };
-
-  const updateProjectPriorityFromAssistant = async (params) => {
-    try {
-      const project = findProjectByTitle(params.project_title);
-      if (!project) {
-        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
-      }
-
-      // Actualizar la prioridad del proyecto
-      setProjects(prevProjects =>
-        prevProjects.map(p =>
-          p.id === project.id ? { ...p, priority: params.priority } : p
-        )
-      );
-
-      // Actualizar selectedProject si es el mismo
-      if (selectedProject && selectedProject.id === project.id) {
-        setSelectedProject(prev => ({ ...prev, priority: params.priority }));
-      }
-
-      // Guardar cambios en la base de datos
-      try {
-        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            project: { ...project, priority: params.priority }
-          })
-        });
-
-        // Recargar datos para sincronizar con la base de datos
-        await loadUserData();
-      } catch (error) {
-        console.error('Error guardando prioridad del proyecto:', error);
-      }
-
-      return { success: true, message: `✅ He cambiado la prioridad del proyecto "${project.title}" a ${params.priority}.` };
-    } catch (error) {
-      return { success: false, message: "Error al actualizar la prioridad: " + error.message };
-    }
-  };
-
-  const updateProjectDetailsFromAssistant = async (params) => {
-    try {
-      const project = findProjectByTitle(params.project_title);
-      if (!project) {
-        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
-      }
-
-      const newTitle = params.new_title || project.title;
-      const newDescription = params.new_description !== undefined ? params.new_description : project.description;
-
-      // Actualizar los detalles del proyecto
-      setProjects(prevProjects =>
-        prevProjects.map(p =>
-          p.id === project.id ? { ...p, title: newTitle, description: newDescription } : p
-        )
-      );
-
-      // Actualizar selectedProject si es el mismo
-      if (selectedProject && selectedProject.id === project.id) {
-        setSelectedProject(prev => ({ ...prev, title: newTitle, description: newDescription }));
-      }
-
-      // Guardar cambios en la base de datos
-      try {
-        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            project: { ...project, title: newTitle, description: newDescription }
-          })
-        });
-
-        // Recargar datos para sincronizar con la base de datos
-        await loadUserData();
-      } catch (error) {
-        console.error('Error guardando detalles del proyecto:', error);
-      }
-
-      let statusMessage = "✅ He actualizado el proyecto ";
-      if (params.new_title && params.new_description !== undefined) {
-        statusMessage += `cambiando el título a "${newTitle}" y la descripción.`;
-      } else if (params.new_title) {
-        statusMessage += `cambiando el título a "${newTitle}".`;
-      } else if (params.new_description !== undefined) {
-        statusMessage += `"${project.title}" actualizando su descripción.`;
-      }
-
-      return { success: true, message: statusMessage };
-    } catch (error) {
-      return { success: false, message: "Error al actualizar los detalles del proyecto: " + error.message };
-    }
-  };
-
-  const deleteProjectFromAssistant = async (params) => {
-    try {
-      const project = findProjectByTitle(params.project_title);
-      if (!project) {
-        return { success: false, message: `No se encontró el proyecto "${params.project_title}".` };
-      }
-
-      // Verificar si tiene tareas pendientes
-      const pendingTasks = project.tasks?.filter(task => !task.completed) || [];
-      if (pendingTasks.length > 0) {
-        return {
-          success: false,
-          message: `❌ No puedo eliminar el proyecto "${project.title}" porque tiene ${pendingTasks.length} tareas pendientes. Completa o elimina las tareas primero.`
-        };
-      }
-
-      // Eliminar proyecto de la base de datos
-      try {
-        await authenticatedFetch(`${getApiBase()}/auth/projects/${project.id}`, {
-          method: 'DELETE'
-        });
-
-        // Recargar datos para sincronizar con la base de datos
-        await loadUserData();
-      } catch (error) {
-        console.error('Error eliminando proyecto:', error);
-        return { success: false, message: "Error al eliminar el proyecto de la base de datos." };
-      }
-
-      // Si es el proyecto seleccionado, limpiar la selección
-      if (selectedProject && selectedProject.id === project.id) {
-        setSelectedProject(null);
-      }
-
-      return { success: true, message: `🗑️ He eliminado completamente el proyecto "${project.title}".` };
-    } catch (error) {
-      return { success: false, message: "Error al eliminar el proyecto: " + error.message };
-    }
-  };
-
-  // === SISTEMA DE MEMORIA CONVERSACIONAL ACTIVA ===
-
-  // Función para guardar mensajes en el historial
-  const saveConversationMessage = async (type, content, functionResults = null) => {
-    try {
-      const messageData = {
-        id: Date.now().toString(),
-        type, // 'user' o 'assistant'
-        content,
-        function_results: functionResults ? JSON.stringify(functionResults) : null
-      };
-
-      await authenticatedFetch(`${getApiBase()}/auth/chat-messages`, {
-        method: 'POST',
-        body: JSON.stringify(messageData)
-      });
-    } catch (error) {
-      console.error('Error guardando mensaje:', error);
-    }
-  };
-
-  // Función para registrar insights automáticamente
-  const recordInsight = async (type, content, context = null, importance = 3) => {
-    try {
-      const insight = {
-        id: Date.now().toString(),
-        insight_type: type,
-        content,
-        context,
-        importance_level: importance
-      };
-
-      await authenticatedFetch(`${getApiBase()}/auth/insights`, {
-        method: 'POST',
-        body: JSON.stringify(insight)
-      });
-    } catch (error) {
-      console.error('Error registrando insight:', error);
-    }
-  };
-
-  // Función para registrar compromisos
-  const recordCommitment = async (commitment, deadline = null) => {
-    try {
-      const commitmentData = {
-        id: Date.now().toString(),
-        commitment,
-        deadline
-      };
-
-      await authenticatedFetch(`${getApiBase()}/auth/commitments`, {
-        method: 'POST',
-        body: JSON.stringify(commitmentData)
-      });
-    } catch (error) {
-      console.error('Error registrando compromiso:', error);
-    }
-  };
-
-  // Función para registrar logros
-  const recordAchievement = async (achievement, type, projectId = null, level = 3) => {
-    try {
-      const achievementData = {
-        id: Date.now().toString(),
-        achievement,
-        achievement_type: type,
-        related_project_id: projectId,
-        celebration_level: level
-      };
-
-      await authenticatedFetch(`${getApiBase()}/auth/achievements`, {
-        method: 'POST',
-        body: JSON.stringify(achievementData)
-      });
-    } catch (error) {
-      console.error('Error registrando logro:', error);
-    }
-  };
-
-  // Función para obtener memoria conversacional
-  const getConversationalMemory = async () => {
-    try {
-      const [insightsRes, commitmentsRes, achievementsRes] = await Promise.all([
-        authenticatedFetch(`${getApiBase()}/auth/insights`),
-        authenticatedFetch(`${getApiBase()}/auth/commitments`),
-        authenticatedFetch(`${getApiBase()}/auth/achievements`)
-      ]);
-
-      const insights = await insightsRes.json();
-      const commitments = await commitmentsRes.json();
-      const achievements = await achievementsRes.json();
-
-      return { insights, commitments, achievements };
-    } catch (error) {
-      console.error('Error obteniendo memoria conversacional:', error);
-      return { insights: [], commitments: [], achievements: [] };
-    }
-  };
-
-  // Función para analizar conversación y extraer insights automáticamente
-  const analyzeConversationForInsights = async (userMessage, assistantResponse) => {
-    try {
-      // Detectar logros en la conversación
-      if (userMessage.toLowerCase().includes('terminé') ||
-          userMessage.toLowerCase().includes('completé') ||
-          userMessage.toLowerCase().includes('logré')) {
-        await recordAchievement(userMessage, 'task_completion', null, 4);
-        await recordInsight('achievement', `Usuario reportó: ${userMessage}`, null, 4);
-      }
-
-      // Detectar compromisos
-      if (userMessage.toLowerCase().includes('voy a') ||
-          userMessage.toLowerCase().includes('me comprometo') ||
-          userMessage.toLowerCase().includes('para mañana') ||
-          userMessage.toLowerCase().includes('esta semana')) {
-        await recordCommitment(userMessage);
-        await recordInsight('goal', `Nuevo compromiso: ${userMessage}`, null, 4);
-      }
-
-      // Detectar patrones de procrastinación
-      if (userMessage.toLowerCase().includes('no pude') ||
-          userMessage.toLowerCase().includes('se me olvidó') ||
-          userMessage.toLowerCase().includes('no tuve tiempo')) {
-        await recordInsight('pattern', `Patrón de retraso: ${userMessage}`, null, 3);
-      }
-
-      // Detectar desafíos
-      if (userMessage.toLowerCase().includes('problema') ||
-          userMessage.toLowerCase().includes('difícil') ||
-          userMessage.toLowerCase().includes('no sé cómo')) {
-        await recordInsight('challenge', `Desafío identificado: ${userMessage}`, null, 4);
-      }
-    } catch (error) {
-      console.error('Error analizando conversación:', error);
-    }
-  };
-
   // Función para construir el prompt del sistema basado en la configuración
-  const buildSystemPrompt = async () => {
+  const buildSystemPrompt = () => {
+    const userName = assistantConfig.userName || "Usuario";
+    const assistantName = assistantConfig.assistantName;
+    const specialtiesText = assistantConfig.specialties.length > 0
+      ? `especializado en ${assistantConfig.specialties.join(', ')}`
+      : "con experiencia multidisciplinaria";
+
+    let toneInstructions = "";
+    switch (assistantConfig.tone) {
+      case 'Motivador':
+        toneInstructions = "Siempre sé positivo, energético y motivacional. Impulsa al usuario a tomar acción.";
+        break;
+      case 'Formal':
+        toneInstructions = "Mantén un tono profesional, estructurado y respetuoso en todas las respuestas.";
+        break;
+      case 'Amigable':
+        toneInstructions = "Sé cercano, empático y conversacional, como un amigo experto que ayuda.";
+        break;
+      case 'Crítico':
+        toneInstructions = "Sé directo, analítico y desafiante. Cuestiona ideas para mejorar los resultados.";
+        break;
+    }
+
+    const focusAreasText = Object.entries(assistantConfig.focusAreas)
+      .filter(([_, isActive]) => isActive)
+      .map(([area, _]) => area)
+      .join(', ');
+
     // Obtener la fecha actual del navegador
     const currentDate = new Date();
     const dateString = currentDate.toLocaleDateString('es-ES', {
@@ -3559,22 +2254,188 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       minute: '2-digit'
     });
 
-    const focusAreasText = Object.entries(assistantConfig.focusAreas)
-      .filter(([_, isActive]) => isActive)
-      .map(([area, _]) => area)
-      .join(', ');
+    // Función para construir el contexto de memoria
+    const buildMemoryContext = () => {
+      const memory = assistantConfig.memory;
+      let memoryText = "";
 
-    // Usar la nueva configuración del prompt
-    return getPromptConfig(assistantConfig, dateString, timeString, voiceEnabled, focusAreasText);
+      if (memory.personalityTraits) {
+        memoryText += `\n• PERSONALIDAD: ${memory.personalityTraits}`;
+      }
+      if (memory.motivationalTriggers) {
+        memoryText += `\n• QUÉ LO MOTIVA: ${memory.motivationalTriggers}`;
+      }
+      if (memory.challengesAndStruggles) {
+        memoryText += `\n• DESAFÍOS Y LUCHAS: ${memory.challengesAndStruggles}`;
+      }
+      if (memory.achievements) {
+        memoryText += `\n• LOGROS Y FORTALEZAS: ${memory.achievements}`;
+      }
+      if (memory.learningStyle) {
+        memoryText += `\n• ESTILO DE APRENDIZAJE: ${memory.learningStyle}`;
+      }
+      if (memory.workPatterns) {
+        memoryText += `\n• PATRONES DE TRABAJO: ${memory.workPatterns}`;
+      }
+      if (memory.emotionalContext) {
+        memoryText += `\n• CONTEXTO EMOCIONAL: ${memory.emotionalContext}`;
+      }
+      if (memory.growthAreas) {
+        memoryText += `\n• ÁREAS DE CRECIMIENTO: ${memory.growthAreas}`;
+      }
+      if (memory.currentPriorities) {
+        memoryText += `\n• PRIORIDADES ACTUALES: ${memory.currentPriorities}`;
+      }
+
+      return memoryText || "Aún no hay información de memoria a largo plazo registrada. Aprenderé sobre ti a medida que conversemos.";
+    };
+
+    // Construir contexto de proyectos actual
+    const buildProjectContext = () => {
+      if (projects.length === 0) {
+        return "El usuario aún no tiene proyectos creados. Sugiere crear algunos y ayúdale con la gestión inicial.";
+      }
+
+      const activeProjects = projects.filter(p => p.status === 'active');
+      const inactiveProjects = projects.filter(p => p.status === 'inactive');
+      const totalTasks = projects.reduce((total, project) => total + (project.tasks?.length || 0), 0);
+      const completedTasks = projects.reduce((total, project) =>
+        total + (project.tasks?.filter(task => task.completed).length || 0), 0
+      );
+      const pendingTasks = totalTasks - completedTasks;
+
+      let projectContext = `\nESTADO ACTUAL DE PROYECTOS DEL USUARIO:
+• Total de proyectos: ${projects.length}
+• Proyectos activos: ${activeProjects.length}
+• Proyectos inactivos: ${inactiveProjects.length}
+• Total de tareas: ${totalTasks}
+• Tareas completadas: ${completedTasks}
+• Tareas pendientes: ${pendingTasks}`;
+
+      if (activeProjects.length > 0) {
+        projectContext += `\n\nPROYECTOS ACTIVOS EN DETALLE:`;
+        activeProjects.forEach(project => {
+          const projectTasks = project.tasks || [];
+          const projectCompletedTasks = projectTasks.filter(t => t.completed).length;
+          const projectPendingTasks = projectTasks.length - projectCompletedTasks;
+
+          projectContext += `\n📋 "${project.title}"`;
+          if (project.description) projectContext += ` - ${project.description}`;
+          if (project.priority) projectContext += ` (Prioridad: ${project.priority})`;
+          if (project.deadline) projectContext += ` (Fecha límite: ${project.deadline})`;
+          projectContext += `\n   • Tareas: ${projectTasks.length} total, ${projectCompletedTasks} completadas, ${projectPendingTasks} pendientes`;
+
+          if (projectPendingTasks > 0) {
+            const pendingTasksList = projectTasks.filter(t => !t.completed).slice(0, 3);
+            projectContext += `\n   • Próximas tareas: ${pendingTasksList.map(t => t.title || t.text).join(', ')}`;
+            if (projectPendingTasks > 3) projectContext += ` y ${projectPendingTasks - 3} más...`;
+          }
+        });
+      }
+
+      // Análisis de patrones y sugerencias
+      projectContext += `\n\nANÁLISIS INTELIGENTE:`;
+      if (pendingTasks > completedTasks) {
+        projectContext += `\n• 🎯 FOCO RECOMENDADO: El usuario tiene más tareas pendientes (${pendingTasks}) que completadas (${completedTasks}). Ayúdale con priorización.`;
+      }
+      if (activeProjects.length > 3) {
+        projectContext += `\n• ⚠️ CARGA DE TRABAJO: ${activeProjects.length} proyectos activos pueden ser demasiados. Considera sugerir enfoques o priorización.`;
+      }
+      if (activeProjects.some(p => p.priority === 'alta')) {
+        const highPriorityProjects = activeProjects.filter(p => p.priority === 'alta');
+        projectContext += `\n• 🚨 URGENTE: ${highPriorityProjects.length} proyecto(s) de alta prioridad: ${highPriorityProjects.map(p => p.title).join(', ')}`;
+      }
+
+      return projectContext;
+    };
+
+    return `${assistantConfig.basePrompt}
+
+INFORMACIÓN PERSONAL:
+- Mi nombre es ${assistantName}
+- Estoy hablando con ${userName}
+- Soy ${specialtiesText}
+
+FECHA Y HORA ACTUAL:
+- Hoy es ${dateString}
+- Son las ${timeString}
+- Usa esta información para referencias de tiempo relativas (ej: "en una semana", "mañana", "la próxima semana", etc.)
+
+CONTEXTO DE PROYECTOS Y PRODUCTIVIDAD:
+${buildProjectContext()}
+
+TONO Y ESTILO:
+${toneInstructions}
+
+ÁREAS DE ENFOQUE ACTIVAS:
+${focusAreasText}
+
+FUNCIONES DISPONIBLES:
+Tengo acceso a funciones especiales para ayudarte a gestionar tus proyectos y tareas:
+
+1. create_project - Puedo crear proyectos nuevos con título, descripción, prioridad (baja/media/alta) y fecha límite
+2. add_project_task - Puedo agregar tareas a proyectos existentes
+3. update_task_progress - Puedo actualizar el progreso de tareas específicas (0-100%)
+4. add_task_to_daily_focus - Puedo agregar tareas de proyectos al enfoque diario
+5. get_projects_status - Puedo consultar el estado actual de todos los proyectos
+
+INSTRUCCIONES PARA USO DE FUNCIONES:
+- Cuando el usuario mencione crear, agregar o gestionar proyectos/tareas, usa las funciones apropiadas
+- Siempre confirma las acciones realizadas y explica qué se hizo
+- USA get_projects_status SOLO cuando el usuario pregunte específicamente por un resumen general del estado (ej: "¿cómo van mis proyectos?", "muéstrame el estado de todos mis proyectos")
+- Para preguntas específicas sobre datos ya mencionados en la conversación, usa el CONTEXTO PREVIO en lugar de volver a ejecutar funciones
+- Sé proactivo sugiriendo acciones útiles como agregar tareas al enfoque diario
+
+MEMORIA A LARGO PLAZO Y CONTEXTO EMOCIONAL:
+${buildMemoryContext()}
+
+INSTRUCCIONES AVANZADAS DE INTELIGENCIA CONTEXTUAL:
+- Usa el nombre ${userName} de manera natural en la conversación
+- Identifícate como ${assistantName} cuando sea relevante
+- Aplica tu experiencia en ${assistantConfig.specialties.join(', ')} para dar consejos específicos
+- Mantén las respuestas prácticas y orientadas a la acción
+- Cuando uses funciones, explica claramente qué hiciste y ofrece próximos pasos
+
+MANEJO DE CONTEXTO CONVERSACIONAL:
+- SIEMPRE revisa el historial de conversación antes de responder
+- Si ya mencionaste información específica de un proyecto (como fecha límite), úsala directamente
+- NO vuelvas a ejecutar funciones para datos que ya están en el contexto de la conversación
+- Mantén la coherencia con información previamente mencionada
+
+INTELIGENCIA ADAPTATIVA:
+- CONTEXT-AWARE: Usa SIEMPRE el contexto de proyectos actual para dar respuestas relevantes y específicas
+- PREDICTIVE COACHING: Anticipa necesidades basándote en patrones de trabajo y estado de proyectos
+- PROACTIVE SUGGESTIONS: Sugiere acciones específicas basadas en deadlines próximos, tareas pendientes y prioridades
+- TIME-SENSITIVE: Ajusta urgencia y enfoque según fechas límite y carga de trabajo actual
+- PERSONALIZED MOTIVATION: Adapta el estilo motivacional según el progreso actual y desafíos identificados
+
+MEMORIA A LARGO PLAZO INTEGRADA:
+- Usa la memoria a largo plazo para personalizar completamente tus respuestas y sugerencias
+- Adapta tu motivación basándote en el contexto emocional y patrones de trabajo del usuario
+- Sugiere estrategias de crecimiento evolutivo basadas en las áreas de mejora identificadas
+- PRIORIDAD MÁXIMA: Enfócate principalmente en las prioridades actuales del usuario
+
+APRENDIZAJE CONTINUO:
+- Observa y aprende constantemente sobre el usuario a partir de sus mensajes, decisiones y patrones
+- Identifica automáticamente: patrones de trabajo, preferencias, desafíos, fortalezas y estilo de comunicación
+- Relaciona conversaciones previas con la situación actual de proyectos para dar continuidad inteligente
+
+RESPUESTAS INTELIGENTES:
+- Conecta siempre las preguntas del usuario con su situación real de proyectos
+- Ofrece consejos específicos y accionables basados en sus datos reales
+- Sugiere próximos pasos concretos que el usuario puede tomar inmediatamente
+- Menciona proyectos, tareas o situaciones específicas cuando sea relevante
+
+Responde siempre en español y mantén el tono configurado.`;
   };
 
   // Función para formatear el historial de conversación para OpenAI
   const formatConversationHistory = () => {
     return messages
-      .filter(msg => msg.sender !== 'system') // Excluir mensajes del sistema si los hay
+      .filter(msg => msg.type !== 'system') // Excluir mensajes del sistema si los hay
       .slice(-10) // Mantener solo los últimos 10 mensajes para eficiencia
       .map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
+        role: msg.type === 'user' ? 'user' : 'assistant',
         content: msg.text || 'Mensaje sin contenido'
       }));
   };
@@ -3636,295 +2497,70 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
     setMessages(prev => [...prev, userMessage]);
     const currentMessage = newMessage;
     setNewMessage('');
-
-    // Guardar mensaje del usuario en la base de datos
-    await saveConversationMessage('user', currentMessage);
     setIsAssistantTyping(true);
 
     try {
-      console.log('🔍 [DEBUG] Mensaje del usuario:', currentMessage);
+      // Llamada a OpenAI API con autenticación
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: buildSystemPrompt() || 'Eres un asistente personal útil.'
+            },
+            ...formatConversationHistory(),
+            {
+              role: 'user',
+              content: currentMessage || 'Hola'
+            }
+          ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
+          functions: assistantFunctions,
+          function_call: "auto",
+          max_tokens: 1000,
+          temperature: 0.7
+        })
+      });
 
-      // Detectar si el usuario quiere usar funciones de base de datos
-      console.log('🔍 [DEBUG] Evaluando mensaje para function calling:', currentMessage);
+      if (!response.ok) {
+        throw new Error(`Error de OpenAI: ${response.status}`);
+      }
 
-      const functionKeywords = [
-        'proyectos', 'proyecto', 'tarea', 'tareas', 'progreso', 'estado de proyectos',
-        'mostrar proyectos', 'listar proyectos', 'crear proyecto', 'nuevo proyecto',
-        'agregar tarea', 'añadir tarea', 'actualizar', 'cambiar prioridad', 'fecha límite',
-        'deadline', 'eliminar proyecto', 'completar proyecto', 'enfoque diario', 'tareas pendientes',
-        'que proyectos', 'cuáles proyectos', 'status', 'resumen', 'actualiz', 'al ', '%',
-        'terminado', 'acabar', 'completar', 'listo', 'lanzar', 'lanzamiento'
-      ];
+      const result = await response.json();
+      const message = result.choices[0].message;
 
-      const needsFunctionCall = functionKeywords.some(keyword =>
-        currentMessage.toLowerCase().includes(keyword)
-      );
-
-      console.log('🔍 [DEBUG] Necesita function call?:', needsFunctionCall);
-      console.log('🔍 [DEBUG] Keywords encontradas:', functionKeywords.filter(k => currentMessage.toLowerCase().includes(k)));
-
-      let assistantResponse = '';
+      let assistantResponse = message.content;
       let functionResults = [];
 
-      if (needsFunctionCall) {
-        console.log('🔍 [DEBUG] Usando Gemini con function calling');
+      // Verificar si hay function calls
+      if (message.function_call) {
+        const functionName = message.function_call.name;
+        const functionArgs = JSON.parse(message.function_call.arguments);
 
-        // Llamada directa a Gemini con function calling
-        const conversationHistory = formatConversationHistory();
-        console.log('🔍 [DEBUG] Conversation history for functions:', conversationHistory.length, 'mensajes');
+        // Ejecutar la función
+        const functionResult = executeAssistantFunction(functionName, functionArgs);
+        functionResults.push(functionResult);
 
-        // Convertir historial al formato de Gemini
-        const contents = [];
-
-        // Agregar mensaje de sistema
-        contents.push({
-          role: 'user',
-          parts: [{
-            text: `Eres un asistente de gestión de proyectos. SIEMPRE DEBES USAR LAS FUNCIONES DISPONIBLES para:
-
-- Cuando el usuario dice "crea", "crear", "nuevo proyecto" → Usa create_project
-- Cuando el usuario dice "agrega", "añadir", "nueva tarea" → Usa add_project_task
-- Cuando el usuario dice "actualiza", "progreso", "al X%" → Usa update_task_progress
-- Cuando el usuario pregunta por proyectos, estado → Usa get_projects_status
-
-IMPORTANTE: SIEMPRE usa las funciones, no respondas solo con texto.`
-          }]
-        });
-
-        // Agregar historial de conversación
-        conversationHistory.forEach(msg => {
-          contents.push({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
-          });
-        });
-
-        // Agregar mensaje actual
-        contents.push({
-          role: 'user',
-          parts: [{ text: currentMessage }]
-        });
-
-        const geminiRequestBody = {
-          contents: contents,
-            tools: geminiTools,
-            toolConfig: {
-              functionCallingConfig: {
-                mode: 'any'
-              }
-            },
-            generationConfig: {
-              temperature: 0.7,
-              topK: 1,
-              topP: 1,
-              maxOutputTokens: 1000,
-            }
-          };
-
-          console.log('🔍 [DEBUG] Request body con datos:', JSON.stringify(geminiRequestBody, null, 2));
-
-        try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(geminiRequestBody)
-          });
-
-          if (!response.ok) {
-            throw new Error(`Error de Gemini: ${response.status}`);
-          }
-
-          const result = await response.json();
-          console.log('🔍 [DEBUG] Gemini result (con datos):', JSON.stringify(result, null, 2));
-
-          if (result.candidates && result.candidates.length > 0) {
-            const candidate = result.candidates[0];
-            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-              const parts = candidate.content.parts;
-              console.log('🔍 [DEBUG] Parts de la respuesta (con datos):', parts);
-
-              // Buscar function calls
-              let functionResults = [];
-              for (const part of parts) {
-                if (part.functionCall) {
-                  console.log('🔍 [DEBUG] Function call detectado (con datos):', part.functionCall);
-                  const functionName = part.functionCall.name;
-                  const functionArgs = part.functionCall.args;
-
-                  // Ejecutar la función
-                  try {
-                    const result = await executeAssistantFunction(functionName, functionArgs);
-                    functionResults.push(result);
-                    console.log('🔍 [DEBUG] Resultado de función (con datos):', result);
-                  } catch (error) {
-                    console.error('🚨 Error ejecutando función (con datos):', error);
-                    functionResults.push({ success: false, message: 'Error ejecutando función' });
-                  }
-                } else if (part.text) {
-                  assistantResponse = part.text;
-                }
-              }
-
-              // Si hay resultados de funciones, usar el mensaje de la función
-              if (functionResults.length > 0) {
-                const successfulResults = functionResults.filter(r => r.success);
-                if (successfulResults.length > 0) {
-                  assistantResponse = successfulResults[0].message;
-                }
-              } else {
-                // Si no hay function calls, usar el texto normal
-                assistantResponse = candidate.content.parts[0].text;
-              }
-
-            } else if (candidate.finishReason === 'SAFETY') {
-              assistantResponse = '🛡️ La respuesta fue filtrada por seguridad. ¿Podrías reformular tu pregunta?';
-            } else {
-              console.error('🚨 Candidato sin contenido válido:', candidate);
-              assistantResponse = 'Lo siento, no pude generar una respuesta en este momento.';
-            }
-          } else if (result.error) {
-            console.error('🚨 Error en API de Gemini:', result.error);
-            assistantResponse = `⚠️ Error en respuesta de IA: ${result.error.message}`;
-          } else {
-            console.error('🚨 Estructura inesperada completa:', result);
-            assistantResponse = 'Respuesta de Gemini en formato inesperado';
-          }
-        } catch (error) {
-          console.error('🚨 Error en llamada a Gemini con functions:', error);
-          assistantResponse = 'Error procesando tu solicitud. Inténtalo de nuevo.';
-        }
-      } else {
-        // Llamada normal a Gemini para coaching sin funciones
-        console.log('🔍 [DEBUG] Usando llamada normal a Gemini (sin funciones)');
-
-        try {
-          const systemPrompt = await buildSystemPrompt() || 'Eres un asistente personal útil.';
-          const conversationHistory = formatConversationHistory();
-
-          console.log('🔍 [DEBUG] System prompt obtenido:', systemPrompt?.substring(0, 100) + '...');
-          console.log('🔍 [DEBUG] Conversation history:', conversationHistory?.length, 'mensajes');
-
-          const promptText = `Contexto: Eres un coach motivacional, aliado estratégico y asistente de proyectos. Tu rol es ayudar al usuario a gestionar proyectos, motivarlos y dar consejos estratégicos.
-
-Sistema prompt: ${systemPrompt}
-
-Historial de conversación:
-${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-
-Usuario: ${currentMessage}`;
-
-          console.log('🔍 [DEBUG] Prompt final enviado a Gemini:', promptText.substring(0, 200) + '...');
-
-          const geminiRequestBody = {
-            contents: [
-              {
-                parts: [
-                  {
-                    text: promptText
-                  }
-                ]
-              }
-            ],
-            tools: geminiTools,
-            toolConfig: {
-              functionCallingConfig: {
-                mode: 'any'
-              }
-            },
-            generationConfig: {
-              temperature: 0.7,
-              topK: 1,
-              topP: 1,
-              maxOutputTokens: 1000,
-            }
-          };
-
-          console.log('🔍 [DEBUG] Enviando request a Gemini...');
-          console.log('🔍 [DEBUG] Request body completo:', JSON.stringify(geminiRequestBody, null, 2));
-
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(geminiRequestBody)
-          });
-
-          console.log('🔍 [DEBUG] Response status:', response.status);
-          console.log('🔍 [DEBUG] Response ok:', response.ok);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('🚨 Error response body:', errorText);
-            throw new Error(`Error de Gemini: ${response.status} - ${errorText}`);
-          }
-
-          const result = await response.json();
-          console.log('🔍 [DEBUG] Gemini result completo:', JSON.stringify(result, null, 2));
-
-          if (result.candidates && result.candidates.length > 0) {
-            const candidate = result.candidates[0];
-            if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-              const parts = candidate.content.parts;
-              console.log('🔍 [DEBUG] Parts de la respuesta:', parts);
-
-              // Buscar function calls
-              let functionResults = [];
-              for (const part of parts) {
-                if (part.functionCall) {
-                  console.log('🔍 [DEBUG] Function call detectado:', part.functionCall);
-                  const functionName = part.functionCall.name;
-                  const functionArgs = part.functionCall.args;
-
-                  // Ejecutar la función
-                  try {
-                    const result = await executeAssistantFunction(functionName, functionArgs);
-                    functionResults.push(result);
-                    console.log('🔍 [DEBUG] Resultado de función:', result);
-                  } catch (error) {
-                    console.error('🚨 Error ejecutando función:', error);
-                    functionResults.push({ success: false, message: 'Error ejecutando función' });
-                  }
-                } else if (part.text) {
-                  assistantResponse = part.text;
-                  console.log('🔍 [DEBUG] Assistant response extraída:', assistantResponse);
-                }
-              }
-
-              // Si hay resultados de funciones, usar el mensaje de la función
-              if (functionResults.length > 0) {
-                const successfulResults = functionResults.filter(r => r.success);
-                if (successfulResults.length > 0) {
-                  assistantResponse = successfulResults[0].message;
-                }
-              }
-
-            } else if (candidate.finishReason === 'SAFETY') {
-              assistantResponse = '🛡️ La respuesta fue filtrada por seguridad. ¿Podrías reformular tu pregunta?';
-            } else {
-              console.error('🚨 Candidato sin contenido válido:', candidate);
-              assistantResponse = 'Lo siento, no pude generar una respuesta en este momento.';
-            }
-          } else if (result.error) {
-            console.error('🚨 Error en API de Gemini:', result.error);
-            throw new Error(`Error de Gemini API: ${result.error.message}`);
-          } else {
-            console.error('🚨 Estructura inesperada de respuesta:', result);
-            assistantResponse = 'Respuesta de Gemini en formato inesperado';
-          }
-
-        } catch (innerError) {
-          console.error('🚨 Error en llamada normal a Gemini:', innerError);
-          throw innerError;
+        // Si la función fue exitosa, agregar información adicional a la respuesta
+        if (functionResult.success) {
+          assistantResponse = assistantResponse
+            ? `${assistantResponse}\n\n✅ ${functionResult.message}`
+            : `✅ ${functionResult.message}`;
+        } else {
+          assistantResponse = assistantResponse
+            ? `${assistantResponse}\n\n❌ ${functionResult.message}`
+            : `❌ ${functionResult.message}`;
         }
       }
 
-
       const assistantMessage = {
         id: Date.now() + 1,
-        sender: 'assistant',
+        type: 'assistant',
         text: assistantResponse || "He procesado tu solicitud.",
         timestamp: new Date().toLocaleTimeString(),
         functionResults: functionResults
@@ -3932,39 +2568,32 @@ Usuario: ${currentMessage}`;
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Guardar mensaje del asistente en la base de datos
-      await saveConversationMessage('assistant', assistantResponse, functionResults);
-
-      // Analizar conversación para extraer insights automáticamente
-      await analyzeConversationForInsights(currentMessage, assistantResponse);
-
       // Síntesis de voz para la respuesta del asistente
       if (voiceEnabled && assistantResponse) {
-        // La voz debe ser idéntica al texto (solo limpiar markdown)
-        const voiceText = assistantResponse
-          .replace(/\*\*(.*?)\*\*/g, '$1')  // Remover bold
-          .replace(/\*(.*?)\*/g, '$1')      // Remover italic
-          .replace(/`([^`]+)`/g, '$1')      // Remover code
-          .replace(/##\s*/g, '')           // Remover headers
-          .replace(/[📊🚀✅📝🎯💡🔸⏰📋🤔🎉💭⚡💪🎊🔥💥]/g, '') // Remover emojis
-          .replace(/\s+/g, ' ')            // Normalizar espacios
+        // Limpiar el texto de markdown para síntesis de voz
+        const cleanText = assistantResponse
+          .replace(/\*\*(.*?)\*\*/g, '$1') // Quitar bold
+          .replace(/\*(.*?)\*/g, '$1') // Quitar cursiva
+          .replace(/#{1,6}\s/g, '') // Quitar encabezados
+          .replace(/```[\s\S]*?```/g, '[código]') // Reemplazar bloques de código
+          .replace(/`([^`]+)`/g, '$1') // Quitar comillas inversas
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Limpiar enlaces
+          .replace(/[📊🚀✅📝🎯💡🔸⏰📋]/g, '') // Quitar emojis comunes
           .trim();
 
-        if (voiceText) {
-          speakText(voiceText);
+        if (cleanText) {
+          speakText(cleanText);
         }
       }
 
     } catch (error) {
-      console.error('🚨 Error enviando mensaje:', error);
-      console.error('🚨 Error stack:', error.stack);
-      console.error('🚨 Error message:', error.message);
+      console.error('Error enviando mensaje:', error);
 
-      // Mensaje de error para el usuario con información de debug
+      // Mensaje de error para el usuario con respuesta de demostración
       const errorMessage = {
         id: Date.now() + 1,
-        sender: 'assistant',
-        text: `❌ Error de conexión: ${error.message}\n\nPor favor revisa la consola del navegador para más detalles.`,
+        type: 'assistant',
+        text: `Entiendo tu mensaje: "${currentMessage}". El servicio de IA está temporalmente no disponible, pero el chat bubble funciona perfectamente. ¡Puedes ver cómo se visualizan los mensajes!`,
         timestamp: new Date().toLocaleTimeString()
       };
 
@@ -3981,72 +2610,274 @@ Usuario: ${currentMessage}`;
     }
   };
 
-  const toggleTask = (taskId) => {
+  const toggleTask = async (taskId) => {
     const task = dailyTasks.find(t => t.id === taskId);
     if (task) {
-      const completing = !task.completed;
+      const newCompleted = !task.completed;
 
-      // Si se está completando la tarea y tiene timer activo, capturar el tiempo
-      if (completing) {
-        let actualHours = task.actual_hours || 0;
+      try {
+        // Llamar al API para persistir el cambio
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ completed: newCompleted }),
+        });
 
-        // Si hay un timer activo, capturar el tiempo
-        if (activeTimers[taskId] || pausedTimers[taskId]) {
-          const timerHours = completeTask(taskId);
-          actualHours = timerHours;
-        }
+        if (response.ok) {
+          // Solo actualizar el estado local si el API fue exitoso
+          setDailyTasks(dailyTasks.map(t =>
+            t.id === taskId ? { ...t, completed: newCompleted } : t
+          ));
 
-        // Actualizar tarea diaria con el tiempo capturado
-        setDailyTasks(dailyTasks.map(t =>
-          t.id === taskId ? {
-            ...t,
-            completed: true,
-            actual_hours: actualHours > 0 ? actualHours : task.actual_hours
-          } : t
-        ));
-      } else {
-        // Solo cambiar estado de completado
-        setDailyTasks(dailyTasks.map(t =>
-          t.id === taskId ? { ...t, completed: false } : t
-        ));
-      }
-
-      // Sincronizar con tarea de proyecto si está vinculada
-      if (task.projectId && task.projectTaskId) {
-        setProjects(projects.map(project => {
-          if (project.id === task.projectId) {
-            const updatedTasks = project.tasks.map(pt =>
-              pt.id === task.projectTaskId ? { ...pt, completed: completing } : pt
-            );
-            return { ...project, tasks: updatedTasks };
+          // Sincronizar con tarea de proyecto si está vinculada
+          if (task.projectId && task.projectTaskId) {
+            setProjects(projects.map(project => {
+              if (project.id === task.projectId) {
+                const updatedTasks = project.tasks.map(pt =>
+                  pt.id === task.projectTaskId ? { ...pt, completed: newCompleted } : pt
+                );
+                return { ...project, tasks: updatedTasks };
+              }
+              return project;
+            }));
+            updateProjectProgressFromTasks(task.projectId);
           }
-          return project;
-        }));
-        updateProjectProgressFromTasks(task.projectId);
+        } else {
+          console.error('Error updating task completion');
+        }
+      } catch (error) {
+        console.error('Error calling API to update task:', error);
       }
     }
   };
 
   const deleteTask = async (taskId) => {
-    try {
-      const response = await authenticatedFetch(`${getApiBase()}/auth/daily-tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
-      } else {
-        console.error('Error al eliminar tarea diaria');
-        // Si falla la petición, al menos actualizar localmente
-        setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+    // Mostrar confirmación con SweetAlert
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Esta acción no se puede deshacer',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#f9fafb',
+      customClass: {
+        popup: 'swal-dark-theme'
       }
-    } catch (error) {
-      console.error('Error:', error);
-      // Si falla la petición, al menos actualizar localmente
-      setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+    });
+
+    // Solo proceder si el usuario confirmó
+    if (result.isConfirmed) {
+      try {
+        // Llamar al API para eliminar la tarea de la base de datos
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          // Solo actualizar el estado local si el API fue exitoso
+          setDailyTasks(dailyTasks.filter(task => task.id !== taskId));
+
+          // Mostrar mensaje de éxito
+          Swal.fire({
+            title: '¡Eliminada!',
+            text: 'La tarea ha sido eliminada correctamente',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#f9fafb',
+            customClass: {
+              popup: 'swal-dark-theme'
+            }
+          });
+        } else {
+          console.error('Error deleting task from server');
+          Swal.fire({
+            title: 'Error',
+            text: 'No se pudo eliminar la tarea. Inténtalo de nuevo.',
+            icon: 'error',
+            background: '#1f2937',
+            color: '#f9fafb',
+            customClass: {
+              popup: 'swal-dark-theme'
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error calling API to delete task:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'Ocurrió un error al eliminar la tarea',
+          icon: 'error',
+          background: '#1f2937',
+          color: '#f9fafb',
+          customClass: {
+            popup: 'swal-dark-theme'
+          }
+        });
+      }
+    }
+  };
+
+  const archiveTask = async (taskId) => {
+    // Mostrar confirmación con SweetAlert
+    const result = await Swal.fire({
+      title: '¿Archivar tarea?',
+      text: 'La tarea será movida a "Tareas Realizadas"',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, archivar',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#f9fafb',
+      customClass: {
+        popup: 'swal-dark-theme'
+      }
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Llamar al API para archivar la tarea
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}/archive`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          // Recargar datos para mantener consistencia
+          await loadUserData();
+
+          // Mostrar mensaje de éxito
+          Swal.fire({
+            title: '¡Archivada!',
+            text: 'La tarea ha sido archivada correctamente',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#f9fafb',
+            customClass: {
+              popup: 'swal-dark-theme'
+            }
+          });
+        } else {
+          console.error('Error archiving task from server');
+          Swal.fire({
+            title: 'Error',
+            text: 'No se pudo archivar la tarea. Inténtalo de nuevo.',
+            icon: 'error',
+            background: '#1f2937',
+            color: '#f9fafb',
+            customClass: {
+              popup: 'swal-dark-theme'
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error calling API to archive task:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'Ocurrió un error al archivar la tarea',
+          icon: 'error',
+          background: '#1f2937',
+          color: '#f9fafb',
+          customClass: {
+            popup: 'swal-dark-theme'
+          }
+        });
+      }
+    }
+  };
+
+  const unarchiveTask = async (taskId) => {
+    // Mostrar confirmación con SweetAlert
+    const result = await Swal.fire({
+      title: '¿Deshacer tarea?',
+      text: 'La tarea volverá a "Tareas Pendientes"',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, deshacer',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#f9fafb',
+      customClass: {
+        popup: 'swal-dark-theme'
+      }
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Llamar al API para desarchiver la tarea
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}/unarchive`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (response.ok) {
+          // Recargar datos para mantener consistencia
+          await loadUserData();
+
+          // Mostrar mensaje de éxito
+          Swal.fire({
+            title: '¡Tarea restaurada!',
+            text: 'La tarea ha sido movida de vuelta a pendientes',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#f9fafb',
+            customClass: {
+              popup: 'swal-dark-theme'
+            }
+          });
+        } else {
+          console.error('Error unarchiving task from server');
+          Swal.fire({
+            title: 'Error',
+            text: 'No se pudo restaurar la tarea. Inténtalo de nuevo.',
+            icon: 'error',
+            background: '#1f2937',
+            color: '#f9fafb',
+            customClass: {
+              popup: 'swal-dark-theme'
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error calling API to unarchive task:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'Ocurrió un error al restaurar la tarea',
+          icon: 'error',
+          background: '#1f2937',
+          color: '#f9fafb',
+          customClass: {
+            popup: 'swal-dark-theme'
+          }
+        });
+      }
     }
   };
 
@@ -4063,41 +2894,6 @@ Usuario: ${currentMessage}`;
     }
     setEditingTaskId(null);
     setEditingTaskText('');
-  };
-
-  // Función para actualizar tareas diarias desde el modal de edición
-  const saveDailyTaskChanges = async () => {
-    if (!editTaskName.trim() || !editingTask) return;
-
-    // Calcular tiempo estimado total en horas
-    const estimatedHours = parseInt(editEstimatedHours) || 0;
-    const estimatedMinutes = parseInt(editEstimatedMinutes) || 0;
-    const totalEstimatedHours = estimatedHours + (estimatedMinutes / 60);
-
-    // Calcular tiempo real total en horas
-    const actualHours = parseInt(editActualHours) || 0;
-    const actualMinutes = parseInt(editActualMinutes) || 0;
-    const totalActualHours = actualHours + (actualMinutes / 60);
-
-    const updatedTask = {
-      ...editingTask,
-      text: editTaskName.trim(),
-      description: editTaskDescription.trim(),
-      estimated_hours: totalEstimatedHours > 0 ? totalEstimatedHours : null,
-      actual_hours: totalActualHours > 0 ? totalActualHours : null,
-      projectId: editTaskProject || null, // Vincular con proyecto seleccionado
-    };
-
-    try {
-      // Actualizar el estado local de las tareas diarias
-      setDailyTasks(dailyTasks.map(task =>
-        task.id === editingTask.id ? updatedTask : task
-      ));
-
-      closeEditTaskModal();
-    } catch (error) {
-      console.error('Error actualizando tarea diaria:', error);
-    }
   };
 
   const cancelEditingTask = () => {
@@ -4118,7 +2914,7 @@ Usuario: ${currentMessage}`;
     // Calcular información de deadline si existe
     let deadlineInfo = null;
     if (project && project.deadline) {
-      const deadline = parseLocalDate(project.deadline);
+      const deadline = new Date(project.deadline);
       const today = new Date();
       const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
 
@@ -4131,46 +2927,38 @@ Usuario: ${currentMessage}`;
       }
     }
 
-    // Obtener información del timer para esta tarea
-    const timerDisplay = getTimerDisplay(task.id);
-    const isTimerActive = activeTimers[task.id];
-    const isTimerPaused = pausedTimers[task.id] && !isTimerActive;
-
     return (
       <div
         key={task.id}
-        className={`flex flex-col p-3 rounded-lg border transition-all duration-200 ${
-          task.completed
-            ? 'bg-green-50 border-green-200'
-            : isUrgent
+        className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
+          isUrgent
             ? 'bg-red-50 border-red-200 hover:bg-red-100'
             : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
         }`}
       >
-        {/* Primera fila: Checkbox, nombre de tarea y controles */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center flex-1">
-            <input
-              type="checkbox"
-              checked={task.completed}
-              onChange={() => toggleTask(task.id)}
-              className={`mr-3 ${isUrgent ? 'text-red-600' : ''}`}
-            />
-            <div className="flex-1">
-              {editingTaskId === task.id ? (
-                <input
-                  type="text"
-                  value={editingTaskText}
-                  onChange={(e) => setEditingTaskText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEditedTask();
-                    if (e.key === 'Escape') cancelEditingTask();
-                  }}
-                  onBlur={saveEditedTask}
-                  className="w-full p-1 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              ) : (
+        <div className="flex items-center flex-1">
+          <input
+            type="checkbox"
+            checked={task.completed}
+            onChange={() => toggleTask(task.id)}
+            className={`mr-3 ${isUrgent ? 'text-red-600' : ''}`}
+          />
+          <div className="flex-1">
+            {editingTaskId === task.id ? (
+              <input
+                type="text"
+                value={editingTaskText}
+                onChange={(e) => setEditingTaskText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveEditedTask();
+                  if (e.key === 'Escape') cancelEditingTask();
+                }}
+                onBlur={saveEditedTask}
+                className="w-full p-1 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            ) : (
+              <>
                 <div className="flex items-center gap-2">
                   <span className={task.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
                     {task.text}
@@ -4181,126 +2969,78 @@ Usuario: ${currentMessage}`;
                     </span>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {/* Controles de timer */}
-            {!task.completed && !editingTaskId && (
-              <div className="flex items-center gap-1 mr-2">
-                {isTimerActive ? (
-                  <button
-                    onClick={() => pauseTimer(task.id)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded flex items-center"
-                    title="Pausar timer"
-                  >
-                    <Pause size={14} />
-                    {isTimerActive && (
-                      <div className="w-2 h-2 bg-red-500 rounded-full ml-1 animate-pulse"></div>
-                    )}
-                  </button>
-                ) : isTimerPaused ? (
-                  <button
-                    onClick={() => resumeTimer(task.id)}
-                    className="text-orange-500 hover:text-orange-700 hover:bg-orange-50 p-1 rounded"
-                    title="Reanudar timer"
-                  >
-                    <Play size={14} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => startTimer(task.id)}
-                    className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
-                    title="Iniciar timer"
-                  >
-                    <Play size={14} />
-                  </button>
+                {project && (
+                  <div className="mt-1">
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${getProjectColor(project.id)}`}>
+                      {project.title}
+                    </span>
+                  </div>
                 )}
-              </div>
-            )}
-
-            {/* Controles de edición */}
-            {editingTaskId === task.id ? (
-              <>
-                <button
-                  onClick={saveEditedTask}
-                  className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
-                  title="Guardar"
-                >
-                  <CheckCircle size={16} />
-                </button>
-                <button
-                  onClick={cancelEditingTask}
-                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                  title="Cancelar"
-                >
-                  ✕
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => openEditTaskModal(task)}
-                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
-                  title="Editar tarea"
-                >
-                  <Edit3 size={16} />
-                </button>
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                  title="Eliminar tarea"
-                >
-                  <Trash2 size={16} />
-                </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Segunda fila: Información adicional */}
-        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-3">
-            {/* Proyecto vinculado */}
-            {project && (
-              <span className={`inline-block px-2 py-1 rounded-full font-medium ${getProjectColor(project.id)}`}>
-                {project.title}
-              </span>
-            )}
-
-            {/* Tiempos estimado y real */}
-            {(task.estimated_hours || task.actual_hours) && (
-              <div className="flex items-center gap-2">
-                {task.estimated_hours && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                    Est: {formatHours(task.estimated_hours)}
-                  </span>
-                )}
-                {task.actual_hours && (
-                  <span className={`px-2 py-1 rounded-full ${
-                    task.actual_hours > task.estimated_hours
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-green-100 text-green-800'
-                  }`}>
-                    Real: {formatHours(task.actual_hours)}
-                  </span>
-                )}
-              </div>
-            )}
+        {/* Timer display for project tasks */}
+        {task.isFromProject && task.projectTaskId && (
+          <div className="flex items-center gap-2 mr-2">
+            <span style={{
+              fontSize: '12px',
+              color: taskTimers[task.projectTaskId]?.isActive ? '#3b82f6' : '#6b7280',
+              fontWeight: taskTimers[task.projectTaskId]?.isActive ? 'bold' : 'normal',
+              minWidth: '45px',
+              padding: '2px 6px',
+              backgroundColor: taskTimers[task.projectTaskId]?.isActive ? '#dbeafe' : '#f3f4f6',
+              borderRadius: '4px',
+              border: taskTimers[task.projectTaskId]?.isActive ? '1px solid #3b82f6' : '1px solid #d1d5db'
+            }}>
+              ⏰ {getTaskElapsedTime(task.projectTaskId)}
+            </span>
           </div>
+        )}
 
-          {/* Timer display */}
-          {timerDisplay && (
-            <div className={`px-2 py-1 rounded-full font-mono text-xs ${
-              isTimerActive
-                ? 'bg-red-100 text-red-800'
-                : isTimerPaused
-                ? 'bg-orange-100 text-orange-800'
-                : 'bg-gray-100 text-gray-800'
-            }`}>
-              {timerDisplay}
-            </div>
+        <div className="flex gap-1">
+          {editingTaskId === task.id ? (
+            <>
+              <button
+                onClick={saveEditedTask}
+                className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
+                title="Guardar"
+              >
+                <CheckCircle size={16} />
+              </button>
+              <button
+                onClick={cancelEditingTask}
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                title="Cancelar"
+              >
+                ✕
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => startEditingTask(task.id, task.text)}
+                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
+                title="Editar tarea"
+              >
+                <Edit3 size={16} />
+              </button>
+              <button
+                onClick={() => archiveTask(task.id)}
+                className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
+                title="Archivar tarea"
+              >
+                <Archive size={16} />
+              </button>
+              <button
+                onClick={() => deleteTask(task.id)}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                title="Eliminar tarea"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -4425,7 +3165,7 @@ Usuario: ${currentMessage}`;
                   <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">¡Comienza tu día productivo!</h3>
                   <p className="text-sm text-gray-500 mb-4 px-4">Agrega tus tareas prioritarias para hoy</p>
                   <button
-                    onClick={openProjectSelectionModal}
+                    onClick={() => setShowAddTaskForm(true)}
                     className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                   >
                     Agregar primera tarea
@@ -4438,19 +3178,136 @@ Usuario: ${currentMessage}`;
               )}
             </div>
 
-            {/* Botón de agregar tarea - Solo mostrar cuando hay tareas */}
-            {dailyTasks.length > 0 && (
-              <div className="mt-3 md:mt-4 flex-shrink-0">
+            {/* Botón de agregar tarea - Optimizado para móvil */}
+            <div className="mt-3 md:mt-4 flex-shrink-0">
+              {!showAddTaskForm ? (
                 <button
-                  onClick={openProjectSelectionModal}
+                  onClick={() => setShowAddTaskForm(true)}
                   className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
                 >
                   <Plus size={16} className="mr-2" />
                   <span className="hidden sm:inline">Agregar nueva tarea</span>
                   <span className="sm:hidden">Nueva tarea</span>
                 </button>
-              </div>
-            )}
+              ) : (
+                <div className="space-y-3 border border-blue-200 rounded-lg p-3 md:p-4 bg-blue-50">
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="text"
+                      value={newDailyTask}
+                      onChange={(e) => setNewDailyTask(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          addDailyTask();
+                          setShowAddTaskForm(false);
+                        }
+                      }}
+                      placeholder="¿Qué quieres lograr hoy?"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      autoFocus
+                    />
+                    {/* Selección de proyecto inline */}
+                    <div className="space-y-2 mb-3">
+                      <label className="text-sm text-gray-600 font-medium">Proyecto:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {/* Opción para tareas independientes */}
+                        <button
+                          onClick={() => setSelectedProjectForTask('')}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            !selectedProjectForTask
+                              ? 'bg-blue-50 border-blue-500 text-blue-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          Tareas Independientes
+                        </button>
+
+                        {/* Lista de proyectos existentes */}
+                        {projects.map(project => (
+                          <button
+                            key={project.id}
+                            onClick={() => setSelectedProjectForTask(project.id)}
+                            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                              selectedProjectForTask === project.id
+                                ? 'bg-blue-50 border-blue-500 text-blue-700'
+                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300'
+                            }`}
+                          >
+                            {project.name || project.title}
+                          </button>
+                        ))}
+
+                        {/* Botón o campo para crear nuevo proyecto */}
+                        {isCreatingInlineProject ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={newInlineProjectName}
+                              onChange={(e) => setNewInlineProjectName(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  createInlineProject();
+                                }
+                              }}
+                              placeholder="Nombre del proyecto"
+                              className="px-3 py-1.5 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              autoFocus
+                            />
+                            <button
+                              onClick={createInlineProject}
+                              className="px-2 py-1.5 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsCreatingInlineProject(false);
+                                setNewInlineProjectName('');
+                              }}
+                              className="px-2 py-1.5 text-sm bg-gray-400 text-white rounded-lg hover:bg-gray-500"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setIsCreatingInlineProject(true)}
+                            className="px-3 py-1.5 text-sm border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center gap-1"
+                          >
+                            <Plus size={14} />
+                            Crear proyecto
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex gap-2 sm:gap-1">
+                        <button
+                          onClick={() => {
+                            addDailyTask();
+                            setShowAddTaskForm(false);
+                          }}
+                          className="flex-1 sm:flex-none bg-green-500 text-white px-4 py-2.5 rounded-lg hover:bg-green-600 text-sm font-medium"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowAddTaskForm(false);
+                            setNewDailyTask('');
+                            setSelectedProjectForTask(lastUsedProject);
+                          }}
+                          className="flex-1 sm:flex-none bg-gray-500 text-white px-4 py-2.5 rounded-lg hover:bg-gray-600 text-sm font-medium"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Panel lateral - Responsive: aparece abajo en móvil, a la derecha en desktop */}
@@ -4714,13 +3571,98 @@ Usuario: ${currentMessage}`;
                                 <div className="flex justify-between items-center text-sm">
                                   <span className="text-gray-500">Fecha límite:</span>
                                   <span className="font-medium text-orange-600">
-                                    {parseLocalDate(project.deadline).toLocaleDateString()}
+                                    {new Date(project.deadline).toLocaleDateString()}
                                   </span>
                                 </div>
                               )}
                             </div>
                           </div>
                         ))}
+
+                        {/* Card para Tareas Independientes */}
+                        <div
+                          onClick={() => {
+                            // Crear proyecto virtual para tareas independientes
+                            const independentTasks = dailyTasks.filter(task => !task.project_id && !task.projectId);
+                            const virtualProject = {
+                              id: 'independent-tasks',
+                              title: 'Tareas Independientes',
+                              description: 'Tareas personales que no pertenecen a ningún proyecto específico',
+                              status: 'activo',
+                              priority: 'media',
+                              tasks: independentTasks.map(task => ({
+                                id: task.id,
+                                title: task.text,
+                                completed: task.completed,
+                                createdAt: task.created_at || task.createdAt
+                              })),
+                              progress: independentTasks.length > 0
+                                ? Math.round((independentTasks.filter(t => t.completed).length / independentTasks.length) * 100)
+                                : 0
+                            };
+                            setSelectedProject(virtualProject);
+                            setShowProjectDetailModal(true);
+                          }}
+                          className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 border-2 border-dashed border-purple-300 hover:border-purple-500 hover:bg-purple-100 ${
+                            currentTheme === 'minimal' || currentTheme === 'brutalist'
+                              ? 'bg-purple-100 shadow-sm hover:shadow-lg'
+                              : 'bg-purple-100 shadow-lg backdrop-blur-none hover:shadow-2xl'
+                          }`}
+                        >
+                          {/* Header */}
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                                  <span className="text-purple-600 text-sm">📝</span>
+                                </div>
+                                Tareas Independientes
+                              </h3>
+                              <div className="flex items-center space-x-3 text-sm">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 bg-purple-100 text-purple-800">
+                                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                                  Personal
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-purple-700 text-sm mb-4">
+                            Tareas personales que no pertenecen a ningún proyecto específico
+                          </p>
+
+                          {/* Stats */}
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-purple-600">Tareas:</span>
+                              <span className="font-medium text-purple-900">
+                                {`${dailyTasks.filter(task => (!task.project_id && !task.projectId) && task.completed).length} / ${dailyTasks.filter(task => !task.project_id && !task.projectId).length}`}
+                              </span>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="w-full bg-purple-200 rounded-full h-2">
+                              <div
+                                className="h-2 rounded-full transition-all duration-300 bg-purple-500"
+                                style={{
+                                  width: `${dailyTasks.filter(task => !task.project_id && !task.projectId).length > 0
+                                    ? Math.round((dailyTasks.filter(task => (!task.project_id && !task.projectId) && task.completed).length / dailyTasks.filter(task => !task.project_id && !task.projectId).length) * 100)
+                                    : 0}%`,
+                                }}
+                              ></div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-purple-600">Progreso:</span>
+                              <span className="font-medium text-purple-900">
+                                {dailyTasks.filter(task => !task.project_id && !task.projectId).length > 0
+                                  ? Math.round((dailyTasks.filter(task => (!task.project_id && !task.projectId) && task.completed).length / dailyTasks.filter(task => !task.project_id && !task.projectId).length) * 100)
+                                  : 0}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
                         {/* Card para Nuevo Proyecto */}
                         <div
@@ -4838,7 +3780,7 @@ Usuario: ${currentMessage}`;
                                   <div className="flex justify-between items-center text-sm">
                                     <span className="text-gray-500">Fecha límite:</span>
                                     <span className="font-medium text-gray-600">
-                                      {parseLocalDate(project.deadline).toLocaleDateString()}
+                                      {new Date(project.deadline).toLocaleDateString()}
                                     </span>
                                   </div>
                                 )}
@@ -4858,70 +3800,10 @@ Usuario: ${currentMessage}`;
     );
   };
 
-  // Función para guardar solo la configuración de voz
-  const saveVoiceConfig = async () => {
-    try {
-      // Guardar configuración de voz en localStorage
-      const voiceConfig = {
-        voiceEnabled: voiceEnabled,
-        voiceSpeed: voiceSpeed,
-        selectedVoice: selectedVoice ? {
-          name: selectedVoice.name,
-          lang: selectedVoice.lang,
-          localService: selectedVoice.localService
-        } : null
-      };
-
-      localStorage.setItem('voiceConfig', JSON.stringify(voiceConfig));
-      console.log('Configuración de voz guardada correctamente');
-    } catch (error) {
-      console.error('Error al guardar configuración de voz:', error);
-      throw error;
-    }
-  };
-
-  // Función para demo de voz
-  const playVoiceDemo = () => {
-    if (!voiceEnabled || !selectedVoice) {
-      alert('Habilita la voz y selecciona una voz primero');
-      return;
-    }
-
-    const demoText = "La paz sea contigo. Bienvenido a SmartChatix.";
-
-    if (synthesisRef.current) {
-      // Detener cualquier reproducción anterior
-      synthesisRef.current.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(demoText);
-      utterance.voice = selectedVoice;
-      utterance.lang = selectedVoice.lang;
-
-      // Detectar si el texto contiene preguntas para ajustar entonación
-      const hasQuestion = /[¿?]/.test(demoText);
-      const isQuestion = hasQuestion || demoText.trim().endsWith('?');
-
-      // Configuración optimizada según plataforma y tipo de contenido
-      const mobile = isMobile();
-      if (mobile) {
-        utterance.rate = voiceSpeed;
-        utterance.pitch = isQuestion ? 1.15 : 1.0; // Pitch más alto para preguntas
-        utterance.volume = 1.0;
-      } else {
-        utterance.rate = voiceSpeed;
-        utterance.pitch = isQuestion ? 1.1 : 0.95; // Pitch más alto para preguntas
-        utterance.volume = 0.9;
-      }
-
-      synthesisRef.current.speak(utterance);
-    }
-  };
-
   // Funciones para los modales
   const saveAssistantConfig = async () => {
     try {
-      // Guardar configuración del asistente
-      const response = await authenticatedFetch(`${getApiBase()}/auth/assistant-config`, {
+      const response = await authenticatedFetch('/assistant-config', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -4929,15 +3811,12 @@ Usuario: ${currentMessage}`;
         body: JSON.stringify({ config: assistantConfig }),
       });
 
-      if (!response.ok) {
-        throw new Error('Error al guardar configuración del asistente');
+      if (response.ok) {
+        setIsConfigSaved(true);
+        setTimeout(() => setIsConfigSaved(false), 2000);
+      } else {
+        throw new Error('Error al guardar configuración');
       }
-
-      // Guardar configuración de voz
-      await saveVoiceConfig();
-
-      setIsConfigSaved(true);
-      setTimeout(() => setIsConfigSaved(false), 2000);
     } catch (error) {
       console.error('Error al guardar configuración:', error);
       alert('Error al guardar la configuración');
@@ -4958,7 +3837,7 @@ Usuario: ${currentMessage}`;
         }
 
         // Implementar cambio de contraseña
-        const response = await authenticatedFetch(`${getApiBase()}/auth/change-password`, {
+        const response = await authenticatedFetch(`${getApiBase()}/change-password`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -5047,383 +3926,590 @@ Usuario: ${currentMessage}`;
 
         {/* Contenido de configuración */}
         <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="p-6 overflow-y-auto h-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-              {/* Configuración de Usuario */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <User className="mr-2" size={18} />
-                  Configuración de Usuario
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tu nombre
-                    </label>
-                    <input
-                      type="text"
-                      value={assistantConfig.userName}
-                      onChange={(e) => handleConfigChange('userName', e.target.value)}
-                      placeholder="¿Cómo te gustaría que te llame?"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Memoria a largo plazo
-                    </label>
-                    <textarea
-                      value={assistantConfig.memory?.personalInfo || ''}
-                      onChange={(e) => handleConfigChange('memory', {
-                        ...assistantConfig.memory,
-                        personalInfo: e.target.value
-                      })}
-                      placeholder="Información personal que quieres que el asistente recuerde sobre ti..."
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      rows={4}
-                    />
-                  </div>
+          {/* Panel de Configuración Izquierdo */}
+          {showConfigPanel && (
+            <div className="w-80 mr-4 bg-gray-900 text-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+              {/* Header del menú */}
+              <div className="p-4 border-b border-gray-700">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-bold">Configuración</h3>
+                  <button
+                    onClick={() => {
+                      setShowConfigPanel(false);
+                      setSelectedConfigSection('');
+                    }}
+                    className="p-1 hover:bg-gray-700 rounded"
+                    title="Cerrar menú"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
 
-              {/* Configuración del Asistente */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <Bot className="mr-2" size={18} />
-                  Configuración del Asistente
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre del asistente
-                    </label>
-                    <input
-                      type="text"
-                      value={assistantConfig.assistantName}
-                      onChange={(e) => handleConfigChange('assistantName', e.target.value)}
-                      placeholder="Nombre de tu asistente"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
+              {/* Opciones del menú */}
+              <div className="flex-1 p-4">
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setSelectedConfigSection('user')}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedConfigSection === 'user'
+                        ? 'bg-gray-700 text-white'
+                        : 'hover:bg-gray-800 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <User size={18} className="mr-3" />
+                      <div>
+                        <div className="font-medium">Usuario</div>
+                        <div className="text-xs text-gray-400">Nombre, memoria personal</div>
+                      </div>
+                    </div>
+                  </button>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tono de comunicación
-                    </label>
-                    <select
-                      value={assistantConfig.tone}
-                      onChange={(e) => handleConfigChange('tone', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="Amigable">Amigable</option>
-                      <option value="Profesional">Profesional</option>
-                      <option value="Motivador">Motivador</option>
-                      <option value="Directo">Directo</option>
-                      <option value="Casual">Casual</option>
-                    </select>
-                  </div>
+                  <button
+                    onClick={() => setSelectedConfigSection('assistant')}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedConfigSection === 'assistant'
+                        ? 'bg-gray-700 text-white'
+                        : 'hover:bg-gray-800 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Bot size={18} className="mr-3" />
+                      <div>
+                        <div className="font-medium">Asistente</div>
+                        <div className="text-xs text-gray-400">Personalidad, prompt, especialidades</div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Prompt del sistema
-                    </label>
-                    <textarea
-                      value={assistantConfig.basePrompt}
-                      onChange={(e) => handleConfigChange('basePrompt', e.target.value)}
-                      placeholder="Define la personalidad y comportamiento de tu asistente..."
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                      rows={3}
-                    />
-                  </div>
+          {/* Panel de Contenido de Configuración y Chat */}
+          <>
+            {showConfigPanel && selectedConfigSection && (
+              <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+                {/* Header del panel de contenido */}
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-bold flex items-center">
+                    <Settings className="mr-2" size={18} />
+                    {selectedConfigSection === 'user' ? 'Configuración de Usuario' : 'Configuración del Asistente'}
+                  </h3>
+                  <button
+                    onClick={() => setSelectedConfigSection('')}
+                    className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+                    title="Cerrar panel"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
 
-              {/* Especialidades */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 lg:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  🎓 Especialidades del Asistente
-                </h3>
-
-                {/* Especialidades seleccionadas */}
-                {assistantConfig.specialties.length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Especialidades activas:
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {assistantConfig.specialties.map((specialty) => (
-                        <span
-                          key={specialty}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 border border-green-200"
-                        >
-                          {specialty}
-                          <button
-                            onClick={() => removeSpecialty(specialty)}
-                            className="ml-2 text-green-600 hover:text-green-800 font-bold"
-                            title="Eliminar especialidad"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
+              {/* Contenido del panel */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {selectedConfigSection === 'user' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                      👤 Datos del Usuario
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Tu nombre
+                        </label>
+                        <input
+                          type="text"
+                          value={assistantConfig.userName}
+                          onChange={(e) => handleConfigChange('userName', e.target.value)}
+                          placeholder="¿Cómo te gustaría que te llame?"
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Lista de especialidades disponibles */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-                  {availableSpecialties.map((specialty) => (
-                    <label
-                      key={specialty}
-                      className="flex items-center p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={assistantConfig.specialties.includes(specialty)}
-                        onChange={() => {
-                          if (assistantConfig.specialties.includes(specialty)) {
-                            removeSpecialty(specialty);
-                          } else {
-                            handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
-                          }
-                        }}
-                        className="mr-2 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="text-sm">{specialty}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {/* Agregar nueva especialidad */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Agregar nueva especialidad:
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={customSpecialty}
-                      onChange={(e) => setCustomSpecialty(e.target.value)}
-                      placeholder="Nueva especialidad..."
-                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                    <button
-                      onClick={() => {
-                        if (customSpecialty.trim() && !availableSpecialties.includes(customSpecialty.trim())) {
-                          const newSpecialty = customSpecialty.trim();
-                          setAvailableSpecialties([...availableSpecialties, newSpecialty]);
-                          handleConfigChange('specialties', [...assistantConfig.specialties, newSpecialty]);
-                          setCustomSpecialty('');
-                        }
-                      }}
-                      disabled={!customSpecialty.trim()}
-                      className="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Agregar
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Configuración de Voz */}
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 lg:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  🎤 Configuración de Voz
-                </h3>
-
-                <div className="space-y-4">
-                  {/* Checkbox para habilitar voz */}
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="voiceEnabledMain"
-                      checked={voiceEnabled}
-                      onChange={(e) => {
-                        setVoiceEnabled(e.target.checked);
-                        if (!e.target.checked) {
-                          stopSpeaking();
-                        }
-                      }}
-                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="voiceEnabledMain" className="ml-2 text-sm font-medium text-gray-700">
-                      Habilitar voz del asistente
-                    </label>
-                  </div>
-
-                  {/* Selector de voces */}
-                  {voiceEnabled && availableVoices.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedConfigSection === 'assistant' && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                      🤖 Asistente
+                    </h4>
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Seleccionar voz:
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Nombre del asistente
                         </label>
-                        <select
-                          value={selectedVoice?.name || ''}
-                          onChange={(e) => {
-                            const voice = availableVoices.find(v => v.name === e.target.value);
-                            setSelectedVoice(voice);
-                          }}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        >
-                          {availableVoices.map((voice) => {
-                            const isQuality = voice.name.toLowerCase().includes('neural') ||
-                                            voice.name.toLowerCase().includes('premium') ||
-                                            voice.name.toLowerCase().includes('enhanced');
-                            const displayName = voice.name.replace(/Microsoft|Google/gi, '').trim() || voice.name;
-                            return (
-                              <option key={voice.name} value={voice.name}>
-                                {displayName} {isQuality ? '🎯 Premium' : '🤖 Básica'}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <input
+                          type="text"
+                          value={assistantConfig.assistantName}
+                          onChange={(e) => handleConfigChange('assistantName', e.target.value)}
+                          placeholder="Nombre de tu asistente"
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
                       </div>
 
-                      {selectedVoice && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Detalles de la voz:
-                          </label>
-                          <div className="p-3 bg-white border border-gray-300 rounded-lg">
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Idioma:</span> {selectedVoice.lang}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Tipo:</span> {selectedVoice.localService ? 'Local' : 'Online'}
-                            </p>
+                      {/* Especialidades */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-2">
+                          🎓 Especialidades
+                        </label>
+                        {assistantConfig.specialties.length > 0 && (
+                          <div className="mb-2 flex flex-wrap gap-1">
+                            {assistantConfig.specialties.map((specialty) => (
+                              <span
+                                key={specialty}
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800"
+                              >
+                                {specialty}
+                                <button
+                                  onClick={() => removeSpecialty(specialty)}
+                                  className="ml-1 text-indigo-600 hover:text-indigo-800"
+                                  title="Eliminar"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <div
+                            className="space-y-1 max-h-24 overflow-y-auto text-xs pr-1 border border-gray-200 rounded-md px-2 py-1 bg-white"
+                          >
+                            {availableSpecialties.map((specialty) => (
+                              <label
+                                key={specialty}
+                                className="flex items-center hover:bg-gray-100 px-1 py-0.5 rounded cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={assistantConfig.specialties.includes(specialty)}
+                                  onChange={() => {
+                                    if (assistantConfig.specialties.includes(specialty)) {
+                                      removeSpecialty(specialty);
+                                    } else {
+                                      handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
+                                    }
+                                  }}
+                                  className="mr-2 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-gray-700">{specialty}</span>
+                              </label>
+                            ))}
+                          </div>
+                          {/* Indicador de fade-out para mostrar que hay más contenido */}
+                          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-md"></div>
+                        </div>
 
-                            {/* Control de velocidad compacto */}
-                            <div className="mt-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-medium text-gray-600">Velocidad</span>
-                                <span className="text-xs text-orange-600 font-medium">{voiceSpeed}x</span>
-                              </div>
-                              <input
-                                type="range"
-                                min="0.5"
-                                max="2.0"
-                                step="0.1"
-                                value={voiceSpeed}
-                                onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
-                                className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                style={{
-                                  background: `linear-gradient(to right, #f97316 0%, #f97316 ${((voiceSpeed - 0.5) / 1.5) * 100}%, #e5e7eb ${((voiceSpeed - 0.5) / 1.5) * 100}%, #e5e7eb 100%)`
-                                }}
-                              />
-                            </div>
-
+                        {/* Campo para agregar especialidad personalizada */}
+                        <div className="mt-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newCustomSpecialty}
+                              onChange={(e) => setNewCustomSpecialty(e.target.value)}
+                              placeholder="Escribe una especialidad personalizada"
+                              className="flex-1 p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  addCustomSpecialty();
+                                }
+                              }}
+                            />
                             <button
-                              onClick={playVoiceDemo}
-                              className="mt-2 w-full px-3 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center"
+                              onClick={addCustomSpecialty}
+                              disabled={!newCustomSpecialty.trim()}
+                              className="px-3 py-2 bg-indigo-500 text-white rounded text-xs hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Agregar especialidad"
                             >
-                              🎵 Probar Voz
+                              +
                             </button>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
 
-
-                  {/* Información sobre la voz */}
-                  {voiceEnabled && availableVoices.length === 0 && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        No se detectaron voces disponibles. Verifica que tu navegador soporte síntesis de voz.
-                      </p>
-                    </div>
-                  )}
-
-                  {!voiceEnabled && (
-                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <p className="text-sm text-gray-600">
-                        La voz está deshabilitada. Habilítala para escuchar las respuestas del asistente.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Configuración de Timer */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 lg:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  ⏱️ Cronómetro de Tareas
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ¿Cómo quieres trabajar?
-                    </label>
-                    <div className="space-y-2">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="timerMode"
-                          value="una_tarea"
-                          checked={timerMode === 'una_tarea'}
-                          onChange={(e) => setTimerMode(e.target.value)}
-                          className="mr-3"
+                      {/* Prompt Inicial */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          📝 Prompt Inicial del Asistente
+                        </label>
+                        <textarea
+                          value={assistantConfig.systemPrompt}
+                          onChange={(e) => handleConfigChange('systemPrompt', e.target.value)}
+                          placeholder="Define la personalidad y comportamiento de tu asistente..."
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[100px] resize-vertical"
+                          rows={4}
                         />
-                        <div>
-                          <span className="font-medium">🎯 Una tarea a la vez</span>
-                          <p className="text-sm text-gray-600">Más concentración. Al empezar una nueva tarea, pausa automáticamente la anterior.</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Este prompt define cómo se comportará tu asistente en las conversaciones.
+                        </p>
+                      </div>
+
+                      {/* Tono */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          🎯 Tono
+                        </label>
+                        <select
+                          value={assistantConfig.tone}
+                          onChange={(e) => handleConfigChange('tone', e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="Motivador">Motivador</option>
+                          <option value="Profesional">Profesional</option>
+                          <option value="Amigable">Amigable</option>
+                          <option value="Directo">Directo</option>
+                        </select>
+                      </div>
+
+                      {/* Memoria a Largo Plazo */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          🧠 Memoria a Largo Plazo
+                        </label>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Estos campos se van llenando automáticamente durante las interacciones, pero puedes completarlos para que te conozca más rápido.
+                        </p>
+
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Rasgos de personalidad</label>
+                            <textarea
+                              value={assistantConfig.memory.personalityTraits}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, personalityTraits: e.target.value})}
+                              placeholder="Ej: Soy una persona analítica y organizada..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Motivadores personales</label>
+                            <textarea
+                              value={assistantConfig.memory.motivationalTriggers}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, motivationalTriggers: e.target.value})}
+                              placeholder="Ej: Me motivan los desafíos, reconocimiento..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Estilo de aprendizaje</label>
+                            <textarea
+                              value={assistantConfig.memory.learningStyle}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, learningStyle: e.target.value})}
+                              placeholder="Ej: Aprendo mejor con ejemplos prácticos..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Prioridades actuales</label>
+                            <textarea
+                              value={assistantConfig.memory.currentPriorities}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, currentPriorities: e.target.value})}
+                              placeholder="Ej: Enfocarme en proyectos de desarrollo web..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
                         </div>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="timerMode"
-                          value="multiples"
-                          checked={timerMode === 'multiples'}
-                          onChange={(e) => setTimerMode(e.target.value)}
-                          className="mr-3"
-                        />
-                        <div>
-                          <span className="font-medium">🔄 Varias tareas a la vez</span>
-                          <p className="text-sm text-gray-600">Para cuando cambias frecuentemente entre proyectos. Te pregunta antes de agregar otra tarea.</p>
-                        </div>
-                      </label>
+                      </div>
                     </div>
                   </div>
-                  <div className={`p-3 rounded-lg ${timerMode === 'una_tarea' ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
-                    <p className="text-sm">
-                      <strong>Actualmente: {timerMode === 'una_tarea' ? 'Una tarea a la vez' : 'Varias tareas a la vez'}</strong>
-                      <br />
-                      {timerMode === 'una_tarea'
-                        ? 'Te ayuda a mantener el enfoque en una sola cosa.'
-                        : 'Perfecto para alternar entre diferentes proyectos.'
-                      }
+                )}
+
+                {/* Botón Guardar */}
+                <button
+                  onClick={saveConfiguration}
+                  className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm flex items-center justify-center"
+                >
+                  <Save size={14} className="mr-1" />
+                  {isConfigSaved && <CheckCircle2 size={14} className="mr-1" />}
+                  {isConfigSaved ? 'Guardado!' : 'Guardar Configuración'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Chat Principal - Se oculta cuando hay configuración seleccionada */}
+          {!(showConfigPanel && selectedConfigSection) && (
+            <div className={`transition-all duration-300 ${showConfigPanel ? 'flex-1' : 'w-full'} flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50 rounded-xl shadow-2xl border border-indigo-100`}>
+              {/* Mensajes del chat */}
+              <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
+                {messages.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                      <span className="text-2xl">🤖</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">¡Hola! Soy {assistantConfig.assistantName}</h3>
+                    <p className="text-gray-600 max-w-md mx-auto">
+                      Estoy aquí para ayudarte con tus proyectos, responder preguntas y hacer tu trabajo más eficiente.
+                      ¡Pregúntame lo que necesites!
                     </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8 max-w-2xl mx-auto">
+                      <button
+                        onClick={() => setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`)}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        💼 Análisis de proyectos ({projects.length})
+                      </button>
+                      <button
+                        onClick={() => {
+                          const pendingTasks = projects.reduce((total, project) =>
+                            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
+                          );
+                          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
+                        }}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        ✅ Optimizar tareas pendientes
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentHour = new Date().getHours();
+                          const timeBasedPrompt = currentHour < 12
+                            ? 'Dame una estrategia productiva para empezar bien el día'
+                            : currentHour < 18
+                            ? 'Necesito mantener el foco y energía para la tarde'
+                            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
+                          setNewMessage(timeBasedPrompt);
+                        }}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        🚀 Coaching personalizado
+                      </button>
+                    </div>
+
+                    {/* Additional contextual suggestions */}
+                    {projects.length > 0 && (
+                      <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <h4 className="text-sm font-semibold text-indigo-800 mb-2">💡 Sugerencias inteligentes</h4>
+                        <div className="space-y-2">
+                          {projects.filter(p => p.status === 'active').length > 0 && (
+                            <button
+                              onClick={() => setNewMessage(`¿Cómo puedo mejorar la eficiencia en mis proyectos activos: ${projects.filter(p => p.status === 'active').map(p => p.title).join(', ')}?`)}
+                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                            >
+                              📈 Optimizar proyectos activos
+                            </button>
+                          )}
+                          {projects.some(p => p.tasks?.some(t => !t.completed)) && (
+                            <button
+                              onClick={() => setNewMessage('Ayúdame a crear un plan de acción para completar las tareas más importantes de esta semana')}
+                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                            >
+                              🎯 Plan de acción semanal
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setNewMessage('Basándote en mi histórico de productividad, ¿qué hábitos debería desarrollar para ser más eficiente?')}
+                            className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                          >
+                            🌱 Desarrollo de hábitos
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {messages.map((message, index) => (
+                  <div
+                    key={message.id}
+                    className={`w-full animate-fadeIn ${message.type === 'user' ? 'flex justify-end' : 'flex justify-start'}`}
+                    style={{animationDelay: `${index * 0.1}s`}}
+                  >
+                    <div className={`max-w-[85%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
+                      <div
+                        className={`relative px-6 py-4 rounded-2xl shadow-lg backdrop-blur-sm ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white ml-8'
+                            : 'bg-white/90 border border-gray-100 mr-8'
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className={`absolute -top-2 ${message.type === 'user' ? '-right-2' : '-left-2'} w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-pink-400 to-purple-500'
+                            : 'bg-gradient-to-r from-indigo-400 to-blue-500'
+                        }`}>
+                          {message.type === 'assistant' ? (
+                            <Bot size={16} className="text-white" />
+                          ) : (
+                            <User size={16} className="text-white" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="pt-2">
+                          {message.type === 'assistant' ? (
+                            <div className="text-gray-800 leading-relaxed">
+                              <ReactMarkdown
+                                components={{
+                                  p: ({children}) => <p className="mb-3 last:mb-0 text-sm leading-7">{children}</p>,
+                                  ul: ({children}) => <ul className="mb-3 pl-5 space-y-2 list-disc marker:text-indigo-400">{children}</ul>,
+                                  ol: ({children}) => <ol className="mb-3 pl-5 space-y-2 list-decimal marker:text-indigo-400">{children}</ol>,
+                                  li: ({children}) => <li className="text-sm text-gray-700 leading-6">{children}</li>,
+                                  h1: ({children}) => <h1 className="text-lg font-bold mb-3 text-gray-900 border-b border-gray-200 pb-2">{children}</h1>,
+                                  h2: ({children}) => <h2 className="text-base font-bold mb-2 text-gray-900">{children}</h2>,
+                                  h3: ({children}) => <h3 className="text-sm font-semibold mb-2 text-gray-900">{children}</h3>,
+                                  strong: ({children}) => <strong className="font-semibold text-gray-900 bg-yellow-100 px-1 rounded">{children}</strong>,
+                                  em: ({children}) => <em className="italic text-indigo-600">{children}</em>,
+                                  code: ({children}) => <code className="bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-xs font-mono text-gray-800">{children}</code>,
+                                  blockquote: ({children}) => <blockquote className="border-l-4 border-indigo-300 pl-4 mb-3 italic text-gray-700 bg-indigo-50 py-2 rounded-r-lg">{children}</blockquote>,
+                                  br: () => <br className="mb-2" />
+                                }}
+                              >
+                                {message.text}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="text-sm leading-relaxed font-medium">{message.text}</p>
+                          )}
+
+                          {/* Timestamp */}
+                          <div className={`text-xs mt-3 pt-2 border-t ${
+                            message.type === 'user'
+                              ? 'text-indigo-100 border-indigo-400/30'
+                              : 'text-gray-400 border-gray-200'
+                          } flex items-center justify-between`}>
+                            <span>{message.timestamp}</span>
+                            {message.type === 'assistant' && (
+                              <span className="text-indigo-500 font-medium text-xs">{assistantConfig.assistantName}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Indicador de que el asistente está escribiendo */}
+                {isAssistantTyping && (
+                  <div className="w-full flex justify-start animate-fadeIn">
+                    <div className="max-w-[85%] mr-8">
+                      <div className="relative px-6 py-4 bg-white/90 border border-gray-100 rounded-2xl shadow-lg backdrop-blur-sm">
+                        {/* Avatar */}
+                        <div className="absolute -top-2 -left-2 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-400 to-blue-500 flex items-center justify-center shadow-lg">
+                          <Bot size={16} className="text-white" />
+                        </div>
+
+                        <div className="pt-2 flex items-center space-x-3">
+                          <span className="text-sm text-gray-600 font-medium">{assistantConfig.assistantName} está escribiendo</span>
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.4s"}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+              {/* Input para nuevo mensaje */}
+              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gradient-to-r from-white via-indigo-50/30 to-white backdrop-blur-sm">
+                {/* Controles de voz */}
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex space-x-2">
+                    {speechSupported ? (
+                      <button
+                        onClick={isListening ? stopListening : startListening}
+                        disabled={isAssistantTyping}
+                        className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                          isListening
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
+                      >
+                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                        <span className="ml-1">{isListening ? 'Grabando (2s de pausa para terminar)' : 'Hablar'}</span>
+                      </button>
+                    ) : (
+                      <div className="px-3 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium">
+                        <MicOff size={16} className="inline mr-1" />
+                        Voz no disponible
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setVoiceEnabled(!voiceEnabled)}
+                      className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                        voiceEnabled
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : 'bg-gray-400 text-white hover:bg-gray-500'
+                      }`}
+                      title={voiceEnabled ? 'Desactivar voz del asistente' : 'Activar voz del asistente'}
+                    >
+                      {voiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                    </button>
+
+                    {isSpeaking && (
+                      <button
+                        onClick={stopSpeaking}
+                        className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
+                        title="Detener síntesis de voz"
+                      >
+                        <VolumeX size={16} />
+                        <span className="ml-1">Silenciar</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-              </div>
 
-            </div>
-
-            {/* Botón para guardar configuración */}
-            <div className="mt-6 flex justify-center">
-              <button
-                onClick={saveAssistantConfig}
-                className={`px-8 py-3 rounded-lg font-medium transition-all ${
-                  isConfigSaved
-                    ? 'bg-green-500 text-white'
-                    : 'bg-purple-500 hover:bg-purple-600 text-white'
-                }`}
-              >
-                <div className="flex items-center">
-                  {isConfigSaved ? <CheckCircle2 className="mr-2" size={18} /> : <Save className="mr-2" size={18} />}
-                  {isConfigSaved ? 'Configuración Guardada!' : 'Guardar Configuración'}
+                <div className="flex space-x-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={isListening ? 'Escuchando... (Haz una pausa de 2 segundos para terminar)' : `💬 Pregúntale algo a ${assistantConfig.assistantName}...`}
+                      className={`w-full p-4 border-2 rounded-2xl focus:outline-none focus:border-transparent text-sm transition-all duration-200 shadow-sm ${
+                        isListening
+                          ? 'border-red-300 focus:ring-4 focus:ring-red-500/20 bg-red-50'
+                          : 'border-gray-200 focus:ring-4 focus:ring-indigo-500/20 bg-white hover:border-indigo-300'
+                      } ${isAssistantTyping ? 'opacity-50' : ''}`}
+                      disabled={isAssistantTyping}
+                    />
+                    {newMessage.trim() && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                          {newMessage.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() || isAssistantTyping}
+                    className="px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+                    title="Enviar mensaje"
+                  >
+                    <Send size={18} />
+                    <span className="font-medium hidden sm:block">Enviar</span>
+                  </button>
                 </div>
-              </button>
+              </div>
             </div>
+          )}
+          </>
 
-          </div>
         </div>
       </div>
     );
   };
+
   // Main component JSX
   // Mostrar pantalla de carga mientras verifica autenticación
   if (authLoading) {
@@ -5461,6 +4547,62 @@ Usuario: ${currentMessage}`;
   if (!isAuthenticated) {
     return <Auth onLogin={login} />;
   }
+
+  const renderArchivedTasksView = () => {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Tareas Realizadas</h2>
+            <div className="text-sm text-gray-500">
+              Total: {archivedTasks.length} tarea{archivedTasks.length !== 1 ? 's' : ''} archivada{archivedTasks.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+
+          {archivedTasks.length === 0 ? (
+            <div className="text-center py-12">
+              <Archive size={64} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay tareas archivadas</h3>
+              <p className="text-gray-500">Las tareas que archives aparecerán aquí con su fecha de finalización.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {archivedTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="bg-gray-50 border border-gray-200 rounded-lg p-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center flex-1">
+                      <CheckCircle size={20} className="text-green-500 mr-3 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-900 font-medium">{task.text}</p>
+                        <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                          <span>
+                            Iniciada: {task.started_at ? new Date(task.started_at).toLocaleString('es-ES') : 'No disponible'}
+                          </span>
+                          <span>
+                            Archivada: {task.completed_at ? new Date(task.completed_at).toLocaleString('es-ES') : 'No disponible'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => unarchiveTask(task.id)}
+                      className="ml-3 p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-150 flex-shrink-0"
+                      title="Deshacer tarea"
+                    >
+                      <RotateCcw size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const themeStyles = getThemeStyles(currentTheme);
   const headerStyles = getHeaderStyles(currentTheme);
@@ -5573,6 +4715,17 @@ Usuario: ${currentMessage}`;
               Proyectos
             </button>
             <button
+              onClick={() => setActiveView('archived')}
+              className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
+                activeView === 'archived'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Archive size={14} className="mr-1" />
+              Tareas Realizadas
+            </button>
+            <button
               onClick={() => setActiveView('assistant')}
               className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
                 activeView === 'assistant'
@@ -5593,16 +4746,18 @@ Usuario: ${currentMessage}`;
             renderDashboard() :
             activeView === 'projects' ?
               renderProjectsView() :
-              renderAssistantView()
+              activeView === 'archived' ?
+                renderArchivedTasksView() :
+                renderAssistantView()
           }
         </div>
       </div>
 
       {/* Modal de Configuración del Asistente */}
       {showAssistantModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800 flex items-center">
                   <Settings className="mr-2" size={24} />
@@ -5750,7 +4905,6 @@ Usuario: ${currentMessage}`;
                   </select>
                 </div>
 
-
               </div>
 
               <div className="flex justify-end gap-3 mt-6">
@@ -5826,9 +4980,9 @@ Usuario: ${currentMessage}`;
       {/* Modal de Perfil de Usuario */}
       {showUserProfileModal && (
         <>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800 flex items-center">
                   <User className="mr-2" size={24} />
@@ -6040,13 +5194,16 @@ Usuario: ${currentMessage}`;
 
       {/* Modal para crear nuevo proyecto */}
       {showCreateProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-gray-900">Crear Nuevo Proyecto</h3>
                 <button
-                  onClick={() => setShowCreateProject(false)}
+                  onClick={() => {
+                    setShowCreateProject(false);
+                    setIsCreatingProjectForTask(false);
+                  }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   ✕
@@ -6113,16 +5270,16 @@ Usuario: ${currentMessage}`;
 
               <div className="flex justify-end gap-3 mt-6">
                 <button
-                  onClick={() => setShowCreateProject(false)}
+                  onClick={() => {
+                    setShowCreateProject(false);
+                    setIsCreatingProjectForTask(false);
+                  }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={() => {
-                    addProject();
-                    setShowCreateProject(false);
-                  }}
+                  onClick={addProject}
                   disabled={!newProject.title.trim()}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
                 >
@@ -6134,6 +5291,7 @@ Usuario: ${currentMessage}`;
           </div>
         </div>
       )}
+
 
       {/* Modal de detalle del proyecto */}
       {showProjectDetailModal && (
@@ -6372,7 +5530,7 @@ Usuario: ${currentMessage}`;
                       setSelectedProject(prev => ({ ...prev, priority: newPriority }));
 
                       try {
-                        await authenticatedFetch(`${getApiBase()}/auth/projects/${selectedProject?.id}`, {
+                        await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
                           method: 'PUT',
                           body: JSON.stringify({
                             project: { priority: newPriority }
@@ -6417,7 +5575,7 @@ Usuario: ${currentMessage}`;
                         setSelectedProject(prev => ({ ...prev, status: newStatus }));
 
                         try {
-                          await authenticatedFetch(`${getApiBase()}/auth/projects/${selectedProject?.id}`, {
+                          await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
                             method: 'PUT',
                             body: JSON.stringify({
                               project: { status: newStatus }
@@ -6486,7 +5644,9 @@ Usuario: ${currentMessage}`;
                         border: task.completed ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
                         borderRadius: '8px',
                         transition: 'all 0.2s ease',
-                        gap: '12px'
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                        minWidth: 0
                       }}
                     >
                       {/* Checkbox */}
@@ -6527,49 +5687,23 @@ Usuario: ${currentMessage}`;
                           autoFocus
                         />
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '8px' }}>
-                          <span
-                            onDoubleClick={() => startEditingTaskName(task.id, task.text || task.title || '')}
-                            style={{
-                              flex: 1,
-                              fontSize: '14px',
-                              color: task.completed ? '#16a34a' : '#374151',
-                              textDecoration: task.completed ? 'line-through' : 'none',
-                              fontWeight: task.completed ? '500' : '400',
-                              cursor: 'text'
-                            }}
-                          >
-                            {task.text || task.title || 'Tarea sin título'}
-                          </span>
-
-                          {/* Botón de editar */}
-                          <button
-                            onClick={() => openEditTaskModal(task)}
-                            style={{
-                              padding: '4px',
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              opacity: 0.6,
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = '#f3f4f6';
-                              e.target.style.opacity = '1';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = 'transparent';
-                              e.target.style.opacity = '0.6';
-                            }}
-                            title="Editar tarea"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                        </div>
+                        <span
+                          onDoubleClick={() => startEditingTaskName(task.id, task.text || task.title || '')}
+                          style={{
+                            flex: 1,
+                            fontSize: '14px',
+                            color: task.completed ? '#16a34a' : '#374151',
+                            textDecoration: task.completed ? 'line-through' : 'none',
+                            fontWeight: task.completed ? '500' : '400',
+                            cursor: 'text',
+                            minWidth: 0,
+                            wordWrap: 'break-word',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {task.text || task.title || 'Tarea sin título'}
+                        </span>
                       )}
 
                       {/* Input de progreso */}
@@ -6593,217 +5727,6 @@ Usuario: ${currentMessage}`;
                       />
                       <span style={{ fontSize: '12px', color: '#6b7280' }}>%</span>
 
-                      {/* Indicador de tiempo estimado vs real */}
-                      {(task.estimated_hours || task.actual_hours) && (
-                        <div style={{
-                          fontSize: '10px',
-                          color: '#6b7280',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          marginLeft: '8px'
-                        }}>
-                          {task.estimated_hours && (
-                            <span style={{
-                              padding: '2px 4px',
-                              backgroundColor: '#f3f4f6',
-                              borderRadius: '3px',
-                              border: '1px solid #e5e7eb'
-                            }}>
-                              Est: {formatHours(task.estimated_hours)}
-                            </span>
-                          )}
-                          {task.actual_hours && (
-                            <span style={{
-                              padding: '2px 4px',
-                              backgroundColor: task.actual_hours > task.estimated_hours ? '#fef3c7' : '#dcfce7',
-                              borderRadius: '3px',
-                              border: `1px solid ${task.actual_hours > task.estimated_hours ? '#fbbf24' : '#22c55e'}`,
-                              color: task.actual_hours > task.estimated_hours ? '#92400e' : '#166534'
-                            }}>
-                              Real: {formatHours(task.actual_hours)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Botón de timer */}
-                      <div style={{ marginLeft: '8px' }}>
-                        {activeTimers[task.id] ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{
-                              fontSize: '10px',
-                              fontFamily: 'monospace',
-                              color: '#ef4444',
-                              fontWeight: 'bold'
-                            }}>
-                              {getTimerDisplay(task.id)}
-                            </span>
-                            <button
-                              onClick={() => pauseTimer(task.id)}
-                              style={{
-                                padding: '2px 4px',
-                                backgroundColor: '#f59e0b',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '3px',
-                                fontSize: '10px',
-                                cursor: 'pointer'
-                              }}
-                              title="Pausar timer"
-                            >
-                              ⏸
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (!task.completed) {
-                                  // Solo al completar, no al descompletar
-                                  const timerHours = completeTask(task.id);
-
-                                  // Actualizar la tarea con el tiempo real
-                                  const updatedTask = {
-                                    ...task,
-                                    completed: true,
-                                    progress: 100,
-                                    actual_hours: timerHours > 0 ? Math.round(timerHours * 100) / 100 : task.actual_hours
-                                  };
-
-                                  setProjects(projects.map(project => {
-                                    if (project.id === selectedProject.id) {
-                                      const updatedTasks = project.tasks.map(t => {
-                                        if (t.id === task.id) {
-                                          return updatedTask;
-                                        }
-                                        return t;
-                                      });
-                                      return { ...project, tasks: updatedTasks };
-                                    }
-                                    return project;
-                                  }));
-
-                                  // Sincronizar también con tareas diarias si aplica
-                                  setDailyTasks(dailyTasks.map(dailyTask => {
-                                    if (dailyTask.projectId === selectedProject.id && dailyTask.projectTaskId === task.id) {
-                                      return { ...dailyTask, completed: true };
-                                    }
-                                    return dailyTask;
-                                  }));
-                                } else {
-                                  // Descompletar tarea
-                                  toggleProjectTaskCompletion(selectedProject.id, task.id, false);
-                                }
-                              }}
-                              style={{
-                                padding: '2px 4px',
-                                backgroundColor: '#22c55e',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '3px',
-                                fontSize: '10px',
-                                cursor: 'pointer'
-                              }}
-                              title="Completar tarea"
-                            >
-                              ✓
-                            </button>
-                          </div>
-                        ) : pausedTimers[task.id] ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{
-                              fontSize: '10px',
-                              fontFamily: 'monospace',
-                              color: '#f59e0b',
-                              fontWeight: 'bold'
-                            }}>
-                              {getTimerDisplay(task.id)} (pausado)
-                            </span>
-                            <button
-                              onClick={() => resumeTimer(task.id)}
-                              style={{
-                                padding: '2px 4px',
-                                backgroundColor: '#22c55e',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '3px',
-                                fontSize: '10px',
-                                cursor: 'pointer'
-                              }}
-                              title="Reanudar timer"
-                            >
-                              ▶
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (!task.completed) {
-                                  // Solo al completar, no al descompletar
-                                  const timerHours = completeTask(task.id);
-
-                                  // Actualizar la tarea con el tiempo real
-                                  const updatedTask = {
-                                    ...task,
-                                    completed: true,
-                                    progress: 100,
-                                    actual_hours: timerHours > 0 ? Math.round(timerHours * 100) / 100 : task.actual_hours
-                                  };
-
-                                  setProjects(projects.map(project => {
-                                    if (project.id === selectedProject.id) {
-                                      const updatedTasks = project.tasks.map(t => {
-                                        if (t.id === task.id) {
-                                          return updatedTask;
-                                        }
-                                        return t;
-                                      });
-                                      return { ...project, tasks: updatedTasks };
-                                    }
-                                    return project;
-                                  }));
-
-                                  // Sincronizar también con tareas diarias si aplica
-                                  setDailyTasks(dailyTasks.map(dailyTask => {
-                                    if (dailyTask.projectId === selectedProject.id && dailyTask.projectTaskId === task.id) {
-                                      return { ...dailyTask, completed: true };
-                                    }
-                                    return dailyTask;
-                                  }));
-                                } else {
-                                  // Descompletar tarea
-                                  toggleProjectTaskCompletion(selectedProject.id, task.id, false);
-                                }
-                              }}
-                              style={{
-                                padding: '2px 4px',
-                                backgroundColor: '#22c55e',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '3px',
-                                fontSize: '10px',
-                                cursor: 'pointer'
-                              }}
-                              title="Completar tarea"
-                            >
-                              ✓
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => startTimer(task.id)}
-                            style={{
-                              padding: '2px 4px',
-                              backgroundColor: '#22c55e',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '3px',
-                              fontSize: '10px',
-                              cursor: 'pointer'
-                            }}
-                            title="Iniciar timer"
-                          >
-                            ▶
-                          </button>
-                        )}
-                      </div>
-
                       {/* Barra de progreso mini */}
                       <div style={{
                         width: '60px',
@@ -6821,7 +5744,14 @@ Usuario: ${currentMessage}`;
                       </div>
 
                       {/* Botones de acción */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                        flexShrink: 0,
+                        minWidth: 0
+                      }}>
                         {task.completed && (
                           <CheckCircle
                             size={16}
@@ -6830,6 +5760,44 @@ Usuario: ${currentMessage}`;
                             }}
                           />
                         )}
+                        {/* Timer Controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {/* Timer Display */}
+                          <span style={{
+                            fontSize: '10px',
+                            color: taskTimers[task.id]?.isActive ? '#3b82f6' : '#6b7280',
+                            fontWeight: taskTimers[task.id]?.isActive ? 'bold' : 'normal',
+                            minWidth: '35px'
+                          }}>
+                            {getTaskElapsedTime(task.id)}
+                          </span>
+
+                          {/* Play/Pause Button */}
+                          <button
+                            onClick={() => {
+                              if (taskTimers[task.id]?.isActive) {
+                                pauseTimer(task.id);
+                              } else {
+                                startTimer(task.id);
+                              }
+                            }}
+                            style={{
+                              backgroundColor: taskTimers[task.id]?.isActive ? '#f59e0b' : '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
+                              fontSize: '10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                            title={taskTimers[task.id]?.isActive ? "Pausar timer" : "Iniciar timer"}
+                          >
+                            {taskTimers[task.id]?.isActive ? '⏸️' : '▶️'}
+                          </button>
+                        </div>
                         <button
                           onClick={() => updateTaskProgress(selectedProject.id, task.id, 100)}
                           style={{
@@ -6932,7 +5900,6 @@ Usuario: ${currentMessage}`;
                       }
                       if (e.key === 'Escape') {
                         setNewTaskText('');
-                        setNewTaskEstimatedHours('');
                         setIsAddingTask(false);
                       }
                     }}
@@ -6949,23 +5916,6 @@ Usuario: ${currentMessage}`;
                       fontFamily: 'inherit'
                     }}
                     autoFocus
-                  />
-                  <input
-                    type="text"
-                    value={newTaskEstimatedHours}
-                    onChange={(e) => setNewTaskEstimatedHours(e.target.value)}
-                    placeholder="Ej: 2h, 45min, 1h 30min, 1.5h"
-                    step="0.5"
-                    style={{
-                      width: '100%',
-                      padding: '6px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '3px',
-                      fontSize: '12px',
-                      outline: 'none',
-                      marginTop: '8px',
-                      fontFamily: 'inherit'
-                    }}
                   />
                   <div style={{
                     display: 'flex',
@@ -7006,7 +5956,6 @@ Usuario: ${currentMessage}`;
                     <button
                       onClick={() => {
                         setNewTaskText('');
-                        setNewTaskEstimatedHours('');
                         setIsAddingTask(false);
                       }}
                       style={{
@@ -7029,16 +5978,55 @@ Usuario: ${currentMessage}`;
               )}
             </div>
 
-            {/* Resumen de tareas */}
+            {/* Botones de acción */}
             <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
               borderTop: '1px solid #e5e7eb',
-              paddingTop: '15px',
-              marginBottom: '15px'
+              paddingTop: '20px'
             }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    // Verificar si el proyecto está activo y tiene tareas
+                    const isActive = selectedProject.status === 'activo';
+                    const hasTasks = selectedProject.tasks && selectedProject.tasks.length > 0;
+
+                    if (isActive && hasTasks) {
+                      alert('No puedes eliminar un proyecto activo que tiene tareas. Puedes cambiarlo a inactivo primero o eliminar todas sus tareas.');
+                      return;
+                    }
+
+                    if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
+                      deleteProject(selectedProject.id);
+                      setShowProjectDetailModal(false);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Trash2 size={16} />
+                  Eliminar Proyecto
+                </button>
+              </div>
               <div style={{
                 fontSize: '14px',
                 color: '#6b7280',
-                textAlign: 'center'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
               }}>
                 <span>
                   <span style={{ fontWeight: '600' }}>
@@ -7049,48 +6037,6 @@ Usuario: ${currentMessage}`;
                   </span> tareas completadas
                 </span>
               </div>
-            </div>
-
-            {/* Botones de acción */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <button
-                onClick={() => {
-                  // Verificar si el proyecto está activo y tiene tareas
-                  const isActive = selectedProject.status === 'activo';
-                  const hasTasks = selectedProject.tasks && selectedProject.tasks.length > 0;
-
-                  if (isActive && hasTasks) {
-                    alert('No puedes eliminar un proyecto activo que tiene tareas. Puedes cambiarlo a inactivo primero o eliminar todas sus tareas.');
-                    return;
-                  }
-
-                  if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
-                    deleteProject(selectedProject.id);
-                    setShowProjectDetailModal(false);
-                  }
-                }}
-                style={{
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Trash2 size={16} />
-                Eliminar Proyecto
-              </button>
-
               <button
                 onClick={() => setShowProjectDetailModal(false)}
                 style={{
@@ -7118,7 +6064,7 @@ Usuario: ${currentMessage}`;
 
       {/* Chat Bubble Flotante para Asistente IA */}
       {chatBubbleOpen && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-sm h-80 sm:h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col md:left-auto md:right-6 md:transform-none md:translate-x-0 md:w-96 md:h-96">
+        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
           {/* Header del Chat */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
             <div className="flex items-center space-x-2">
@@ -7172,38 +6118,23 @@ Usuario: ${currentMessage}`;
                 {messages.length > 0 && (
                   <div className="space-y-3">
                     {messages.map((msg, index) => (
-                      <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div
                           className="px-3 py-2 rounded-lg text-sm"
                           style={{
-                            backgroundColor: msg.sender === 'user' ? '#3B82F6' : '#F3F4F6',
-                            color: msg.sender === 'user' ? '#FFFFFF' : '#111827',
+                            backgroundColor: msg.type === 'user' ? '#3B82F6' : '#F3F4F6',
+                            color: msg.type === 'user' ? '#FFFFFF' : '#111827',
                             maxWidth: '250px',
                             minWidth: '120px',
                             width: 'auto'
                           }}
                         >
-                          {msg.sender === 'assistant' ? (
+                          {msg.type === 'assistant' ? (
                             <div style={{ color: '#111827', minHeight: '20px' }}>
-                              <ReactMarkdown
-                                components={{
-                                  h1: ({node, ...props}) => <h1 style={{fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', marginTop: '8px'}} {...props} />,
-                                  h2: ({node, ...props}) => <h2 style={{fontSize: '15px', fontWeight: 'bold', marginBottom: '6px', marginTop: '6px'}} {...props} />,
-                                  h3: ({node, ...props}) => <h3 style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '4px', marginTop: '4px'}} {...props} />,
-                                  ul: ({node, ...props}) => <ul style={{paddingLeft: '16px', marginBottom: '8px'}} {...props} />,
-                                  ol: ({node, ...props}) => <ol style={{paddingLeft: '16px', marginBottom: '8px'}} {...props} />,
-                                  li: ({node, ...props}) => <li style={{marginBottom: '2px'}} {...props} />,
-                                  p: ({node, ...props}) => <p style={{marginBottom: '8px', lineHeight: '1.4'}} {...props} />,
-                                  strong: ({node, ...props}) => <strong style={{fontWeight: 'bold'}} {...props} />,
-                                  em: ({node, ...props}) => <em style={{fontStyle: 'italic'}} {...props} />,
-                                  code: ({node, ...props}) => <code style={{backgroundColor: '#f3f4f6', padding: '2px 4px', borderRadius: '3px', fontSize: '12px'}} {...props} />
-                                }}
-                              >
-                                {msg.text}
-                              </ReactMarkdown>
+                              {msg.text}
                             </div>
                           ) : (
-                            <span style={{ color: msg.sender === 'user' ? '#FFFFFF' : '#111827', minHeight: '20px' }}>
+                            <span style={{ color: msg.type === 'user' ? '#FFFFFF' : '#111827', minHeight: '20px' }}>
                               {msg.text}
                             </span>
                           )}
@@ -7238,44 +6169,6 @@ Usuario: ${currentMessage}`;
                       backgroundColor: '#FFFFFF'
                     }}
                   />
-                  {/* Botones de audio compactos */}
-                  <div className="flex space-x-1">
-                    {/* Botón de voz del asistente */}
-                    <button
-                      onClick={() => {
-                        const newVoiceState = !voiceEnabled;
-                        setVoiceEnabled(newVoiceState);
-                        saveVoiceConfig(newVoiceState);
-                        // Si se desactiva la voz, detener cualquier reproducción en curso
-                        if (!newVoiceState) {
-                          stopSpeaking();
-                        }
-                      }}
-                      className={`px-2 py-2 rounded-lg transition-colors ${
-                        voiceEnabled
-                          ? 'bg-green-500 text-white hover:bg-green-600'
-                          : 'bg-gray-400 text-white hover:bg-gray-500'
-                      }`}
-                      title={voiceEnabled ? 'Desactivar voz del asistente' : 'Activar voz del asistente'}
-                    >
-                      {voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                    </button>
-
-                    {/* Botón de micrófono */}
-                    {speechSupported && (
-                      <button
-                        onClick={isListening ? stopListening : startListening}
-                        className={`px-2 py-2 rounded-lg transition-colors ${
-                          isListening
-                            ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
-                            : 'bg-gray-500 text-white hover:bg-gray-600'
-                        }`}
-                        title={isListening ? 'Detener grabación de voz' : 'Activar grabación de voz'}
-                      >
-                        {isListening ? <MicOff size={14} /> : <Mic size={14} />}
-                      </button>
-                    )}
-                  </div>
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || isAssistantTyping}
@@ -7290,355 +6183,6 @@ Usuario: ${currentMessage}`;
         </div>
       )}
 
-
-      {/* Modal de tiempo real al completar tarea */}
-      {showTimeModal && completingTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">
-              ¡Tarea completada! 🎉
-            </h3>
-            <p className="text-gray-600 mb-4">
-              <strong>{completingTask.title}</strong>
-            </p>
-            {completingTask.estimated_hours && (
-              <p className="text-sm text-gray-500 mb-4">
-                Tiempo estimado: {formatHours(completingTask.estimated_hours)}
-              </p>
-            )}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ¿Cuánto tiempo real te tomó? (horas)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.25"
-                placeholder="Ej: 2.5"
-                defaultValue={completingTask.suggestedHours || ''}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    const actualHours = parseFloat(e.target.value);
-                    if (actualHours >= 0) {
-                      handleTimeSubmit(actualHours);
-                    }
-                  }
-                }}
-                id="actualTimeInput"
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowTimeModal(false);
-                  setCompletingTask(null);
-                }}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Omitir
-              </button>
-              <button
-                onClick={() => {
-                  const input = document.getElementById('actualTimeInput');
-                  const actualHours = parseFloat(input.value);
-                  if (actualHours >= 0) {
-                    handleTimeSubmit(actualHours);
-                  }
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para editar tarea usando Portal */}
-      {showEditTaskModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4" style={{zIndex: 99999999}}>
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Editar Tarea
-            </h3>
-
-            {/* Nombre de la tarea */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de la tarea *
-              </label>
-              <input
-                type="text"
-                value={editTaskName}
-                onChange={(e) => setEditTaskName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && editTaskName.trim()) {
-                    saveTaskChanges();
-                  }
-                }}
-                placeholder="Ej: Implementar funcionalidad de login"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                autoFocus
-              />
-            </div>
-
-            {/* Descripción */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción (opcional)
-              </label>
-              <textarea
-                value={editTaskDescription}
-                onChange={(e) => setEditTaskDescription(e.target.value)}
-                placeholder="Detalles adicionales sobre la tarea..."
-                rows="3"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
-              />
-            </div>
-
-            {/* Selector de proyecto (solo para tareas diarias) */}
-            {dailyTasks.some(task => task.id === editingTask?.id) && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Proyecto vinculado (opcional)
-                </label>
-                <select
-                  value={editTaskProject}
-                  onChange={(e) => setEditTaskProject(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Sin proyecto</option>
-                  {projects.filter(p => p.status === 'activo').map(project => (
-                    <option key={project.id} value={project.id}>
-                      {project.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Tiempo estimado */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tiempo estimado
-              </label>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={editEstimatedHours}
-                    onChange={(e) => setEditEstimatedHours(e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    max="99"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
-                  />
-                  <p className="text-xs text-gray-500 text-center mt-1">Horas</p>
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={editEstimatedMinutes}
-                    onChange={(e) => setEditEstimatedMinutes(e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    max="59"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
-                  />
-                  <p className="text-xs text-gray-500 text-center mt-1">Minutos</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Control de tiempo y tiempo real */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Control de tiempo
-              </label>
-
-              {/* Botones de control de timer */}
-              <div className="flex gap-2 mb-4">
-                {activeTimers[editingTask?.id] ? (
-                  // Timer activo - mostrar tiempo y botón pausar
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-md">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-red-700 font-mono text-sm font-medium">
-                        {getTimerDisplay(editingTask?.id)}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => pauseTimer(editingTask?.id)}
-                      className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors flex items-center gap-2"
-                    >
-                      <span style={{fontSize: '14px'}}>⏸</span>
-                      Pausar
-                    </button>
-                  </div>
-                ) : pausedTimers[editingTask?.id] ? (
-                  // Timer pausado - mostrar tiempo pausado y botón reanudar
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
-                      <span style={{fontSize: '14px'}}>⏸</span>
-                      <span className="text-orange-700 font-mono text-sm font-medium">
-                        {getTimerDisplay(editingTask?.id)} (pausado)
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => resumeTimer(editingTask?.id)}
-                      className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center gap-2"
-                    >
-                      <Play size={14} />
-                      Reanudar
-                    </button>
-                  </div>
-                ) : (
-                  // Sin timer - botón iniciar
-                  <button
-                    onClick={() => startTimer(editingTask?.id)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2"
-                  >
-                    <Play size={14} />
-                    Iniciar tarea
-                  </button>
-                )}
-              </div>
-
-              {/* Campos de tiempo real (editables) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Tiempo real (editable)
-                </label>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <input
-                      type="number"
-                      value={editActualHours}
-                      onChange={(e) => setEditActualHours(e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      max="99"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
-                    />
-                    <p className="text-xs text-gray-500 text-center mt-1">Horas</p>
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      type="number"
-                      value={editActualMinutes}
-                      onChange={(e) => setEditActualMinutes(e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      max="59"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center"
-                    />
-                    <p className="text-xs text-gray-500 text-center mt-1">Minutos</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Botones */}
-            <div className="flex flex-col gap-3">
-              {/* Botón principal: Terminar Tarea */}
-              {!editingTask?.completed && (
-                <button
-                  onClick={() => {
-                    // Obtener tiempo del timer si está activo o pausado
-                    let timerHours = 0;
-                    if (activeTimers[editingTask.id] || pausedTimers[editingTask.id]) {
-                      timerHours = completeTask(editingTask.id);
-                    }
-
-                    // Calcular tiempo real final (usar timer si existe, sino los campos editables)
-                    let finalActualHours = 0;
-                    if (timerHours > 0) {
-                      finalActualHours = timerHours;
-                    } else {
-                      const actualHours = parseInt(editActualHours) || 0;
-                      const actualMinutes = parseInt(editActualMinutes) || 0;
-                      finalActualHours = actualHours + (actualMinutes / 60);
-                    }
-
-                    // Guardar cambios primero con el tiempo calculado
-                    const estimatedHours = parseInt(editEstimatedHours) || 0;
-                    const estimatedMinutes = parseInt(editEstimatedMinutes) || 0;
-                    const totalEstimatedHours = estimatedHours + (estimatedMinutes / 60);
-
-                    const updatedTask = {
-                      ...editingTask,
-                      title: editTaskName.trim(),
-                      text: editTaskName.trim(),
-                      description: editTaskDescription.trim(),
-                      estimated_hours: totalEstimatedHours > 0 ? totalEstimatedHours : null,
-                      actual_hours: finalActualHours > 0 ? finalActualHours : null,
-                      completed: true,
-                      progress: 100,
-                      projectId: editTaskProject || editingTask.projectId
-                    };
-
-                    // Detectar si es una tarea diaria o de proyecto
-                    const isDailyTask = dailyTasks.some(task => task.id === editingTask.id);
-
-                    if (isDailyTask) {
-                      // Actualizar tarea diaria
-                      setDailyTasks(dailyTasks.map(task =>
-                        task.id === editingTask.id ? updatedTask : task
-                      ));
-                    } else {
-                      // Actualizar tarea de proyecto
-                      setProjects(projects.map(project => {
-                        const updatedTasks = project.tasks.map(task =>
-                          task.id === editingTask.id ? updatedTask : task
-                        );
-                        return { ...project, tasks: updatedTasks };
-                      }));
-
-                      // Actualizar selectedProject también
-                      if (selectedProject) {
-                        setSelectedProject(prev => ({
-                          ...prev,
-                          tasks: prev.tasks.map(task =>
-                            task.id === editingTask.id ? updatedTask : task
-                          )
-                        }));
-                      }
-                    }
-
-                    closeEditTaskModal();
-                  }}
-                  disabled={!editTaskName.trim()}
-                  className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <CheckCircle size={18} />
-                  <span>😊 Terminar Tarea</span>
-                </button>
-              )}
-
-              {/* Botones secundarios */}
-              <div className="flex gap-3">
-                <button
-                  onClick={closeEditTaskModal}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={saveTaskChanges}
-                  disabled={!editTaskName.trim()}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* Botón flotante para abrir chat bubble */}
       <button
         onClick={() => {
@@ -7647,13 +6191,15 @@ Usuario: ${currentMessage}`;
             // Siempre mostrar mensaje de bienvenida cuando se abre
             setTimeout(() => {
               setMessages([{
-                sender: 'assistant',
-                text: '¡Hola! 👋 Soy tu asistente personal de SmartChatix. Estoy aquí para ayudarte a gestionar tus proyectos y tareas de manera más eficiente. \n\n¿Qué te gustaría hacer hoy?'
+                id: Date.now(),
+                type: 'assistant',
+                text: '¡Hola! 👋 Soy tu asistente personal de SmartChatix. Estoy aquí para ayudarte a gestionar tus proyectos y tareas de manera más eficiente. \n\n¿Qué te gustaría hacer hoy?',
+                timestamp: new Date().toLocaleTimeString()
               }]);
             }, 300);
           }
         }}
-        className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 md:left-auto md:right-6 md:transform-none md:translate-x-0 ${
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 ${
           chatBubbleOpen
             ? 'bg-gray-500 hover:bg-gray-600'
             : 'bg-blue-500 hover:bg-blue-600'
@@ -7666,225 +6212,6 @@ Usuario: ${currentMessage}`;
           <Bot size={24} />
         )}
       </button>
-
-      {/* Modal de selección de proyecto y tareas */}
-      {showProjectSelectionModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-2 sm:mx-4 max-h-[95vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
-            {modalStep === 1 ? (
-              /* Paso 1: Seleccionar Proyecto */
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Seleccionar Proyecto
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  ¿Para qué proyecto quieres agregar la tarea?
-                </p>
-
-                <div className="space-y-3 overflow-y-auto flex-1">
-                  {/* Opción: Proyecto Personal */}
-                  <button
-                    onClick={() => handleProjectSelection('personal')}
-                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center">
-                        <span className="text-lg">📝</span>
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">Proyecto Personal</div>
-                        <div className="text-sm text-gray-500">Tareas sin proyecto específico</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Proyectos activos */}
-                  {projects.filter(p => p.status === 'activo').map(project => {
-                    const tasksNotInDaily = project.tasks.filter(task =>
-                      !dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === task.id)
-                    );
-
-                    return (
-                      <button
-                        key={project.id}
-                        onClick={() => handleProjectSelection(project.id)}
-                        className="w-full p-4 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left transition-colors group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getProjectColor(project.id)}`}>
-                            <span className="text-lg">📋</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 group-hover:text-blue-900">
-                              {project.title}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {tasksNotInDaily.length} tarea{tasksNotInDaily.length !== 1 ? 's' : ''} disponible{tasksNotInDaily.length !== 1 ? 's' : ''}
-                            </div>
-                          </div>
-                          {project.progress !== undefined && (
-                            <div className="text-right">
-                              <div className="text-sm font-medium text-gray-700">
-                                {project.progress}%
-                              </div>
-                              <div className="w-12 bg-gray-200 rounded-full h-1.5">
-                                <div
-                                  className="bg-blue-500 h-1.5 rounded-full transition-all"
-                                  style={{ width: `${project.progress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-
-                  {projects.filter(p => p.status === 'activo').length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p className="text-sm">No hay proyectos activos disponibles</p>
-                      <p className="text-xs mt-1">Crea un proyecto primero para organizar tus tareas</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={resetAddTaskForm}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* Paso 2: Tareas o Crear Nueva */
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {addTaskMode === 'personal' ? '📝 Proyecto Personal' : `📋 ${projects.find(p => p.id === selectedProjectForTask)?.title}`}
-                  </h3>
-                  <button
-                    onClick={goBackToProjectSelection}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    ← Cambiar
-                  </button>
-                </div>
-
-                {addTaskMode === 'personal' ? (
-                  /* Entrada para tarea personal */
-                  <div className="flex flex-col gap-4">
-                    <p className="text-sm text-gray-600">
-                      Describe tu tarea personal:
-                    </p>
-                    <input
-                      type="text"
-                      value={newDailyTask}
-                      onChange={(e) => setNewDailyTask(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newDailyTask.trim()) {
-                          addDailyTask();
-                        }
-                      }}
-                      onBlur={() => {
-                        if (newDailyTask.trim()) {
-                          addDailyTask();
-                        }
-                      }}
-                      placeholder="¿Qué tarea personal quieres realizar hoy?"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-
-                    <div className="flex justify-end">
-                      <button
-                        onClick={resetAddTaskForm}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Lista de tareas del proyecto y opción nueva */
-                  <div className="flex flex-col gap-4">
-                    {selectedProjectTasks.length > 0 && (
-                      <div>
-                        <p className="text-sm text-gray-600 mb-3">
-                          Haz clic en una tarea para agregarla:
-                        </p>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {selectedProjectTasks.map(task => (
-                            <button
-                              key={task.id}
-                              onClick={() => addExistingProjectTask(task.id)}
-                              className="w-full p-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left transition-colors group"
-                            >
-                              <div className="font-medium text-gray-900 group-hover:text-blue-900">{task.title || task.text}</div>
-                              {task.estimated_hours && (
-                                <div className="text-sm text-gray-500 mt-1">
-                                  Est: {formatHours(task.estimated_hours)}
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Botón para nueva tarea tipo Trello */}
-                    {!showNewTaskInput ? (
-                      <button
-                        onClick={() => setShowNewTaskInput(true)}
-                        className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 text-gray-600 hover:text-gray-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Plus size={16} />
-                        <span>Nueva tarea</span>
-                      </button>
-                    ) : (
-                      <input
-                        type="text"
-                        value={newDailyTask}
-                        onChange={(e) => setNewDailyTask(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newDailyTask.trim()) {
-                            addNewTaskToProject();
-                          }
-                          if (e.key === 'Escape') {
-                            setShowNewTaskInput(false);
-                            setNewDailyTask('');
-                          }
-                        }}
-                        onBlur={() => {
-                          if (newDailyTask.trim()) {
-                            addNewTaskToProject();
-                          } else {
-                            setShowNewTaskInput(false);
-                          }
-                        }}
-                        placeholder="Describe la nueva tarea..."
-                        className="w-full p-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    )}
-
-                    <div className="flex justify-end">
-                      <button
-                        onClick={resetAddTaskForm}
-                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
 
     </div>
   );
