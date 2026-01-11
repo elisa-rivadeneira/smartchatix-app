@@ -501,16 +501,33 @@ router.delete('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
 // Guardar tarea de proyecto
 router.post('/project-tasks', authenticateToken, async (req, res) => {
   try {
+    console.log('🔥 [PROJECT-TASKS] Nueva petición recibida:', {
+      projectId: req.body.projectId,
+      task: req.body.task,
+      userId: req.user.userId,
+      timestamp: new Date().toISOString()
+    });
+
     const { projectId, task } = req.body;
     const userId = req.user.userId;
     const taskId = require('crypto').randomUUID();
 
     // Verificar que el proyecto pertenece al usuario
     const projectQuery = 'SELECT id FROM user_projects WHERE id = ? AND user_id = ?';
+    console.log('🔍 [PROJECT-TASKS] Verificando proyecto:', { projectId, userId });
+
     userDB.db.get(projectQuery, [projectId, userId], (err, project) => {
-      if (err || !project) {
+      if (err) {
+        console.error('❌ [PROJECT-TASKS] Error en consulta de proyecto:', err);
+        return res.status(500).json({ error: 'Error al verificar proyecto' });
+      }
+
+      if (!project) {
+        console.log('⚠️ [PROJECT-TASKS] Proyecto no encontrado para usuario:', { projectId, userId });
         return res.status(404).json({ error: 'Proyecto no encontrado' });
       }
+
+      console.log('✅ [PROJECT-TASKS] Proyecto verificado correctamente:', project);
 
       const query = `
         INSERT INTO project_tasks (
@@ -528,11 +545,17 @@ router.post('/project-tasks', authenticateToken, async (req, res) => {
         task.progress || 0
       ], function(insertErr) {
         if (insertErr) {
-          console.error('Error guardando tarea:', insertErr);
+          console.error('❌ [PROJECT-TASKS] Error guardando tarea:', insertErr);
           return res.status(500).json({ error: 'Error al guardar tarea' });
         }
 
-        res.json({
+        console.log('✅ [PROJECT-TASKS] Tarea guardada exitosamente:', {
+          taskId,
+          title: task.title,
+          projectId
+        });
+
+        const responseData = {
           success: true,
           task: {
             id: taskId,
@@ -540,12 +563,15 @@ router.post('/project-tasks', authenticateToken, async (req, res) => {
             project_id: projectId,
             user_id: userId
           }
-        });
+        };
+
+        console.log('📤 [PROJECT-TASKS] Enviando respuesta:', responseData);
+        res.json(responseData);
       });
     });
 
   } catch (error) {
-    console.error('Error en creación de tarea:', error);
+    console.error('❌ [PROJECT-TASKS] Error general en creación de tarea:', error);
     res.status(500).json({
       error: 'Error al crear tarea'
     });
