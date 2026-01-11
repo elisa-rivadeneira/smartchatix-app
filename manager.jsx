@@ -526,12 +526,7 @@ const PersonalCoachAssistant = () => {
   // Función para cargar datos específicos del usuario
   const loadUserData = useCallback(async () => {
     try {
-      const authToken = localStorage.getItem('authToken');
-      const response = await fetch(`http://localhost:3001/api/profile`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
+      const response = await authenticatedFetch(`${getApiBase()}/profile`);
       if (response.ok) {
         const data = await response.json();
 
@@ -557,11 +552,7 @@ const PersonalCoachAssistant = () => {
         }
 
         // Cargar tareas archivadas
-        const archivedResponse = await fetch(`http://localhost:3001/api/assistant/archived-tasks`, {
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
-        });
+        const archivedResponse = await authenticatedFetch(`${getApiBase()}/assistant/archived-tasks`);
         if (archivedResponse.ok) {
           const archivedData = await archivedResponse.json();
           setArchivedTasks(archivedData);
@@ -585,12 +576,7 @@ const PersonalCoachAssistant = () => {
       if (!isAuthenticated) return;
 
       try {
-        const authToken = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:3001/api/assistant/archived-tasks`, {
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
-        });
+        const response = await authenticatedFetch(`${getApiBase()}/assistant/archived-tasks`);
 
         if (response.ok) {
           const archived = await response.json();
@@ -2618,7 +2604,7 @@ Responde siempre en español y mantén el tono configurado.`;
       try {
         // Llamar al API para persistir el cambio
         const authToken = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}`, {
+        const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -2678,7 +2664,7 @@ Responde siempre en español y mantén el tono configurado.`;
       try {
         // Llamar al API para eliminar la tarea de la base de datos
         const authToken = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}`, {
+        const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${authToken}`
@@ -2753,7 +2739,7 @@ Responde siempre en español y mantén el tono configurado.`;
       try {
         // Llamar al API para archivar la tarea
         const authToken = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}/archive`, {
+        const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}/archive`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${authToken}`
@@ -2828,7 +2814,7 @@ Responde siempre en español y mantén el tono configurado.`;
       try {
         // Llamar al API para desarchiver la tarea
         const authToken = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:3001/api/assistant/task/${taskId}/unarchive`, {
+        const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}/unarchive`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${authToken}`
