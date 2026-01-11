@@ -1171,4 +1171,45 @@ router.get('/achievements', authenticateToken, async (req, res) => {
   }
 });
 
+// Archivar tarea diaria
+router.put('/assistant/task/:taskId/archive', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+  console.log('🗂️ [ARCHIVE] Petición de archivado recibida:', { taskId, userId: req.user.userId });
+
+  try {
+    const result = await userDB.archiveDailyTask(req.user.userId, taskId);
+    console.log('✅ [ARCHIVE] Tarea archivada exitosamente:', result);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ [ARCHIVE] Error archiving task:', error);
+    res.status(500).json({ error: 'Error archivando tarea' });
+  }
+});
+
+// Desarchivar tarea diaria
+router.put('/assistant/task/:taskId/unarchive', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+  console.log('🗂️ [UNARCHIVE] Petición de desarchivado recibida:', { taskId, userId: req.user.userId });
+
+  try {
+    const result = await userDB.unarchiveDailyTask(req.user.userId, taskId);
+    console.log('✅ [UNARCHIVE] Tarea desarchivada exitosamente:', result);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ [UNARCHIVE] Error unarchiving task:', error);
+    res.status(500).json({ error: 'Error restaurando tarea' });
+  }
+});
+
+// Obtener tareas archivadas
+router.get('/assistant/archived-tasks', authenticateToken, async (req, res) => {
+  try {
+    const archivedTasks = await userDB.getUserArchivedTasks(req.user.userId);
+    res.json(archivedTasks);
+  } catch (error) {
+    console.error('Error fetching archived tasks:', error);
+    res.status(500).json({ error: 'Error al obtener tareas archivadas' });
+  }
+});
+
 module.exports = { router, authenticateToken, userDB };

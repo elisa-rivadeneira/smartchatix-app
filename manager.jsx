@@ -2790,7 +2790,12 @@ Responde siempre en español y mantén el tono configurado.`;
             }
           });
         } else {
-          console.error('Error archiving task from server');
+          const errorText = await response.text();
+          console.error('Error archiving task from server:', {
+            status: response.status,
+            statusText: response.statusText,
+            response: errorText
+          });
           Swal.fire({
             title: 'Error',
             text: 'No se pudo archivar la tarea. Inténtalo de nuevo.',
@@ -2861,7 +2866,12 @@ Responde siempre en español y mantén el tono configurado.`;
             }
           });
         } else {
-          console.error('Error unarchiving task from server');
+          const errorText = await response.text();
+          console.error('Error unarchiving task from server:', {
+            status: response.status,
+            statusText: response.statusText,
+            response: errorText
+          });
           Swal.fire({
             title: 'Error',
             text: 'No se pudo restaurar la tarea. Inténtalo de nuevo.',
