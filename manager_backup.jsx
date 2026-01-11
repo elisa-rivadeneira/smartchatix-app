@@ -1,28 +1,176 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import Auth from './src/components/Auth';
+import useAuth from './src/hooks/useAuth';
 
-// Mensajes motivacionales del coach - movido fuera del componente
-const coachMessages = [
-  "¡Excelente trabajo! Mantén ese momentum 🚀",
-  "Cada paso pequeño te acerca a tu meta 💪",
-  "Tu constancia es tu superpoder ⭐",
-  "Los proyectos no se completan solos, ¡pero tú puedes! 🎯",
-  "Prioriza lo importante sobre lo urgente 📈"
-];
+// Estilos CSS para diseño retro-futurista años 80 synthwave
+const style = document.createElement('style');
+style.textContent = `
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;800&display=swap');
+
+  @keyframes neonGlow {
+    0%, 100% {
+      text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 15px #ff00ff, 0 0 20px #ff00ff;
+    }
+    50% {
+      text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff;
+    }
+  }
+
+  @keyframes retroWave {
+    0% {
+      transform: translateY(0px);
+      background-position: 0% 50%;
+    }
+    50% {
+      transform: translateY(-10px);
+      background-position: 100% 50%;
+    }
+    100% {
+      transform: translateY(0px);
+      background-position: 0% 50%;
+    }
+  }
+
+  @keyframes synthPulse {
+    0%, 100% {
+      box-shadow:
+        0 0 20px rgba(255, 0, 255, 0.5),
+        0 0 40px rgba(255, 0, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    }
+    50% {
+      box-shadow:
+        0 0 30px rgba(0, 255, 255, 0.5),
+        0 0 60px rgba(0, 255, 255, 0.3),
+        inset 0 0 30px rgba(255, 0, 255, 0.1);
+    }
+  }
+
+  @keyframes gridFlow {
+    0% {
+      background-position: 0 0, 0 0;
+    }
+    100% {
+      background-position: 100px 0, 0 100px;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .retro-font {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+  }
+
+  .synthwave-font {
+    font-family: 'Exo 2', sans-serif;
+  }
+
+  .neon-border {
+    border: 2px solid #ff00ff;
+    border-radius: 8px;
+    background: linear-gradient(45deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.1));
+    backdrop-filter: blur(10px);
+    animation: synthPulse 3s ease-in-out infinite;
+  }
+
+  .retro-grid::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+      linear-gradient(rgba(255, 0, 255, 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.3) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: gridFlow 20s linear infinite;
+    z-index: -2;
+    pointer-events: none;
+  }
+
+  .chrome-text {
+    background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: retroWave 4s ease-in-out infinite;
+  }
+
+  .miami-glow {
+    color: #ff00ff;
+    text-shadow:
+      0 0 5px #ff00ff,
+      0 0 10px #ff00ff,
+      0 0 15px #ff00ff,
+      0 0 20px #ff00ff,
+      0 0 35px #ff00ff;
+    animation: neonGlow 2s ease-in-out infinite alternate;
+  }
+
+  .cyber-logo {
+    background: linear-gradient(135deg, #ff00ff, #00ffff);
+    border-radius: 50%;
+    box-shadow:
+      0 0 20px rgba(255, 0, 255, 0.6),
+      0 0 40px rgba(0, 255, 255, 0.4),
+      inset 0 0 20px rgba(255, 255, 255, 0.2);
+    animation: retroWave 6s ease-in-out infinite;
+  }
+`;
+document.head.appendChild(style);
+
+// Configuración dinámica de API
+const getApiBase = () => {
+  const hostname = window.location.hostname;
+
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    console.log('📱 Manager modo producción detectado:', hostname);
+    return '/api/auth';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  console.log('🔧 Manager modo desarrollo detectado, usando:', devHost);
+  return `http://${devHost}:3001/api/auth`;
+};
+
+
 
 const PersonalCoachAssistant = () => {
+  console.log("*testeoooo.jsx");
+
+  const { user, loading: authLoading, isAuthenticated, login, logout, authenticatedFetch } = useAuth();
+
   const [projects, setProjects] = useState([]);
   const [dailyTasks, setDailyTasks] = useState([]);
   const [newProject, setNewProject] = useState({ title: '', priority: 'media', deadline: '', description: '' });
-  const [newTask, setNewTask] = useState('');
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState('');
+  const [newDailyTask, setNewDailyTask] = useState('');
+  const [selectedProjectForTask, setSelectedProjectForTask] = useState('');
+  const [selectedProjectTasks, setSelectedProjectTasks] = useState([]);
+  const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
-  const [coachMessage, setCoachMessage] = useState('');
 
   // Nuevos estados para gestión de tareas de proyectos
-  const [selectedProjectForDaily, setSelectedProjectForDaily] = useState('');
   const [newProjectTask, setNewProjectTask] = useState({});
   const [editingProjectTaskId, setEditingProjectTaskId] = useState(null);
   const [editingProjectTaskText, setEditingProjectTaskText] = useState('');
@@ -33,10 +181,20 @@ const PersonalCoachAssistant = () => {
   const [editingProjectTitleText, setEditingProjectTitleText] = useState('');
   const [editingProjectDescriptionId, setEditingProjectDescriptionId] = useState(null);
   const [editingProjectDescriptionText, setEditingProjectDescriptionText] = useState('');
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [expandedProjectTasks, setExpandedProjectTasks] = useState({});
+  const [showActiveProjectsModal, setShowActiveProjectsModal] = useState(false);
+  const [showProjectDetailModal, setShowProjectDetailModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [projectToChangeStatus, setProjectToChangeStatus] = useState(null);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState(false);
 
   // Estados para el asistente
   const [assistantConfig, setAssistantConfig] = useState({
     basePrompt: "Eres mi asistente coach personal para ayudarme a impulsar al máximo todos mis proyectos con éxito. Me vas a ayudar con estrategias, motivación y seguimiento de mis objetivos. Siempre serás directo, práctico y orientado a resultados.",
+    systemPrompt: "Eres mi asistente coach personal para ayudarme a impulsar al máximo todos mis proyectos con éxito. Me vas a ayudar con estrategias, motivación y seguimiento de mis objetivos. Siempre serás directo, práctico y orientado a resultados.",
     userName: "",
     assistantName: "Elon Musk",
     specialties: ["Desarrollo de Software"],
@@ -61,6 +219,7 @@ const PersonalCoachAssistant = () => {
   });
 
   const [customSpecialty, setCustomSpecialty] = useState('');
+  const [newCustomSpecialty, setNewCustomSpecialty] = useState('');
   const [showMemorySection, setShowMemorySection] = useState(false);
   const [availableSpecialties, setAvailableSpecialties] = useState([
     "Desarrollo de Software",
@@ -100,48 +259,556 @@ const PersonalCoachAssistant = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isConfigSaved, setIsConfigSaved] = useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+
+  // Estados para timers de tareas
+  const [taskTimers, setTaskTimers] = useState({});
+  const [activeTimer, setActiveTimer] = useState(null);
+
+  // Función para obtener estilos del theme
+  const getThemeStyles = (theme) => {
+    switch (theme) {
+      case 'retro':
+        return {
+          background: `
+            radial-gradient(ellipse at top, #ff00ff22 0%, transparent 70%),
+            radial-gradient(ellipse at bottom, #00ffff22 0%, transparent 70%),
+            linear-gradient(180deg, #0a0014 0%, #1a0033 50%, #2a1458 100%)
+          `,
+          className: 'retro-grid synthwave-font'
+        };
+      case 'minimal':
+        return {
+          background: `
+            linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%),
+            radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)
+          `,
+          className: 'synthwave-font'
+        };
+      case 'brutalist':
+        return {
+          background: 'linear-gradient(45deg, #ffffff 25%, #f8f9fa 25%, #f8f9fa 50%, #ffffff 50%, #ffffff 75%, #f8f9fa 75%)',
+          backgroundSize: '60px 60px',
+          className: 'data-grid system-font'
+        };
+      case 'colorful':
+        return {
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+          backgroundSize: '400% 400%',
+          animation: 'gradientShift 15s ease infinite',
+          className: 'synthwave-font'
+        };
+      default:
+        return {
+          background: `
+            radial-gradient(ellipse at top, #ff00ff22 0%, transparent 70%),
+            radial-gradient(ellipse at bottom, #00ffff22 0%, transparent 70%),
+            linear-gradient(180deg, #0a0014 0%, #1a0033 50%, #2a1458 100%)
+          `,
+          className: 'retro-grid synthwave-font'
+        };
+    }
+  };
+
+  // Función para obtener estilos del header según el theme
+  const getHeaderStyles = (theme) => {
+    switch (theme) {
+      case 'retro':
+        return {
+          background: 'linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9))',
+          borderBottom: '3px solid #ff00ff',
+          className: 'neon-border',
+          titleStyle: {
+            background: 'linear-gradient(90deg, #00ffff 0%, #ff00ff 25%, #ffff00 50%, #ff00ff 75%, #00ffff 100%)',
+            backgroundSize: '200% 100%',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            color: 'transparent',
+            WebkitTextFillColor: 'transparent',
+            animation: 'retroWave 4s ease-in-out infinite',
+            letterSpacing: '0.15em',
+            // Fallback en caso de que el clip no funcione
+            textShadow: '0 0 20px rgba(0, 255, 255, 0.5)'
+          },
+          subtitleStyle: {
+            color: '#f8f9fa',
+            textShadow: '0 0 3px rgba(255, 255, 255, 0.2)',
+            opacity: 0.9
+          },
+          userStyle: {
+            color: '#00ffff',
+            textShadow: '0 0 10px #00ffff'
+          },
+          emailStyle: {
+            color: '#ff00ff',
+            textShadow: '0 0 8px #ff00ff'
+          }
+        };
+      case 'minimal':
+        return {
+          background: 'rgba(255, 255, 255, 0.25)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          borderBottom: 'none',
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+          className: 'glass-morphism',
+          titleStyle: {
+            color: '#667eea',
+            textShadow: '0 1px 2px rgba(102, 126, 234, 0.3)'
+          },
+          subtitleStyle: {
+            color: '#64748b',
+            fontWeight: 'light'
+          },
+          userStyle: {
+            color: '#374151',
+            fontWeight: 'medium'
+          },
+          emailStyle: {
+            color: '#6b7280',
+            fontWeight: 'light'
+          }
+        };
+      case 'brutalist':
+        return {
+          background: '#000000',
+          color: '#00ff80',
+          borderBottom: '4px solid #ff0080',
+          className: 'terminal-font',
+          titleStyle: {
+            color: '#ff0080',
+            textShadow: '2px 2px 0px #000000',
+            letterSpacing: '0.1em'
+          },
+          subtitleStyle: {
+            color: '#00ff80',
+            fontWeight: '700'
+          },
+          userStyle: {
+            color: '#ffff00',
+            fontWeight: '700'
+          },
+          emailStyle: {
+            color: '#00ff80'
+          }
+        };
+      case 'colorful':
+        return {
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+          className: '',
+          titleStyle: {
+            color: 'white',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
+          },
+          subtitleStyle: {
+            color: 'rgba(255, 255, 255, 0.8)'
+          },
+          userStyle: {
+            color: 'white'
+          },
+          emailStyle: {
+            color: 'rgba(255, 255, 255, 0.7)'
+          }
+        };
+      default:
+        return {
+          background: 'linear-gradient(90deg, rgba(26, 0, 51, 0.9), rgba(42, 20, 88, 0.9))',
+          borderBottom: '3px solid #ff00ff',
+          className: 'neon-border'
+        };
+    }
+  };
   const [showConfigPanel, setShowConfigPanel] = useState(false);
+  const [selectedConfigSection, setSelectedConfigSection] = useState('');
+
+  // Estados para modales y dropdown
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    return localStorage.getItem('smartchatix-theme') || 'retro';
+  });
+  const [showAssistantModal, setShowAssistantModal] = useState(false);
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [showMemoryFields, setShowMemoryFields] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Estados para configuración del usuario
+  const [userConfig, setUserConfig] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    const randomMessage = coachMessages[Math.floor(Math.random() * coachMessages.length)];
-    setCoachMessage(randomMessage);
-  }, []);
+  // Estados para funciones de voz
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isRecordingComplete, setIsRecordingComplete] = useState(false);
 
-  // Recalcular progreso cuando cambien las tareas de los proyectos
+
+  // Chat Bubble state
+  const [chatBubbleOpen, setChatBubbleOpen] = useState(false);
+  const [chatBubbleMinimized, setChatBubbleMinimized] = useState(false);
+  const recognitionRef = useRef(null);
+  const synthesisRef = useRef(null);
+  const finalTranscriptRef = useRef('');
+  const timeoutRef = useRef(null);
+
+
+  // Keyboard shortcuts for AI interactions
   useEffect(() => {
-    projects.forEach(project => {
-      if (project.tasks.length > 0) {
-        const totalProgress = project.tasks.reduce((sum, task) => sum + task.progress, 0);
-        const calculatedProgress = Math.round(totalProgress / project.tasks.length);
-        if (calculatedProgress !== project.progress) {
-          setProjects(prevProjects =>
-            prevProjects.map(p =>
-              p.id === project.id ? { ...p, progress: calculatedProgress } : p
-            )
+    const handleKeyDown = (event) => {
+      // Only handle shortcuts when not typing in inputs
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + A: Switch to Assistant
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'A') {
+        event.preventDefault();
+        setActiveView('assistant');
+        return;
+      }
+
+
+      // Quick AI prompts (only in assistant view)
+      if (activeView === 'assistant') {
+        // Ctrl/Cmd + 1: Project analysis
+        if ((event.ctrlKey || event.metaKey) && event.key === '1') {
+          event.preventDefault();
+          setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`);
+          return;
+        }
+
+        // Ctrl/Cmd + 2: Task optimization
+        if ((event.ctrlKey || event.metaKey) && event.key === '2') {
+          event.preventDefault();
+          const pendingTasks = projects.reduce((total, project) =>
+            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
           );
+          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
+          return;
+        }
+
+        // Ctrl/Cmd + 3: Time-based coaching
+        if ((event.ctrlKey || event.metaKey) && event.key === '3') {
+          event.preventDefault();
+          const currentHour = new Date().getHours();
+          const timeBasedPrompt = currentHour < 12
+            ? 'Dame una estrategia productiva para empezar bien el día'
+            : currentHour < 18
+            ? 'Necesito mantener el foco y energía para la tarde'
+            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
+          setNewMessage(timeBasedPrompt);
+          return;
         }
       }
-    });
-  }, [projects.map(p => p.tasks.map(t => `${t.progress}-${t.completed}`).join(',')).join(';')]);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeView, projects]);
+
+  // Función para cargar datos específicos del usuario
+  const loadUserData = useCallback(async () => {
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/profile`);
+      if (response.ok) {
+        const data = await response.json();
+
+        // Cargar proyectos del usuario
+        setProjects(data.projects || []);
+
+        // Cargar tareas diarias del usuario
+        setDailyTasks(data.dailyTasks || []);
+
+        // Cargar configuración del asistente
+        if (data.assistantConfig) {
+          setAssistantConfig({
+            basePrompt: data.assistantConfig.base_prompt,
+            systemPrompt: data.assistantConfig.system_prompt,
+            userName: data.assistantConfig.user_name,
+            assistantName: data.assistantConfig.assistant_name,
+            specialties: data.assistantConfig.specialties || [],
+            tone: data.assistantConfig.tone,
+            focusAreas: data.assistantConfig.focus_areas || {},
+            memory: data.assistantConfig.memory || {},
+            voiceEnabled: data.assistantConfig.voice_enabled !== 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando datos del usuario:', error);
+    }
+  }, [authenticatedFetch]);
+
+  // Cargar datos del usuario al autenticarse
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserData();
+    }
+  }, [isAuthenticated, user]); // Removed loadUserData from dependencies to prevent infinite loop
+
+  // Recalcular progreso cuando cambien las tareas de los proyectos
+  // Removed problematic useEffect that was causing infinite loops
+  // Progress calculation is now handled directly in task operations
 
   // Scroll automático al final del chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const addProject = () => {
-    if (newProject.title.trim()) {
-      const project = {
-        id: Date.now(),
-        ...newProject,
-        status: 'activo',
-        progress: 0,
-        createdAt: new Date().toLocaleDateString(),
-        tasks: []
+  // Inicializar soporte de voz
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      setSpeechSupported(true);
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'es-ES';
+      recognitionRef.current.maxAlternatives = 1;
+
+      recognitionRef.current.onstart = () => {
+        setIsListening(true);
       };
-      setProjects([...projects, project]);
-      setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+        // Limpiar timeout al terminar
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        // Finalizar el texto acumulado
+        const finalText = finalTranscriptRef.current.trim();
+        if (finalText) {
+          setNewMessage(finalText);
+        }
+        finalTranscriptRef.current = '';
+      };
+
+      recognitionRef.current.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          } else {
+            interimTranscript += result[0].transcript;
+          }
+        }
+
+        // Acumular el texto final
+        if (finalTranscript) {
+          finalTranscriptRef.current += finalTranscript + ' ';
+        }
+
+        // Mostrar el texto acumulado + el texto temporal
+        const fullText = (finalTranscriptRef.current + interimTranscript).trim();
+        setNewMessage(fullText);
+
+        // Resetear timeout para detener grabación después de pausa
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          console.log('Timeout reseteado - nueva actividad detectada');
+        }
+
+        // Si no hay actividad por 2 segundos, terminar la grabación
+        timeoutRef.current = setTimeout(() => {
+          console.log('Timeout ejecutado - deteniendo reconocimiento');
+          if (recognitionRef.current) {
+            try {
+              recognitionRef.current.stop();
+            } catch (error) {
+              console.log('Reconocimiento ya detenido');
+            }
+          }
+        }, 2000);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error('Error de reconocimiento de voz:', event.error);
+        setIsListening(false);
+        finalTranscriptRef.current = '';
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
+    }
+
+    // Verificar soporte de síntesis de voz
+    if ('speechSynthesis' in window) {
+      synthesisRef.current = window.speechSynthesis;
+    }
+  }, []);
+
+  // Efecto para actualizar los timers activos cada segundo
+  useEffect(() => {
+    if (activeTimer) {
+      const interval = setInterval(() => {
+        // Forzar re-render para actualizar el display del tiempo
+        setTaskTimers(prev => ({ ...prev }));
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [activeTimer]);
+
+  // Funciones de voz
+  const startListening = () => {
+    if (recognitionRef.current && speechSupported && !isListening) {
+      try {
+        // Limpiar texto acumulado al iniciar nueva grabación
+        finalTranscriptRef.current = '';
+        setNewMessage('');
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Error al iniciar reconocimiento de voz:', error);
+      }
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      // Limpiar timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      // Finalizar el texto acumulado
+      const finalText = finalTranscriptRef.current.trim();
+      if (finalText) {
+        setNewMessage(finalText);
+      }
+      finalTranscriptRef.current = '';
+    }
+  };
+
+  const speakText = (text) => {
+    if (!voiceEnabled || !synthesisRef.current) return;
+
+    // Detener cualquier síntesis anterior
+    synthesisRef.current.cancel();
+
+    // Dividir el texto en fragmentos más pequeños para evitar cortes
+    const maxLength = 200; // Caracteres máximos por fragmento
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const chunks = [];
+    let currentChunk = '';
+
+    sentences.forEach(sentence => {
+      const trimmedSentence = sentence.trim();
+      if (currentChunk.length + trimmedSentence.length > maxLength && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = trimmedSentence;
+      } else {
+        currentChunk += (currentChunk ? '. ' : '') + trimmedSentence;
+      }
+    });
+
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+    }
+
+    setIsSpeaking(true);
+
+    // Función para hablar cada fragmento secuencialmente
+    const speakChunks = (chunkIndex = 0) => {
+      if (chunkIndex >= chunks.length) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(chunks[chunkIndex]);
+      utterance.lang = 'es-ES';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      utterance.onend = () => {
+        // Pequeña pausa entre fragmentos
+        setTimeout(() => {
+          speakChunks(chunkIndex + 1);
+        }, 100);
+      };
+
+      utterance.onerror = () => {
+        console.error('Error en síntesis de voz, fragmento:', chunkIndex);
+        setIsSpeaking(false);
+      };
+
+      synthesisRef.current.speak(utterance);
+    };
+
+    // Iniciar la síntesis con el primer fragmento
+    speakChunks(0);
+  };
+
+  const stopSpeaking = () => {
+    if (synthesisRef.current) {
+      synthesisRef.current.cancel();
+      // Forzar parada inmediata
+      setTimeout(() => {
+        if (synthesisRef.current) {
+          synthesisRef.current.cancel();
+        }
+        setIsSpeaking(false);
+      }, 100);
+    }
+  };
+
+  const addProject = async () => {
+    if (newProject.title.trim()) {
+      try {
+        const projectData = {
+          ...newProject,
+          status: 'activo',
+          progress: 0,
+          createdAt: new Date().toLocaleDateString(),
+          tasks: []
+        };
+
+        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
+          method: 'POST',
+          body: JSON.stringify({ project: projectData })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Actualizar estado local con el proyecto guardado
+            setProjects([...projects, { ...data.project, tasks: [] }]);
+            setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+            setShowCreateProject(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error guardando proyecto:', error);
+        // Fallback: guardar localmente si hay error de conexión
+        const project = {
+          id: Date.now(),
+          ...newProject,
+          status: 'activo',
+          progress: 0,
+          createdAt: new Date().toLocaleDateString(),
+          tasks: []
+        };
+        setProjects([...projects, project]);
+        setNewProject({ title: '', priority: 'media', deadline: '', description: '' });
+        setShowCreateProject(false);
+      }
     }
   };
 
@@ -151,12 +818,21 @@ const PersonalCoachAssistant = () => {
     ));
   };
 
-  const toggleProjectStatus = (projectId) => {
-    setProjects(projects.map(project =>
-      project.id === projectId 
-        ? { ...project, status: project.status === 'activo' ? 'pausado' : 'activo' }
-        : project
-    ));
+  const openStatusModal = (project) => {
+    setProjectToChangeStatus(project);
+    setShowStatusModal(true);
+  };
+
+  const changeProjectStatus = (newStatus) => {
+    if (projectToChangeStatus) {
+      setProjects(projects.map(project =>
+        project.id === projectToChangeStatus.id
+          ? { ...project, status: newStatus }
+          : project
+      ));
+      setShowStatusModal(false);
+      setProjectToChangeStatus(null);
+    }
   };
 
   const archiveProject = (projectId) => {
@@ -165,14 +841,38 @@ const PersonalCoachAssistant = () => {
     ));
   };
 
-  const deleteProject = (projectId) => {
-    // Solo permitir borrar proyectos sin tareas
-    const project = projects.find(p => p.id === projectId);
-    if (project && project.tasks.length === 0) {
+  const deleteProject = async (projectId) => {
+    console.log('🔥 INICIANDO ELIMINACIÓN DE PROYECTO:', projectId);
+    try {
+      // Eliminar del backend primero
+      const deleteUrl = `${getApiBase()}/projects/${projectId}`;
+      console.log('🗑️ Eliminando proyecto con URL:', deleteUrl);
+
+      const response = await authenticatedFetch(deleteUrl, {
+        method: 'DELETE'
+      });
+
+      console.log('📡 Respuesta del servidor:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error del servidor:', errorText);
+        throw new Error(`Error al eliminar proyecto del servidor: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Respuesta exitosa del servidor:', result);
+
+      // Si la eliminación en el backend fue exitosa, actualizar el estado local
       setProjects(projects.filter(project => project.id !== projectId));
 
       // Eliminar cualquier tarea diaria vinculada a este proyecto
       setDailyTasks(dailyTasks.filter(task => task.projectId !== projectId));
+
+      console.log('✅ Proyecto eliminado exitosamente del frontend');
+    } catch (error) {
+      console.error('❌ Error eliminando proyecto:', error);
+      alert(`Error al eliminar el proyecto: ${error.message}`);
     }
   };
 
@@ -247,70 +947,118 @@ const PersonalCoachAssistant = () => {
     setEditingProjectDescriptionText('');
   };
 
-  const addDailyTask = () => {
-    if (newTask.trim()) {
-      const taskId = Date.now();
-      let projectTaskId = null;
+  // Función para expandir/colapsar tareas del proyecto
+  const toggleProjectTasks = (projectId) => {
+    setExpandedProjectTasks(prev => ({
+      ...prev,
+      [projectId]: !prev[projectId]
+    }));
+  };
 
-      // Si hay un proyecto seleccionado, agregar la tarea al proyecto primero
-      if (selectedProjectForDaily) {
-        projectTaskId = taskId + 1; // ID único para la tarea del proyecto
+  // Función para abrir modal de detalle de proyecto
+  const openProjectDetail = (project) => {
+    setSelectedProject(project);
+    setShowProjectDetailModal(true);
+  };
 
-        const projectTask = {
-          id: projectTaskId,
-          title: newTask.trim(),
+
+  // Funciones para gestión de tareas de proyectos
+  const addProjectTask = async (projectId) => {
+    const taskText = newProjectTask[projectId];
+    if (taskText && taskText.trim()) {
+      try {
+        const task = {
+          title: taskText.trim(),
           description: '',
           completed: false,
           progress: 0,
           createdAt: new Date().toLocaleDateString()
         };
 
-        setProjects(projects.map(project =>
-          project.id === parseInt(selectedProjectForDaily)
-            ? { ...project, tasks: [...project.tasks, projectTask] }
-            : project
-        ));
+        // Guardar en la base de datos
+        const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
+          method: 'POST',
+          body: JSON.stringify({
+            projectId: projectId,
+            task: task
+          })
+        });
 
-        // Actualizar progreso del proyecto
-        setTimeout(() => updateProjectProgressFromTasks(parseInt(selectedProjectForDaily)), 0);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Actualizar estado local con la tarea guardada usando functional update
+            setProjects(prevProjects => {
+              const updatedProjects = prevProjects.map(project =>
+                project.id === projectId
+                  ? { ...project, tasks: [...project.tasks, { ...task, id: data.task.id }] }
+                  : project
+              );
+
+              // Actualizar progreso después de agregar la tarea
+              const targetProject = updatedProjects.find(p => p.id === projectId);
+              if (targetProject && targetProject.tasks.length > 0) {
+                const totalProgress = targetProject.tasks.reduce((sum, task) => sum + task.progress, 0);
+                const averageProgress = Math.round(totalProgress / targetProject.tasks.length);
+                return updatedProjects.map(p =>
+                  p.id === projectId ? { ...p, progress: averageProgress } : p
+                );
+              }
+              return updatedProjects;
+            });
+
+            // También actualizar selectedProject si el modal está abierto para este proyecto
+            if (selectedProject && selectedProject.id === projectId) {
+              setSelectedProject(prev => ({
+                ...prev,
+                tasks: [...prev.tasks, { ...task, id: data.task.id }]
+              }));
+            }
+
+            setNewProjectTask(prev => ({ ...prev, [projectId]: '' }));
+          }
+        }
+      } catch (error) {
+        console.error('Error guardando tarea del proyecto:', error);
+        // Fallback: guardar localmente si hay error
+        const task = {
+          id: Date.now(),
+          title: taskText.trim(),
+          description: '',
+          completed: false,
+          progress: 0,
+          createdAt: new Date().toLocaleDateString()
+        };
+
+        setProjects(prevProjects => {
+          const updatedProjects = prevProjects.map(project =>
+            project.id === projectId
+              ? { ...project, tasks: [...project.tasks, task] }
+              : project
+          );
+
+          // Actualizar progreso después de agregar la tarea
+          const targetProject = updatedProjects.find(p => p.id === projectId);
+          if (targetProject && targetProject.tasks.length > 0) {
+            const totalProgress = targetProject.tasks.reduce((sum, task) => sum + task.progress, 0);
+            const averageProgress = Math.round(totalProgress / targetProject.tasks.length);
+            return updatedProjects.map(p =>
+              p.id === projectId ? { ...p, progress: averageProgress } : p
+            );
+          }
+          return updatedProjects;
+        });
+
+        // También actualizar selectedProject si el modal está abierto para este proyecto (fallback)
+        if (selectedProject && selectedProject.id === projectId) {
+          setSelectedProject(prev => ({
+            ...prev,
+            tasks: [...prev.tasks, task]
+          }));
+        }
+
+        setNewProjectTask(prev => ({ ...prev, [projectId]: '' }));
       }
-
-      // Crear la tarea diaria
-      const dailyTask = {
-        id: taskId,
-        text: newTask,
-        completed: false,
-        createdAt: new Date().toLocaleDateString(),
-        projectId: selectedProjectForDaily ? parseInt(selectedProjectForDaily) : null,
-        projectTaskId: projectTaskId
-      };
-
-      setDailyTasks([...dailyTasks, dailyTask]);
-      setNewTask('');
-    }
-  };
-
-  // Funciones para gestión de tareas de proyectos
-  const addProjectTask = (projectId) => {
-    const taskText = newProjectTask[projectId];
-    if (taskText && taskText.trim()) {
-      const task = {
-        id: Date.now(),
-        title: taskText.trim(),
-        description: '',
-        completed: false,
-        progress: 0,
-        createdAt: new Date().toLocaleDateString()
-      };
-
-      setProjects(projects.map(project =>
-        project.id === projectId
-          ? { ...project, tasks: [...project.tasks, task] }
-          : project
-      ));
-
-      setNewProjectTask({ ...newProjectTask, [projectId]: '' });
-      updateProjectProgressFromTasks(projectId);
     }
   };
 
@@ -344,6 +1092,50 @@ const PersonalCoachAssistant = () => {
     updateProjectProgressFromTasks(projectId);
   };
 
+  const toggleProjectTaskCompletion = (projectId, taskId, completed) => {
+    setProjects(projects.map(project => {
+      if (project.id === projectId) {
+        const updatedTasks = project.tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              completed: completed,
+              progress: completed ? 100 : task.progress
+            };
+          }
+          return task;
+        });
+        return { ...project, tasks: updatedTasks };
+      }
+      return project;
+    }));
+
+    // Sincronizar con tareas diarias
+    setDailyTasks(dailyTasks.map(task => {
+      if (task.projectId === projectId && task.projectTaskId === taskId) {
+        return { ...task, completed: completed };
+      }
+      return task;
+    }));
+
+    // Actualizar selectedProject si está abierto en el modal
+    if (selectedProject && selectedProject.id === projectId) {
+      const updatedTasks = selectedProject.tasks.map(task => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            completed: completed,
+            progress: completed ? 100 : task.progress
+          };
+        }
+        return task;
+      });
+      setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+    }
+
+    updateProjectProgressFromTasks(projectId);
+  };
+
   const addProjectTaskToDaily = (projectId, task) => {
     const existingDailyTask = dailyTasks.find(dt =>
       dt.projectId === projectId && dt.projectTaskId === task.id
@@ -359,6 +1151,48 @@ const PersonalCoachAssistant = () => {
         projectTaskId: task.id
       };
       setDailyTasks([...dailyTasks, dailyTask]);
+
+      // Actualizar la lista de tareas disponibles si es el proyecto seleccionado
+      if (selectedProjectForTask && selectedProjectForTask === projectId) {
+        const updatedTasks = selectedProjectTasks.filter(t => t.id !== task.id);
+        setSelectedProjectTasks(updatedTasks);
+      }
+    }
+  };
+
+  const addDailyTask = async () => {
+    if (!newDailyTask.trim()) return;
+
+    const task = {
+      id: Date.now(),
+      text: newDailyTask.trim(),
+      completed: false,
+      projectId: selectedProjectForTask || null,
+      projectTaskId: null
+    };
+
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ task }),
+      });
+
+      if (response.ok) {
+        setDailyTasks([...dailyTasks, task]);
+        setNewDailyTask('');
+        setSelectedProjectForTask('');
+      } else {
+        console.error('Error al guardar tarea diaria');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      // Si falla la petición, al menos actualizar localmente
+      setDailyTasks([...dailyTasks, task]);
+      setNewDailyTask('');
+      setSelectedProjectForTask('');
     }
   };
 
@@ -369,6 +1203,12 @@ const PersonalCoachAssistant = () => {
         // Calcular progreso como promedio de los porcentajes de todas las tareas
         const totalProgress = project.tasks.reduce((sum, task) => sum + task.progress, 0);
         const averageProgress = Math.round(totalProgress / project.tasks.length);
+
+        // Actualizar también el selectedProject si es el mismo proyecto
+        if (selectedProject && selectedProject.id === projectId) {
+          setSelectedProject(prev => ({ ...prev, progress: averageProgress }));
+        }
+
         return prevProjects.map(p =>
           p.id === projectId ? { ...p, progress: averageProgress } : p
         );
@@ -405,6 +1245,16 @@ const PersonalCoachAssistant = () => {
         }
         return task;
       }));
+
+      // Actualizar selectedProject si está abierto en el modal
+      if (selectedProject && selectedProject.id === editingProjectId) {
+        const updatedTasks = selectedProject.tasks.map(task =>
+          task.id === editingProjectTaskId
+            ? { ...task, title: editingProjectTaskText.trim() }
+            : task
+        );
+        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      }
     }
     setEditingProjectId(null);
     setEditingProjectTaskId(null);
@@ -417,22 +1267,46 @@ const PersonalCoachAssistant = () => {
     setEditingProjectTaskText('');
   };
 
-  const deleteProjectTask = (projectId, taskId) => {
-    // Eliminar de proyecto
-    setProjects(projects.map(project => {
-      if (project.id === projectId) {
-        const updatedTasks = project.tasks.filter(task => task.id !== taskId);
-        return { ...project, tasks: updatedTasks };
+
+  const deleteProjectTask = async (projectId, taskId) => {
+    try {
+      // Eliminar de la base de datos primero
+      const deleteUrl = `${getApiBase()}/project-tasks/${taskId}`;
+      console.log('🗑️ Eliminando tarea con URL:', deleteUrl);
+      const response = await authenticatedFetch(deleteUrl, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        console.error('Error eliminando tarea del servidor');
+        return;
       }
-      return project;
-    }));
 
-    // Eliminar de tareas diarias si existe
-    setDailyTasks(dailyTasks.filter(task =>
-      !(task.projectId === projectId && task.projectTaskId === taskId)
-    ));
+      // Si la eliminación del servidor fue exitosa, actualizar el estado local
+      // Eliminar de proyecto
+      setProjects(projects.map(project => {
+        if (project.id === projectId) {
+          const updatedTasks = project.tasks.filter(task => task.id !== taskId);
+          return { ...project, tasks: updatedTasks };
+        }
+        return project;
+      }));
 
-    updateProjectProgressFromTasks(projectId);
+      // Eliminar de tareas diarias si existe
+      setDailyTasks(dailyTasks.filter(task =>
+        !(task.projectId === projectId && task.projectTaskId === taskId)
+      ));
+
+      // Actualizar selectedProject si está abierto en el modal
+      if (selectedProject && selectedProject.id === projectId) {
+        const updatedTasks = selectedProject.tasks.filter(task => task.id !== taskId);
+        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      }
+
+      updateProjectProgressFromTasks(projectId);
+    } catch (error) {
+      console.error('Error eliminando tarea:', error);
+    }
   };
 
   // Función para actualizar el porcentaje de progreso de una tarea
@@ -465,6 +1339,294 @@ const PersonalCoachAssistant = () => {
     }));
 
     updateProjectProgressFromTasks(projectId);
+
+    // Actualizar también el proyecto seleccionado para el modal
+    if (selectedProject && selectedProject.id === projectId) {
+      const updatedTasks = selectedProject.tasks.map(task => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            progress: progressValue,
+            completed: progressValue === 100
+          };
+        }
+        return task;
+      });
+
+      const totalProgress = updatedTasks.reduce((sum, task) => sum + (task.progress || 0), 0);
+      const averageProgress = updatedTasks.length > 0 ? Math.round(totalProgress / updatedTasks.length) : 0;
+
+      setSelectedProject({ ...selectedProject, tasks: updatedTasks, progress: averageProgress });
+    }
+  };
+
+  const startEditingTaskName = (taskId, currentName) => {
+    setEditingProjectTaskId(taskId);
+    setEditingProjectTaskText(currentName);
+  };
+
+  const saveTaskName = () => {
+    if (editingProjectTaskId && editingProjectTaskText.trim()) {
+      setProjects(projects.map(project => ({
+        ...project,
+        tasks: project.tasks.map(task =>
+          task.id === editingProjectTaskId
+            ? { ...task, text: editingProjectTaskText.trim(), title: editingProjectTaskText.trim() }
+            : task
+        )
+      })));
+
+      // También actualizar selectedProject si es el que estamos editando
+      if (selectedProject) {
+        const updatedTasks = selectedProject.tasks.map(task =>
+          task.id === editingProjectTaskId
+            ? { ...task, text: editingProjectTaskText.trim(), title: editingProjectTaskText.trim() }
+            : task
+        );
+        setSelectedProject({ ...selectedProject, tasks: updatedTasks });
+      }
+
+      setEditingProjectTaskId(null);
+      setEditingProjectTaskText('');
+    }
+  };
+
+  const cancelEditingTaskName = () => {
+    setEditingProjectTaskId(null);
+    setEditingProjectTaskText('');
+  };
+
+  const addTaskFromModal = async (projectId) => {
+    console.log('🎯 EJECUTANDO addTaskFromModal:', { projectId, newTaskText });
+    if (newTaskText && newTaskText.trim()) {
+      try {
+        const task = {
+          title: newTaskText.trim(),
+          text: newTaskText.trim(),
+          description: '',
+          completed: false,
+          progress: 0,
+          createdAt: new Date().toLocaleDateString(),
+          id: Date.now() // Temporary ID
+        };
+
+        // Actualizar estado local inmediatamente
+        setProjects(prevProjects => {
+          const updatedProjects = prevProjects.map(project =>
+            project.id === projectId
+              ? { ...project, tasks: [...(project.tasks || []), task] }
+              : project
+          );
+          return updatedProjects;
+        });
+
+        // También actualizar selectedProject si es el que estamos editando
+        if (selectedProject && selectedProject.id === projectId) {
+          setSelectedProject({
+            ...selectedProject,
+            tasks: [...(selectedProject.tasks || []), task]
+          });
+        }
+
+        // Limpiar el input y salir del modo edición
+        setNewTaskText('');
+        setIsAddingTask(false);
+        console.log('✅ Tarea agregada localmente, input limpiado');
+
+        // Opcional: guardar en base de datos en segundo plano
+        try {
+          const response = await authenticatedFetch(`${getApiBase()}/project-tasks`, {
+            method: 'POST',
+            body: JSON.stringify({
+              projectId: projectId,
+              task: task
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            // Actualizar con el ID real de la base de datos
+            if (data.success && data.task.id !== task.id) {
+              setProjects(prevProjects => {
+                return prevProjects.map(project =>
+                  project.id === projectId
+                    ? {
+                        ...project,
+                        tasks: project.tasks.map(t =>
+                          t.id === task.id ? { ...t, id: data.task.id } : t
+                        )
+                      }
+                    : project
+                );
+              });
+
+              if (selectedProject && selectedProject.id === projectId) {
+                setSelectedProject({
+                  ...selectedProject,
+                  tasks: selectedProject.tasks.map(t =>
+                    t.id === task.id ? { ...t, id: data.task.id } : t
+                  )
+                });
+              }
+            }
+          }
+        } catch (dbError) {
+          console.error('Error saving to database:', dbError);
+          // La tarea ya está en el estado local, así que no hay problema
+        }
+
+      } catch (error) {
+        console.error('Error adding task:', error);
+        alert('Error al agregar la tarea');
+      }
+    }
+  };
+
+  // Funciones para timers de tareas
+  const startTimer = async (taskId) => {
+    // Pausar cualquier timer activo
+    if (activeTimer) {
+      pauseTimer(activeTimer);
+    }
+
+    // Encontrar la tarea en los proyectos para obtener su información
+    let taskToAdd = null;
+    let projectId = null;
+
+    for (const project of projects) {
+      const foundTask = project.tasks?.find(task => task.id === taskId);
+      if (foundTask) {
+        taskToAdd = foundTask;
+        projectId = project.id;
+        break;
+      }
+    }
+
+    // Si encontramos la tarea y no está ya en las tareas diarias de hoy, agregarla
+    if (taskToAdd && projectId) {
+      const today = new Date().toLocaleDateString();
+      const existingDailyTask = dailyTasks.find(task =>
+        task.projectTaskId === taskId && task.projectId === projectId
+      );
+
+      if (!existingDailyTask) {
+        try {
+          const dailyTask = {
+            text: taskToAdd.text || taskToAdd.title || 'Tarea sin título',
+            completed: false,
+            projectId: projectId,
+            projectTaskId: taskId,
+            createdAt: today,
+            isFromProject: true
+          };
+
+          // Guardar en la base de datos
+          const response = await authenticatedFetch(`${getApiBase()}/daily-tasks`, {
+            method: 'POST',
+            body: JSON.stringify({ task: dailyTask })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              // Actualizar estado local
+              setDailyTasks(prev => [...prev, { ...dailyTask, id: data.task.id }]);
+            }
+          } else {
+            // Fallback: agregar localmente si falla la BD
+            setDailyTasks(prev => [...prev, { ...dailyTask, id: Date.now() }]);
+          }
+        } catch (error) {
+          console.error('Error adding task to daily tasks:', error);
+          // Fallback: agregar localmente
+          const dailyTask = {
+            id: Date.now(),
+            text: taskToAdd.text || taskToAdd.title || 'Tarea sin título',
+            completed: false,
+            projectId: projectId,
+            projectTaskId: taskId,
+            createdAt: today,
+            isFromProject: true
+          };
+          setDailyTasks(prev => [...prev, dailyTask]);
+        }
+      }
+    }
+
+    // Inicializar o reanudar el timer para esta tarea
+    const currentTime = Date.now();
+    setTaskTimers(prev => ({
+      ...prev,
+      [taskId]: {
+        ...prev[taskId],
+        isActive: true,
+        startTime: currentTime,
+        totalTime: prev[taskId]?.totalTime || 0
+      }
+    }));
+    setActiveTimer(taskId);
+  };
+
+  const pauseTimer = (taskId) => {
+    const timer = taskTimers[taskId];
+    if (timer && timer.isActive) {
+      const currentTime = Date.now();
+      const sessionTime = currentTime - timer.startTime;
+
+      setTaskTimers(prev => ({
+        ...prev,
+        [taskId]: {
+          ...prev[taskId],
+          isActive: false,
+          totalTime: timer.totalTime + sessionTime,
+          startTime: null
+        }
+      }));
+
+      if (activeTimer === taskId) {
+        setActiveTimer(null);
+      }
+    }
+  };
+
+  const resetTimer = (taskId) => {
+    setTaskTimers(prev => ({
+      ...prev,
+      [taskId]: {
+        isActive: false,
+        totalTime: 0,
+        startTime: null
+      }
+    }));
+
+    if (activeTimer === taskId) {
+      setActiveTimer(null);
+    }
+  };
+
+  const formatTime = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+  };
+
+  const getTaskElapsedTime = (taskId) => {
+    const timer = taskTimers[taskId];
+    if (!timer) return '0:00';
+
+    let totalTime = timer.totalTime;
+    if (timer.isActive && timer.startTime) {
+      totalTime += Date.now() - timer.startTime;
+    }
+
+    return formatTime(totalTime);
   };
 
   // Funciones para el asistente
@@ -510,14 +1672,14 @@ const PersonalCoachAssistant = () => {
   };
 
   const addCustomSpecialty = () => {
-    if (customSpecialty.trim() && !availableSpecialties.includes(customSpecialty.trim())) {
-      const newSpecialty = customSpecialty.trim();
+    if (newCustomSpecialty.trim() && !availableSpecialties.includes(newCustomSpecialty.trim())) {
+      const newSpecialty = newCustomSpecialty.trim();
       setAvailableSpecialties(prev => [...prev, newSpecialty]);
       setAssistantConfig(prev => ({
         ...prev,
         specialties: [...prev.specialties, newSpecialty]
       }));
-      setCustomSpecialty('');
+      setNewCustomSpecialty('');
     }
   };
 
@@ -696,11 +1858,9 @@ const PersonalCoachAssistant = () => {
 
       return {
         success: true,
-        message: `¡Listo! 🚀 He creado el proyecto "${params.title}" con prioridad ${params.priority}. ${deadlineMessage}${motivationalMessage}
+        message: `Perfecto, he creado el proyecto "${params.title}" ${deadlineMessage}${motivationalMessage}
 
-¡Ahora vamos a poblarlo de tareas para que puedas comenzar a ejecutar! ¿Qué tareas específicas necesitas para este proyecto? Puedes decirme varias y las agrego todas de una vez.
-
-💡 Por ejemplo: "Agrega las tareas: investigar tecnologías, crear mockups, desarrollar MVP"`,
+¿Qué tareas concretas necesitas para avanzar? Puedes decirme varias y las agrego todas juntas para que puedas empezar a trabajar.`,
         project_id: project.id
       };
     } catch (error) {
@@ -737,9 +1897,7 @@ const PersonalCoachAssistant = () => {
 
       return {
         success: true,
-        message: `✅ ${encouragement}He agregado "${params.task_title}" al proyecto "${project.title}".
-
-🎯 ¿Te gustaría que la agregue a tu enfoque de hoy para comenzar a trabajar en ella? O si tienes más tareas en mente, ¡sigue diciéndomelas!`,
+        message: `${encouragement}He agregado "${params.task_title}" al proyecto "${project.title}". ¿Quieres que la pongamos en tu enfoque de hoy para empezar a trabajar? O si tienes más tareas en mente, dímelas.`,
         task_id: task.id
       };
     } catch (error) {
@@ -764,24 +1922,20 @@ const PersonalCoachAssistant = () => {
       // Mensajes motivacionales según el progreso
       let progressMessage = "";
       if (params.progress === 100) {
-        progressMessage = "¡Increíble! 🎉 Has completado esta tarea al 100%. ¡Eso es lo que llamo ejecución perfecta!";
+        progressMessage = "¡Perfecto! Has terminado esta tarea completamente.";
       } else if (params.progress >= 75) {
-        progressMessage = "¡Excelente progreso! 🚀 Ya estás en la recta final con este 75%+. ¡Sigue así!";
+        progressMessage = "Excelente, ya casi terminas.";
       } else if (params.progress >= 50) {
-        progressMessage = "¡Vas por buen camino! 💪 Ya tienes más de la mitad completada.";
+        progressMessage = "Vas por buen camino, ya tienes más de la mitad.";
       } else if (params.progress >= 25) {
-        progressMessage = "¡Buen inicio! 👍 Ya tienes una base sólida con este avance.";
+        progressMessage = "Buen avance para empezar.";
       } else {
-        progressMessage = "¡Perfecto! 🎯 Todo gran proyecto comienza con el primer paso.";
+        progressMessage = "Perfecto, todo proyecto empieza con el primer paso.";
       }
 
       return {
         success: true,
-        message: `✅ ${progressMessage} He actualizado "${task.title}" al ${params.progress}%.
-
-${params.progress === 100
-  ? "🏆 ¿Qué sigue? ¿Hay otra tarea en la que te gustaría concentrarte?"
-  : "💡 ¿Necesitas que ajuste algo más o quieres continuar con otra tarea?"}`
+        message: `${progressMessage} He actualizado "${task.title}" al ${params.progress}%. ${params.progress === 100 ? "¿Qué sigue ahora?" : "¿Necesitas ajustar algo más?"}`
       };
     } catch (error) {
       return { success: false, message: "Error al actualizar el progreso: " + error.message };
@@ -816,11 +1970,7 @@ ${params.progress === 100
 
       return {
         success: true,
-        message: `🎯 ¡Excelente decisión! He agregado "${task.title}" a tu enfoque de hoy.
-
-Ahora ya tienes una tarea concreta para avanzar en tu proyecto "${project.title}". Ve al Dashboard o a la pestaña principal y ¡comienza a ejecutar! 💪
-
-¿Hay alguna otra tarea que quieras priorizar para hoy?`
+        message: `Perfecto, he agregado "${task.title}" a tu enfoque de hoy. Ahora tienes algo concreto para avanzar en "${project.title}". ¿Hay alguna otra tarea que quieras priorizar para hoy?`
       };
     } catch (error) {
       return { success: false, message: "Error al agregar al enfoque diario: " + error.message };
@@ -844,41 +1994,63 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       }
 
       const activeProjects = projects.filter(p => p.status === 'activo');
-      const completedProjects = projects.filter(p => p.status === 'completado');
-      const totalTasks = projects.reduce((sum, p) => sum + p.tasks.length, 0);
       const completedTasks = projects.reduce((sum, p) => sum + p.tasks.filter(t => t.completed).length, 0);
 
-      let statusMessage = `📊 **Estado de tus proyectos:**
+      // Generar un mensaje más conversacional y humano
+      let statusMessage = "";
 
-🚀 **Proyectos activos:** ${activeProjects.length}
-✅ **Proyectos completados:** ${completedProjects.length}
-📝 **Total de tareas:** ${totalTasks}
-🎯 **Tareas completadas:** ${completedTasks}/${totalTasks}
+      if (activeProjects.length === 0) {
+        statusMessage = "Veo que no tienes proyectos activos en este momento. ¿Te gustaría que te ayude a planificar alguno nuevo o hay algo específico en lo que quieras trabajar hoy?";
+      } else if (activeProjects.length === 1) {
+        const project = activeProjects[0];
+        const completedProjectTasks = project.tasks.filter(t => t.completed).length;
+        const totalProjectTasks = project.tasks.length;
 
-`;
-
-      if (activeProjects.length > 0) {
-        statusMessage += "**Detalles de proyectos activos:**\n";
-        activeProjects.forEach(project => {
-          const taskStatus = project.tasks.length > 0
-            ? `${project.tasks.filter(t => t.completed).length}/${project.tasks.length} tareas`
-            : "Sin tareas aún";
-
-          statusMessage += `\n🔸 **${project.title}** (${project.priority} prioridad)
-   Progreso: ${project.progress}% | Tareas: ${taskStatus}`;
+        if (totalProjectTasks === 0) {
+          statusMessage = `Tienes un proyecto activo: "${project.title}". Aún no tiene tareas definidas, así que podríamos empezar por planificar los primeros pasos. ¿Qué te parece si definimos algunas tareas concretas para avanzar?`;
+        } else {
+          const progressText = project.progress > 70 ? "¡Va muy bien!" : project.progress > 40 ? "va por buen camino" : "está empezando a tomar forma";
+          statusMessage = `Tu proyecto "${project.title}" ${progressText} Has completado ${completedProjectTasks} de ${totalProjectTasks} tareas`;
 
           if (project.deadline) {
-            statusMessage += ` | ⏰ Fecha límite: ${project.deadline}`;
+            const deadlineDate = new Date(project.deadline);
+            const today = new Date();
+            const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+            if (daysLeft <= 3) {
+              statusMessage += ` y la fecha límite está cerca (${project.deadline})`;
+            } else if (daysLeft <= 7) {
+              statusMessage += ` y tienes una semana para terminarlo`;
+            }
           }
+
+          statusMessage += ". ¿En qué tarea te gustaría enfocar hoy?";
+        }
+      } else {
+        // Múltiples proyectos
+        const projectWithMostProgress = activeProjects.reduce((max, project) =>
+          project.progress > max.progress ? project : max, activeProjects[0]);
+
+        const urgentProjects = activeProjects.filter(p => {
+          if (!p.deadline) return false;
+          const deadlineDate = new Date(p.deadline);
+          const today = new Date();
+          const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+          return daysLeft <= 7;
         });
 
-        statusMessage += `\n\n💡 **Recomendación:** ${
-          totalTasks === 0
-            ? "¡Agreguemos tareas a tus proyectos para comenzar a avanzar!"
-            : completedTasks / totalTasks < 0.3
-            ? "Enfócate en completar las tareas existentes antes de agregar más."
-            : "¡Vas muy bien! ¿Te ayudo a agregar más tareas o quieres enfocar alguna para hoy?"
-        }`;
+        if (urgentProjects.length > 0) {
+          statusMessage = `Tienes ${activeProjects.length} proyectos activos. Me llama la atención que "${urgentProjects[0].title}" tiene fecha límite próxima. Te sugiero enfocarte en eso hoy`;
+        } else if (projectWithMostProgress.progress > 50) {
+          statusMessage = `Veo que tienes ${activeProjects.length} proyectos en marcha. "${projectWithMostProgress.title}" está avanzando bien (${projectWithMostProgress.progress}%), quizás sea buena idea impulsarlo un poco más para terminarlo pronto`;
+        } else {
+          statusMessage = `Tienes ${activeProjects.length} proyectos activos. Para ser más efectivo, te recomiendo elegir uno y enfocarte en él hoy`;
+        }
+
+        if (completedTasks > 0) {
+          statusMessage += `. Has completado ${completedTasks} tareas en total, ¡buen ritmo!`;
+        }
+
+        statusMessage += " ¿Cuál quieres priorizar?";
       }
 
       return {
@@ -968,6 +2140,65 @@ Por ejemplo: "Crea un proyecto llamado 'Lanzar mi negocio online' con prioridad 
       return memoryText || "Aún no hay información de memoria a largo plazo registrada. Aprenderé sobre ti a medida que conversemos.";
     };
 
+    // Construir contexto de proyectos actual
+    const buildProjectContext = () => {
+      if (projects.length === 0) {
+        return "El usuario aún no tiene proyectos creados. Sugiere crear algunos y ayúdale con la gestión inicial.";
+      }
+
+      const activeProjects = projects.filter(p => p.status === 'active');
+      const inactiveProjects = projects.filter(p => p.status === 'inactive');
+      const totalTasks = projects.reduce((total, project) => total + (project.tasks?.length || 0), 0);
+      const completedTasks = projects.reduce((total, project) =>
+        total + (project.tasks?.filter(task => task.completed).length || 0), 0
+      );
+      const pendingTasks = totalTasks - completedTasks;
+
+      let projectContext = `\nESTADO ACTUAL DE PROYECTOS DEL USUARIO:
+• Total de proyectos: ${projects.length}
+• Proyectos activos: ${activeProjects.length}
+• Proyectos inactivos: ${inactiveProjects.length}
+• Total de tareas: ${totalTasks}
+• Tareas completadas: ${completedTasks}
+• Tareas pendientes: ${pendingTasks}`;
+
+      if (activeProjects.length > 0) {
+        projectContext += `\n\nPROYECTOS ACTIVOS EN DETALLE:`;
+        activeProjects.forEach(project => {
+          const projectTasks = project.tasks || [];
+          const projectCompletedTasks = projectTasks.filter(t => t.completed).length;
+          const projectPendingTasks = projectTasks.length - projectCompletedTasks;
+
+          projectContext += `\n📋 "${project.title}"`;
+          if (project.description) projectContext += ` - ${project.description}`;
+          if (project.priority) projectContext += ` (Prioridad: ${project.priority})`;
+          if (project.deadline) projectContext += ` (Fecha límite: ${project.deadline})`;
+          projectContext += `\n   • Tareas: ${projectTasks.length} total, ${projectCompletedTasks} completadas, ${projectPendingTasks} pendientes`;
+
+          if (projectPendingTasks > 0) {
+            const pendingTasksList = projectTasks.filter(t => !t.completed).slice(0, 3);
+            projectContext += `\n   • Próximas tareas: ${pendingTasksList.map(t => t.title || t.text).join(', ')}`;
+            if (projectPendingTasks > 3) projectContext += ` y ${projectPendingTasks - 3} más...`;
+          }
+        });
+      }
+
+      // Análisis de patrones y sugerencias
+      projectContext += `\n\nANÁLISIS INTELIGENTE:`;
+      if (pendingTasks > completedTasks) {
+        projectContext += `\n• 🎯 FOCO RECOMENDADO: El usuario tiene más tareas pendientes (${pendingTasks}) que completadas (${completedTasks}). Ayúdale con priorización.`;
+      }
+      if (activeProjects.length > 3) {
+        projectContext += `\n• ⚠️ CARGA DE TRABAJO: ${activeProjects.length} proyectos activos pueden ser demasiados. Considera sugerir enfoques o priorización.`;
+      }
+      if (activeProjects.some(p => p.priority === 'alta')) {
+        const highPriorityProjects = activeProjects.filter(p => p.priority === 'alta');
+        projectContext += `\n• 🚨 URGENTE: ${highPriorityProjects.length} proyecto(s) de alta prioridad: ${highPriorityProjects.map(p => p.title).join(', ')}`;
+      }
+
+      return projectContext;
+    };
+
     return `${assistantConfig.basePrompt}
 
 INFORMACIÓN PERSONAL:
@@ -979,6 +2210,9 @@ FECHA Y HORA ACTUAL:
 - Hoy es ${dateString}
 - Son las ${timeString}
 - Usa esta información para referencias de tiempo relativas (ej: "en una semana", "mañana", "la próxima semana", etc.)
+
+CONTEXTO DE PROYECTOS Y PRODUCTIVIDAD:
+${buildProjectContext()}
 
 TONO Y ESTILO:
 ${toneInstructions}
@@ -998,24 +2232,49 @@ Tengo acceso a funciones especiales para ayudarte a gestionar tus proyectos y ta
 INSTRUCCIONES PARA USO DE FUNCIONES:
 - Cuando el usuario mencione crear, agregar o gestionar proyectos/tareas, usa las funciones apropiadas
 - Siempre confirma las acciones realizadas y explica qué se hizo
-- Si el usuario pide información sobre proyectos, usa get_projects_status primero
+- USA get_projects_status SOLO cuando el usuario pregunte específicamente por un resumen general del estado (ej: "¿cómo van mis proyectos?", "muéstrame el estado de todos mis proyectos")
+- Para preguntas específicas sobre datos ya mencionados en la conversación, usa el CONTEXTO PREVIO en lugar de volver a ejecutar funciones
 - Sé proactivo sugiriendo acciones útiles como agregar tareas al enfoque diario
 
 MEMORIA A LARGO PLAZO Y CONTEXTO EMOCIONAL:
 ${buildMemoryContext()}
 
-INSTRUCCIONES ADICIONALES:
+INSTRUCCIONES AVANZADAS DE INTELIGENCIA CONTEXTUAL:
 - Usa el nombre ${userName} de manera natural en la conversación
 - Identifícate como ${assistantName} cuando sea relevante
 - Aplica tu experiencia en ${assistantConfig.specialties.join(', ')} para dar consejos específicos
 - Mantén las respuestas prácticas y orientadas a la acción
 - Cuando uses funciones, explica claramente qué hiciste y ofrece próximos pasos
-- IMPORTANTE: Usa la memoria a largo plazo para personalizar completamente tus respuestas y sugerencias
+
+MANEJO DE CONTEXTO CONVERSACIONAL:
+- SIEMPRE revisa el historial de conversación antes de responder
+- Si ya mencionaste información específica de un proyecto (como fecha límite), úsala directamente
+- NO vuelvas a ejecutar funciones para datos que ya están en el contexto de la conversación
+- Mantén la coherencia con información previamente mencionada
+
+INTELIGENCIA ADAPTATIVA:
+- CONTEXT-AWARE: Usa SIEMPRE el contexto de proyectos actual para dar respuestas relevantes y específicas
+- PREDICTIVE COACHING: Anticipa necesidades basándote en patrones de trabajo y estado de proyectos
+- PROACTIVE SUGGESTIONS: Sugiere acciones específicas basadas en deadlines próximos, tareas pendientes y prioridades
+- TIME-SENSITIVE: Ajusta urgencia y enfoque según fechas límite y carga de trabajo actual
+- PERSONALIZED MOTIVATION: Adapta el estilo motivacional según el progreso actual y desafíos identificados
+
+MEMORIA A LARGO PLAZO INTEGRADA:
+- Usa la memoria a largo plazo para personalizar completamente tus respuestas y sugerencias
 - Adapta tu motivación basándote en el contexto emocional y patrones de trabajo del usuario
 - Sugiere estrategias de crecimiento evolutivo basadas en las áreas de mejora identificadas
 - PRIORIDAD MÁXIMA: Enfócate principalmente en las prioridades actuales del usuario
-- APRENDIZAJE AUTOMÁTICO: Observa y aprende constantemente sobre el usuario a partir de sus mensajes, decisiones y patrones
+
+APRENDIZAJE CONTINUO:
+- Observa y aprende constantemente sobre el usuario a partir de sus mensajes, decisiones y patrones
 - Identifica automáticamente: patrones de trabajo, preferencias, desafíos, fortalezas y estilo de comunicación
+- Relaciona conversaciones previas con la situación actual de proyectos para dar continuidad inteligente
+
+RESPUESTAS INTELIGENTES:
+- Conecta siempre las preguntas del usuario con su situación real de proyectos
+- Ofrece consejos específicos y accionables basados en sus datos reales
+- Sugiere próximos pasos concretos que el usuario puede tomar inmediatamente
+- Menciona proyectos, tareas o situaciones específicas cuando sea relevante
 
 Responde siempre en español y mantén el tono configurado.`;
   };
@@ -1023,11 +2282,11 @@ Responde siempre en español y mantén el tono configurado.`;
   // Función para formatear el historial de conversación para OpenAI
   const formatConversationHistory = () => {
     return messages
-      .filter(msg => msg.type !== 'system') // Excluir mensajes del sistema si los hay
+      .filter(msg => msg.sender !== 'system') // Excluir mensajes del sistema si los hay
       .slice(-10) // Mantener solo los últimos 10 mensajes para eficiencia
       .map(msg => ({
-        role: msg.type === 'user' ? 'user' : 'assistant',
-        content: msg.content
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text || 'Mensaje sin contenido'
       }));
   };
 
@@ -1071,10 +2330,17 @@ Responde siempre en español y mantén el tono configurado.`;
   const sendMessage = async () => {
     if (!newMessage.trim() || isAssistantTyping) return;
 
+    // Detener reconocimiento de voz si está activo
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      // Limpiar el texto acumulado para evitar que se restaure
+      finalTranscriptRef.current = '';
+    }
+
     const userMessage = {
       id: Date.now(),
-      type: 'user',
-      content: newMessage,
+      sender: 'user',
+      text: newMessage,
       timestamp: new Date().toLocaleTimeString()
     };
 
@@ -1084,7 +2350,7 @@ Responde siempre en español y mantén el tono configurado.`;
     setIsAssistantTyping(true);
 
     try {
-      // Llamada a OpenAI API
+      // Llamada a OpenAI API con autenticación
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -1096,14 +2362,14 @@ Responde siempre en español y mantén el tono configurado.`;
           messages: [
             {
               role: 'system',
-              content: buildSystemPrompt()
+              content: buildSystemPrompt() || 'Eres un asistente personal útil.'
             },
             ...formatConversationHistory(),
             {
               role: 'user',
-              content: currentMessage
+              content: currentMessage || 'Hola'
             }
-          ],
+          ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
           functions: assistantFunctions,
           function_call: "auto",
           max_tokens: 1000,
@@ -1144,22 +2410,40 @@ Responde siempre en español y mantén el tono configurado.`;
 
       const assistantMessage = {
         id: Date.now() + 1,
-        type: 'assistant',
-        content: assistantResponse || "He procesado tu solicitud.",
+        sender: 'assistant',
+        text: assistantResponse || "He procesado tu solicitud.",
         timestamp: new Date().toLocaleTimeString(),
         functionResults: functionResults
       };
 
       setMessages(prev => [...prev, assistantMessage]);
 
+      // Síntesis de voz para la respuesta del asistente
+      if (voiceEnabled && assistantResponse) {
+        // Limpiar el texto de markdown para síntesis de voz
+        const cleanText = assistantResponse
+          .replace(/\*\*(.*?)\*\*/g, '$1') // Quitar bold
+          .replace(/\*(.*?)\*/g, '$1') // Quitar cursiva
+          .replace(/#{1,6}\s/g, '') // Quitar encabezados
+          .replace(/```[\s\S]*?```/g, '[código]') // Reemplazar bloques de código
+          .replace(/`([^`]+)`/g, '$1') // Quitar comillas inversas
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Limpiar enlaces
+          .replace(/[📊🚀✅📝🎯💡🔸⏰📋]/g, '') // Quitar emojis comunes
+          .trim();
+
+        if (cleanText) {
+          speakText(cleanText);
+        }
+      }
+
     } catch (error) {
       console.error('Error enviando mensaje:', error);
 
-      // Mensaje de error para el usuario
+      // Mensaje de error para el usuario con respuesta de demostración
       const errorMessage = {
         id: Date.now() + 1,
-        type: 'assistant',
-        content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, verifica tu conexión a internet o intenta de nuevo.',
+        sender: 'assistant',
+        text: `Entiendo tu mensaje: "${currentMessage}". El servicio de IA está temporalmente no disponible, pero el chat bubble funciona perfectamente. ¡Puedes ver cómo se visualizan los mensajes!`,
         timestamp: new Date().toLocaleTimeString()
       };
 
@@ -1229,6 +2513,140 @@ Responde siempre en español y mantén el tono configurado.`;
   const completedTasks = dailyTasks.filter(t => t.completed).length;
   const completionRate = dailyTasks.length > 0 ? Math.round((completedTasks / dailyTasks.length) * 100) : 0;
 
+  // Función para renderizar un item de tarea con estilos de prioridad
+  const renderTaskItem = (task, priority = 'normal') => {
+    const project = task.projectId ? getProjectById(task.projectId) : null;
+    const isUrgent = priority === 'urgent';
+
+    // Calcular información de deadline si existe
+    let deadlineInfo = null;
+    if (project && project.deadline) {
+      const deadline = new Date(project.deadline);
+      const today = new Date();
+      const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+
+      if (daysLeft <= 0) {
+        deadlineInfo = { text: 'Vencido', color: 'text-red-600 bg-red-100' };
+      } else if (daysLeft <= 1) {
+        deadlineInfo = { text: 'Mañana', color: 'text-red-600 bg-red-100' };
+      } else if (daysLeft <= 3) {
+        deadlineInfo = { text: `${daysLeft} días`, color: 'text-orange-600 bg-orange-100' };
+      }
+    }
+
+    return (
+      <div
+        key={task.id}
+        className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
+          isUrgent
+            ? 'bg-red-50 border-red-200 hover:bg-red-100'
+            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+        }`}
+      >
+        <div className="flex items-center flex-1">
+          <input
+            type="checkbox"
+            checked={task.completed}
+            onChange={() => toggleTask(task.id)}
+            className={`mr-3 ${isUrgent ? 'text-red-600' : ''}`}
+          />
+          <div className="flex-1">
+            {editingTaskId === task.id ? (
+              <input
+                type="text"
+                value={editingTaskText}
+                onChange={(e) => setEditingTaskText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveEditedTask();
+                  if (e.key === 'Escape') cancelEditingTask();
+                }}
+                onBlur={saveEditedTask}
+                className="w-full p-1 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className={task.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
+                    {task.text}
+                  </span>
+                  {deadlineInfo && (
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${deadlineInfo.color}`}>
+                      {deadlineInfo.text}
+                    </span>
+                  )}
+                </div>
+                {project && (
+                  <div className="mt-1">
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${getProjectColor(project.id)}`}>
+                      {project.title}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Timer display for project tasks */}
+        {task.isFromProject && task.projectTaskId && (
+          <div className="flex items-center gap-2 mr-2">
+            <span style={{
+              fontSize: '12px',
+              color: taskTimers[task.projectTaskId]?.isActive ? '#3b82f6' : '#6b7280',
+              fontWeight: taskTimers[task.projectTaskId]?.isActive ? 'bold' : 'normal',
+              minWidth: '45px',
+              padding: '2px 6px',
+              backgroundColor: taskTimers[task.projectTaskId]?.isActive ? '#dbeafe' : '#f3f4f6',
+              borderRadius: '4px',
+              border: taskTimers[task.projectTaskId]?.isActive ? '1px solid #3b82f6' : '1px solid #d1d5db'
+            }}>
+              ⏰ {getTaskElapsedTime(task.projectTaskId)}
+            </span>
+          </div>
+        )}
+
+        <div className="flex gap-1">
+          {editingTaskId === task.id ? (
+            <>
+              <button
+                onClick={saveEditedTask}
+                className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
+                title="Guardar"
+              >
+                <CheckCircle size={16} />
+              </button>
+              <button
+                onClick={cancelEditingTask}
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
+                title="Cancelar"
+              >
+                ✕
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => startEditingTask(task.id, task.text)}
+                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
+                title="Editar tarea"
+              >
+                <Edit3 size={16} />
+              </button>
+              <button
+                onClick={() => deleteTask(task.id)}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                title="Eliminar tarea"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const getPriorityColor = (priority) => {
     switch(priority) {
       case 'alta': return 'text-red-600 bg-red-50';
@@ -1247,769 +2665,778 @@ Responde siempre en español y mantén el tono configurado.`;
       'bg-indigo-100 text-indigo-800',
       'bg-orange-100 text-orange-800'
     ];
-    return colors[projectId % colors.length];
+
+    // Ensure we have a valid projectId and generate a safe index
+    if (!projectId && projectId !== 0) {
+      return colors[0]; // Default color
+    }
+
+    // Convert to string and get a hash-like number for consistent colors
+    const id = typeof projectId === 'string' ? projectId : String(projectId);
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = hash * 31 + id.charCodeAt(i);
+    }
+
+    return colors[Math.abs(hash) % colors.length];
   };
 
   const getProjectById = (projectId) => {
     return projects.find(p => p.id === projectId);
   };
 
-  const renderDashboard = () => (
-    <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      {/* Coach Message */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-lg flex-shrink-0">
-        <h2 className="text-lg font-bold mb-1">Tu Coach Personal te dice:</h2>
-        <p className="text-sm">{coachMessage}</p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-600 font-semibold text-sm">Proyectos Activos</p>
-              <p className="text-xl font-bold text-blue-800">{activeProjects.length}</p>
+  const renderDashboard = () => {
+    return (
+      <div className="h-full flex flex-col space-y-3 overflow-hidden">
+        {/* Header compacto con estadísticas - Responsive */}
+        <div className="flex-shrink-0 bg-white border border-gray-200 rounded-lg shadow-sm p-3 md:p-4">
+          <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between md:gap-4">
+            <div className="flex items-center space-x-3 md:space-x-4">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Target className="text-white" size={16} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base md:text-lg font-semibold text-gray-900">Enfoque de Hoy</h3>
+                <p className="text-xs md:text-sm text-gray-600 hidden sm:block">Tareas prioritarias para alcanzar tus objetivos</p>
+              </div>
             </div>
-            <Target className="text-blue-500" size={24} />
-          </div>
-        </div>
 
-        <div className="bg-green-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-600 font-semibold text-sm">Tareas de Hoy</p>
-              <p className="text-xl font-bold text-green-800">{completedTasks}/{dailyTasks.length}</p>
-            </div>
-            <CheckCircle className="text-green-500" size={24} />
-          </div>
-        </div>
-
-        <div className="bg-purple-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-600 font-semibold text-sm">Efectividad</p>
-              <p className="text-xl font-bold text-purple-800">{completionRate}%</p>
-            </div>
-            <TrendingUp className="text-purple-500" size={24} />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden">
-        {/* Left Column - Today's Focus */}
-        <div className="flex-1 bg-white border rounded-lg p-4 flex flex-col overflow-hidden">
-          <h3 className="text-lg font-semibold mb-3 flex items-center flex-shrink-0">
-            <Calendar className="mr-2 text-blue-500" size={18} />
-            Enfoque de Hoy
-          </h3>
-
-          {/* Compact Task Input */}
-          <div className="space-y-2 mb-3 flex-shrink-0">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Nueva tarea..."
-                value={newTask}
-                onChange={(e) => setNewTask(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addDailyTask()}
-                className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+            {/* Estadísticas compactas - Grid responsive para móvil */}
+            <div className="flex items-center justify-between md:justify-end md:space-x-4 lg:space-x-6">
+              <div className="grid grid-cols-3 gap-4 md:gap-6 flex-1 md:flex-none md:flex md:items-center">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Proyectos</p>
+                  <p className="text-sm md:text-lg font-bold text-gray-900">{activeProjects.length}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Tareas</p>
+                  <p className="text-sm md:text-lg font-bold text-green-600">{completedTasks}/{dailyTasks.length}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Progreso</p>
+                  <p className="text-sm md:text-lg font-bold text-blue-600">{completionRate}%</p>
+                </div>
+              </div>
               <button
-                onClick={addDailyTask}
-                className="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 flex items-center text-sm"
+                onClick={() => setActiveView('assistant')}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-xs md:text-sm ml-2 md:ml-0"
               >
-                <Plus size={14} />
+                <Bot size={14} />
+                <span className="hidden sm:inline">IA</span>
               </button>
             </div>
-
-            <select
-              value={selectedProjectForDaily}
-              onChange={(e) => setSelectedProjectForDaily(e.target.value)}
-              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="">Tarea independiente</option>
-              {activeProjects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2 flex-1 overflow-y-auto">
-          {dailyTasks.map(task => {
-            const project = task.projectId ? getProjectById(task.projectId) : null;
-            return (
-              <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                <div className="flex items-center flex-1">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => toggleTask(task.id)}
-                    className="mr-3"
-                  />
-                  <div className="flex-1">
-                    {editingTaskId === task.id ? (
-                      <input
-                        type="text"
-                        value={editingTaskText}
-                        onChange={(e) => setEditingTaskText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveEditedTask();
-                          if (e.key === 'Escape') cancelEditingTask();
-                        }}
-                        onBlur={saveEditedTask}
-                        className="w-full p-1 border rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    ) : (
-                      <>
-                        <span className={task.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
-                          {task.text}
-                        </span>
-                        {project && (
-                          <div className="mt-1">
-                            <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${getProjectColor(project.id)}`}>
-                              {project.title}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  {editingTaskId === task.id ? (
-                    <>
-                      <button
-                        onClick={saveEditedTask}
-                        className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
-                        title="Guardar"
-                      >
-                        <CheckCircle size={16} />
-                      </button>
-                      <button
-                        onClick={cancelEditingTask}
-                        className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                        title="Cancelar"
-                      >
-                        ✕
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => startEditingTask(task.id, task.text)}
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
-                        title="Editar tarea"
-                      >
-                        <Edit3 size={16} />
-                      </button>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                        title="Eliminar tarea"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        </div>
-
-        {/* Right Column - Project Summary */}
-        <div className="w-full lg:w-80 bg-white border rounded-lg p-4 flex flex-col overflow-hidden">
-          <h3 className="text-lg font-semibold mb-3 flex items-center flex-shrink-0">
-            <Target className="mr-2 text-blue-500" size={18} />
-            Tareas de Proyectos
-          </h3>
-          <div className="space-y-3 flex-1 overflow-y-auto">
-            {activeProjects.map(project => {
-              const pendingTasks = project.tasks.filter(t => !t.completed && !dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === t.id));
-              if (pendingTasks.length === 0) return null;
-
-              return (
-                <div key={project.id} className="border rounded-lg p-3">
-                  <h4 className="font-medium text-gray-800 mb-2 flex items-center text-sm">
-                    <span className={`w-2 h-2 rounded-full mr-2 ${getProjectColor(project.id).replace('text-', 'bg-').split(' ')[0]}`}></span>
-                    {project.title}
-                  </h4>
-                  <div className="space-y-1">
-                    {pendingTasks.slice(0, 3).map(task => (
-                      <div key={task.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
-                        <span className="flex-1 truncate">{task.title}</span>
-                        <button
-                          onClick={() => addProjectTaskToDaily(project.id, task)}
-                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center ml-2"
-                        >
-                          <Plus size={10} className="mr-1" /> +
-                        </button>
-                      </div>
-                    ))}
-                    {pendingTasks.length > 3 && (
-                      <p className="text-xs text-gray-500 text-center py-1">
-                        +{pendingTasks.length - 3} más
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
-      </div>
-    </div>
-  );
 
-  const renderProjectsView = () => (
-    <div className="h-full flex flex-col space-y-4 overflow-hidden">
-      <div className="bg-white border rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Crear Nuevo Proyecto</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Nombre del proyecto"
-            value={newProject.title}
-            onChange={(e) => setNewProject({...newProject, title: e.target.value})}
-            className="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          
-          <select
-            value={newProject.priority}
-            onChange={(e) => setNewProject({...newProject, priority: e.target.value})}
-            className="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="baja">Prioridad Baja</option>
-            <option value="media">Prioridad Media</option>
-            <option value="alta">Prioridad Alta</option>
-          </select>
-          
-          <input
-            type="date"
-            value={newProject.deadline}
-            onChange={(e) => setNewProject({...newProject, deadline: e.target.value})}
-            className="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          
-          <button
-            onClick={addProject}
-            className="bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 flex items-center justify-center"
-          >
-            <Plus size={16} className="mr-1" /> Crear Proyecto
-          </button>
-        </div>
-        
-        <textarea
-          placeholder="Descripción del proyecto (opcional)"
-          value={newProject.description}
-          onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-          className="w-full mt-4 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          rows="3"
-        />
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-4">
-        {projects.map(project => (
-          <div key={project.id} className="bg-white border rounded-lg p-4">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  {/* Título editable */}
-                  {editingProjectTitleId === project.id ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="text"
-                        value={editingProjectTitleText}
-                        onChange={(e) => setEditingProjectTitleText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveProjectTitle();
-                          if (e.key === 'Escape') cancelEditingProjectTitle();
-                        }}
-                        className="text-lg font-semibold px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-                        autoFocus
-                      />
-                      <button
-                        onClick={saveProjectTitle}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Save size={16} />
-                      </button>
-                      <button
-                        onClick={cancelEditingProjectTitle}
-                        className="text-gray-600 hover:text-gray-800"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-1">
-                      <h4 className="text-lg font-semibold">{project.title}</h4>
-                      <button
-                        onClick={() => startEditingProjectTitle(project.id, project.title)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
-                  )}
-
-                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(project.priority)}`}>
-                    {project.priority.toUpperCase()}
-                  </span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    project.status === 'activo' ? 'bg-green-100 text-green-800' :
-                    project.status === 'pausado' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.status.toUpperCase()}
-                  </span>
+        {/* Contenido principal - Layout responsive */}
+        <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-4 overflow-hidden">
+          {/* Panel principal de tareas - Full width en móvil */}
+          <div className="flex-1 lg:flex-[2] bg-white border rounded-lg p-3 md:p-4 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-3 md:mb-4 flex-shrink-0">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="text-green-600" size={14} />
                 </div>
-                {/* Descripción editable */}
-                <div className="mb-2">
-                  {editingProjectDescriptionId === project.id ? (
-                    <div className="flex items-start gap-2">
-                      <textarea
-                        value={editingProjectDescriptionText}
-                        onChange={(e) => setEditingProjectDescriptionText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.ctrlKey) saveProjectDescription();
-                          if (e.key === 'Escape') cancelEditingProjectDescription();
-                        }}
-                        placeholder="Descripción del proyecto..."
-                        className="flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        rows="2"
-                        autoFocus
-                      />
-                      <div className="flex flex-col gap-1">
-                        <button
-                          onClick={saveProjectDescription}
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          <Save size={14} />
-                        </button>
-                        <button
-                          onClick={cancelEditingProjectDescription}
-                          className="text-gray-600 hover:text-gray-800"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-2">
-                      <p className="text-gray-600 text-sm flex-1">
-                        {project.description || 'Sin descripción'}
-                      </p>
-                      <button
-                        onClick={() => startEditingProjectDescription(project.id, project.description)}
-                        className="text-blue-600 hover:text-blue-800 mt-0.5"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Fecha límite editable */}
-                <div className="flex items-center gap-2 text-sm">
-                  {editingProjectDeadlineId === project.id ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">Fecha límite:</span>
-                      <input
-                        type="date"
-                        value={editingProjectDeadlineText}
-                        onChange={(e) => setEditingProjectDeadlineText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') saveProjectDeadline();
-                          if (e.key === 'Escape') cancelEditingProjectDeadline();
-                        }}
-                        className="px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <button
-                        onClick={saveProjectDeadline}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Save size={14} />
-                      </button>
-                      <button
-                        onClick={cancelEditingProjectDeadline}
-                        className="text-gray-600 hover:text-gray-800"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">
-                        Fecha límite: {project.deadline || 'Sin fecha límite'}
-                      </span>
-                      <button
-                        onClick={() => startEditingProjectDeadline(project.id, project.deadline)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <div className="flex justify-between text-sm mb-1">
-                <span>Progreso (promedio de {project.tasks.length} tareas)</span>
-                <span>{project.progress}% • {project.tasks.filter(t => t.completed).length}/{project.tasks.length} completadas</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className={`h-3 rounded-full transition-all ${
-                    project.progress === 100 ? 'bg-green-500' :
-                    project.progress >= 75 ? 'bg-blue-500' :
-                    project.progress >= 50 ? 'bg-yellow-500' :
-                    project.progress >= 25 ? 'bg-orange-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Gestión de Tareas del Proyecto */}
-            <div className="mb-4 border-t pt-4">
-              <h5 className="font-medium text-gray-700 mb-3 flex items-center">
-                <CheckCircle size={16} className="mr-2" />
-                Tareas del Proyecto
-              </h5>
-
-              {/* Agregar nueva tarea */}
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Nueva tarea..."
-                  value={newProjectTask[project.id] || ''}
-                  onChange={(e) => setNewProjectTask({
-                    ...newProjectTask,
-                    [project.id]: e.target.value
-                  })}
-                  onKeyDown={(e) => e.key === 'Enter' && addProjectTask(project.id)}
-                  className="flex-1 p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={() => addProjectTask(project.id)}
-                  className="bg-green-500 text-white px-3 py-2 rounded-lg hover:bg-green-600 text-sm flex items-center"
-                >
-                  <Plus size={14} className="mr-1" /> Agregar
-                </button>
+                <h3 className="text-base md:text-lg font-semibold text-gray-900">Tareas de Hoy</h3>
               </div>
 
-              {/* Lista de tareas */}
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {project.tasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
-                    <div className="flex items-center flex-1">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => toggleProjectTask(project.id, task.id)}
-                        className="mr-3"
-                      />
-                      <div className="flex-1">
-                        {editingProjectTaskId === task.id && editingProjectId === project.id ? (
-                          <input
-                            type="text"
-                            value={editingProjectTaskText}
-                            onChange={(e) => setEditingProjectTaskText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEditedProjectTask();
-                              if (e.key === 'Escape') cancelEditingProjectTask();
-                            }}
-                            onBlur={saveEditedProjectTask}
-                            className="w-full p-1 border rounded text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                          />
-                        ) : (
-                          <>
-                            <span className={`text-sm font-medium ${
-                              task.completed ? 'line-through text-gray-500' : 'text-gray-800'
-                            }`}>
-                              {task.title}
-                            </span>
-                            <div className="flex items-center mt-1">
-                              <div className="flex-1 mr-2">
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className={`h-2 rounded-full transition-all ${
-                                      task.progress === 100 ? 'bg-green-500' :
-                                      task.progress >= 75 ? 'bg-blue-500' :
-                                      task.progress >= 50 ? 'bg-yellow-500' :
-                                      task.progress >= 25 ? 'bg-orange-500' : 'bg-red-500'
-                                    }`}
-                                    style={{ width: `${task.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={task.progress}
-                                onChange={(e) => updateTaskProgress(project.id, task.id, e.target.value)}
-                                className="w-16 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                title="Porcentaje de avance"
-                              />
-                              <span className="text-xs text-gray-500 ml-1">%</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
+              <div className="flex items-center space-x-2">
+                {completionRate > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-12 md:w-20 bg-gray-200 rounded-full h-1.5 md:h-2">
+                      <div
+                        className="bg-green-500 h-1.5 md:h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${completionRate}%` }}
+                      ></div>
                     </div>
-                    <div className="flex gap-1">
-                      {editingProjectTaskId === task.id && editingProjectId === project.id ? (
-                        <>
-                          <button
-                            onClick={saveEditedProjectTask}
-                            className="text-green-500 hover:text-green-700 hover:bg-green-50 p-1 rounded"
-                            title="Guardar"
-                          >
-                            <CheckCircle size={14} />
-                          </button>
-                          <button
-                            onClick={cancelEditingProjectTask}
-                            className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-1 rounded"
-                            title="Cancelar"
-                          >
-                            ✕
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => addProjectTaskToDaily(project.id, task)}
-                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded text-xs"
-                            title="Agregar al enfoque diario"
-                            disabled={dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === task.id)}
-                          >
-                            {dailyTasks.some(dt => dt.projectId === project.id && dt.projectTaskId === task.id) ? '✓' : '+'}
-                          </button>
-                          <button
-                            onClick={() => startEditingProjectTask(project.id, task.id, task.title)}
-                            className="text-yellow-500 hover:text-yellow-700 hover:bg-yellow-50 p-1 rounded"
-                            title="Editar tarea"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                          <button
-                            onClick={() => deleteProjectTask(project.id, task.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                            title="Eliminar tarea"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </>
-                      )}
-                    </div>
+                    <span className="text-xs md:text-sm font-medium text-gray-600">{completionRate}%</span>
                   </div>
-                ))}
-                {project.tasks.length === 0 && (
-                  <p className="text-gray-500 text-sm italic py-2">No hay tareas aún. ¡Agrega la primera!</p>
                 )}
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => toggleProjectStatus(project.id)}
-                className={`flex items-center px-3 py-1 rounded text-sm ${
-                  project.status === 'activo' 
-                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                }`}
-              >
-                <Play size={14} className="mr-1" />
-                {project.status === 'activo' ? 'Pausar' : 'Reanudar'}
-              </button>
-              
-              <input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="% progreso"
-                onChange={(e) => updateProjectProgress(project.id, parseInt(e.target.value) || 0)}
-                className="px-3 py-1 border rounded text-sm w-24"
-              />
-              
-              <button
-                onClick={() => archiveProject(project.id)}
-                className="flex items-center px-3 py-1 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded text-sm"
-              >
-                <Archive size={14} className="mr-1" />
-                Completar
-              </button>
-
-              {/* Botón de eliminar - solo visible si no tiene tareas */}
-              {project.tasks.length === 0 && (
-                <button
-                  onClick={() => deleteProject(project.id)}
-                  className="flex items-center px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-sm"
-                  title="Eliminar proyecto (solo disponible sin tareas)"
-                >
-                  <Trash2 size={14} className="mr-1" />
-                  Eliminar
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderAssistantView = () => {
-    return (
-      <div className="h-full flex flex-col overflow-hidden relative">
-        {/* Header con botón de configuración */}
-        <div className="flex-shrink-0 flex justify-between items-center p-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg mb-4">
-          <div>
-            <h2 className="text-lg font-bold flex items-center">
-              <Bot className="mr-2" size={20} />
-              Chat con {assistantConfig.assistantName}
-            </h2>
-            <p className="text-purple-100 text-sm">
-              {assistantConfig.userName ? `Hola ${assistantConfig.userName}!` : 'Conversa con tu asistente personal'}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowConfigPanel(!showConfigPanel)}
-            className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-            title="Configurar asistente"
-          >
-            <Settings size={20} />
-          </button>
-        </div>
-
-        {/* Container principal */}
-        <div className="flex-1 flex overflow-hidden relative">
-          {/* Chat Principal */}
-          <div className={`transition-all duration-300 ${showConfigPanel ? 'w-2/3' : 'w-full'} flex flex-col overflow-hidden bg-white rounded-lg shadow-lg`}>
-            {/* Mensajes del chat */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0">
-              {messages.map(message => (
-                <div
-                  key={message.id}
-                  className="w-full"
-                >
-                  <div
-                    className={`w-full px-4 py-3 ${
-                      message.type === 'user'
-                        ? 'bg-indigo-50 border-l-4 border-indigo-500'
-                        : 'bg-gray-50 border-l-4 border-gray-400'
-                    }`}
+            {/* Lista de tareas - Optimizada para móvil */}
+            <div className="flex-1 overflow-y-auto">
+              {dailyTasks.length === 0 ? (
+                <div className="text-center py-8 md:py-12 text-gray-500">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
+                    <Plus className="text-gray-400" size={20} />
+                  </div>
+                  <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">¡Comienza tu día productivo!</h3>
+                  <p className="text-sm text-gray-500 mb-4 px-4">Agrega tus tareas prioritarias para hoy</p>
+                  <button
+                    onClick={() => setShowAddTaskForm(true)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                   >
-                    <div className="flex items-start space-x-2">
-                      {message.type === 'assistant' && (
-                        <Bot size={16} className="text-indigo-500 mt-1 flex-shrink-0" />
-                      )}
-                      {message.type === 'user' && (
-                        <User size={16} className="text-indigo-200 mt-1 flex-shrink-0" />
-                      )}
-                      <div>
-                        {message.type === 'assistant' ? (
-                          <div className="text-sm leading-relaxed">
-                            <ReactMarkdown
-                              components={{
-                                p: ({children}) => <p className="mb-2 last:mb-0 text-sm">{children}</p>,
-                                ul: ({children}) => <ul className="mb-2 pl-4 space-y-1 list-disc">{children}</ul>,
-                                ol: ({children}) => <ol className="mb-2 pl-4 space-y-1 list-decimal">{children}</ol>,
-                                li: ({children}) => <li className="text-sm text-gray-800">{children}</li>,
-                                h1: ({children}) => <h1 className="text-base font-bold mb-2 text-gray-900">{children}</h1>,
-                                h2: ({children}) => <h2 className="text-sm font-bold mb-1 text-gray-900">{children}</h2>,
-                                h3: ({children}) => <h3 className="text-sm font-semibold mb-1 text-gray-900">{children}</h3>,
-                                strong: ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                                em: ({children}) => <em className="italic">{children}</em>,
-                                code: ({children}) => <code className="bg-gray-200 px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
-                                blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2 italic text-gray-700">{children}</blockquote>,
-                                br: () => <br className="mb-1" />
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <p className="text-sm leading-relaxed">{message.content}</p>
-                        )}
-                        <p className={`text-xs mt-1 ${
-                          message.type === 'user' ? 'text-indigo-200' : 'text-gray-500'
-                        }`}>
-                          {message.timestamp}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                    Agregar primera tarea
+                  </button>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-2 md:space-y-3">
+                  {dailyTasks.map(task => renderTaskItem(task))}
+                </div>
+              )}
+            </div>
 
-              {/* Indicador de que el asistente está escribiendo */}
-              {isAssistantTyping && (
-                <div className="w-full">
-                  <div className="w-full px-4 py-3 bg-gray-50 border-l-4 border-gray-400">
-                    <div className="flex items-start space-x-2">
-                      <Bot size={16} className="text-indigo-500 mt-1 flex-shrink-0" />
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-600">{assistantConfig.assistantName} está escribiendo</span>
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0.1s"}}></div>
-                          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
-                        </div>
-                      </div>
+            {/* Botón de agregar tarea - Optimizado para móvil */}
+            <div className="mt-3 md:mt-4 flex-shrink-0">
+              {!showAddTaskForm ? (
+                <button
+                  onClick={() => setShowAddTaskForm(true)}
+                  className="w-full bg-blue-50 text-blue-600 px-3 py-2.5 md:px-4 md:py-3 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium flex items-center justify-center border border-blue-200 hover:border-blue-300 transition-all duration-200"
+                >
+                  <Plus size={16} className="mr-2" />
+                  <span className="hidden sm:inline">Agregar nueva tarea</span>
+                  <span className="sm:hidden">Nueva tarea</span>
+                </button>
+              ) : (
+                <div className="space-y-3 border border-blue-200 rounded-lg p-3 md:p-4 bg-blue-50">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={newDailyTask}
+                      onChange={(e) => setNewDailyTask(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          addDailyTask();
+                          setShowAddTaskForm(false);
+                        }
+                      }}
+                      placeholder="¿Qué quieres lograr hoy?"
+                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      autoFocus
+                    />
+                    <div className="flex gap-2 sm:gap-1">
+                      <button
+                        onClick={() => {
+                          addDailyTask();
+                          setShowAddTaskForm(false);
+                        }}
+                        className="flex-1 sm:flex-none bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600 text-sm font-medium"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddTaskForm(false);
+                          setNewDailyTask('');
+                        }}
+                        className="flex-1 sm:flex-none bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 text-sm font-medium"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Panel lateral - Responsive: aparece abajo en móvil, a la derecha en desktop */}
+          <div className="flex flex-col lg:flex-1 space-y-3 lg:space-y-4">
+            {/* Insights del día */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100 rounded-lg p-3 lg:p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <TrendingUp className="text-purple-600" size={16} />
+                <h4 className="font-semibold text-gray-900 text-sm">Tu Progreso</h4>
+              </div>
+              <div className="space-y-3">
+                {completedTasks > 0 ? (
+                  <div>
+                    <p className="text-sm text-gray-700 mb-2">
+                      ¡Vas genial! Has completado <span className="font-semibold text-purple-600">{completedTasks} tareas</span> hoy.
+                    </p>
+                    {completionRate >= 80 && (
+                      <p className="text-xs text-green-600 font-medium">🎉 ¡Excelente productividad!</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">Completa tu primera tarea para ver tu progreso.</p>
+                )}
+              </div>
             </div>
 
-            {/* Input para nuevo mensaje */}
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={`Escribe tu mensaje a ${assistantConfig.assistantName}...`}
-                  className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                  disabled={isAssistantTyping}
-                />
+            {/* Proyectos activos */}
+            <div className="bg-white border rounded-lg p-3 lg:p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  <Target className="text-blue-600" size={16} />
+                  <h4 className="font-semibold text-gray-900 text-sm">Proyectos Activos</h4>
+                </div>
                 <button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim() || isAssistantTyping}
-                  className="px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Enviar mensaje"
+                  onClick={() => setActiveView('projects')}
+                  className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                 >
-                  <Send size={16} />
+                  Ver todos
+                </button>
+              </div>
+              <div className="space-y-2">
+                {activeProjects.slice(0, 3).map(project => (
+                  <div key={project.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedProject(project);
+                      setShowProjectDetailModal(true);
+                    }}
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{project.title}</p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <div className="w-12 bg-gray-200 rounded-full h-1">
+                          <div
+                            className="bg-blue-500 h-1 rounded-full"
+                            style={{ width: `${project.progress || 0}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-gray-500">{project.progress || 0}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {activeProjects.length === 0 && (
+                  <p className="text-xs text-gray-500 text-center py-2">No hay proyectos activos</p>
+                )}
+              </div>
+            </div>
+
+            {/* Acciones rápidas - Solo visible en desktop */}
+            <div className="hidden lg:block bg-white border rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 text-sm mb-3">Acciones Rápidas</h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowCreateProject(true)}
+                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <Plus size={14} />
+                  <span>Nuevo proyecto</span>
+                </button>
+                <button
+                  onClick={() => setActiveView('projects')}
+                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <Archive size={14} />
+                  <span>Ver proyectos</span>
+                </button>
+                <button
+                  onClick={() => setActiveView('assistant')}
+                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <Bot size={14} />
+                  <span>Consultar IA</span>
                 </button>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Panel de Configuración Deslizable */}
+      </div>
+    );
+  };
+
+  // TODO: Add renderProjectsView function back after fixing main structure
+
+  const renderProjectsView = () => {
+    return (
+      <div className="h-full flex flex-col space-y-6 overflow-hidden">
+
+        {/* Projects Grid */}
+        <div className="flex-1 overflow-y-auto">
+          {projects.length === 0 ? (
+            <div className="space-y-8">
+              {/* Mensaje cuando no hay proyectos */}
+              <div>
+                <div className="mb-6">
+                  <h2 className={`text-xl font-semibold mb-2 flex items-center gap-3 ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-900'
+                      : 'text-white bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent'
+                  }`}>
+                    <div className={`w-2 h-8 rounded-full ${
+                      currentTheme === 'minimal' || currentTheme === 'brutalist'
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-b from-emerald-400 to-cyan-400'
+                    }`}></div>
+                    Proyectos Activos
+                  </h2>
+                  <p className={`text-sm ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-600'
+                      : 'text-gray-300'
+                  }`}>Gestiona y organiza todos tus proyectos en curso</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+                  {/* Card para Nuevo Proyecto */}
+                  <div
+                    onClick={() => setShowCreateProject(true)}
+                    className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-2xl transition-all duration-300 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 hover:scale-105 hover:-translate-y-2 flex flex-col items-center justify-center min-h-[200px] group"
+                  >
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                        <Plus size={24} className="text-blue-600" />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-lg font-semibold mb-1 text-gray-700 group-hover:text-white transition-colors">Crear tu primer proyecto</h3>
+                        <p className="text-sm text-gray-500 group-hover:text-gray-200 transition-colors">Haz click para comenzar</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Proyectos Activos */}
+              {(() => {
+                const activeProjects = projects.filter(p => p.status === 'activo');
+                const inactiveProjects = projects.filter(p => p.status !== 'activo');
+
+                return (
+                  <>
+                    {/* Sección de Proyectos Activos */}
+                    <div>
+                      <div className="mb-6">
+                  <h2 className={`text-xl font-semibold mb-2 flex items-center gap-3 ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-900'
+                      : 'text-white bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent'
+                  }`}>
+                    <div className={`w-2 h-8 rounded-full ${
+                      currentTheme === 'minimal' || currentTheme === 'brutalist'
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-b from-emerald-400 to-cyan-400'
+                    }`}></div>
+                    Proyectos Activos
+                  </h2>
+                  <p className={`text-sm ${
+                    currentTheme === 'minimal' || currentTheme === 'brutalist'
+                      ? 'text-gray-600'
+                      : 'text-gray-300'
+                  }`}>Gestiona y organiza todos tus proyectos en curso</p>
+                </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+                        {activeProjects.map(project => (
+                          <div
+                            key={project.id}
+                            onClick={() => {
+                              setSelectedProject(project);
+                              setShowProjectDetailModal(true);
+                            }}
+                            className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 ${
+                              currentTheme === 'minimal' || currentTheme === 'brutalist'
+                                ? 'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-indigo-300'
+                                : 'bg-white border border-gray-200/50 shadow-lg backdrop-blur-none hover:shadow-2xl hover:border-gray-300 hover:scale-105 hover:-translate-y-2'
+                            }`}
+                          >
+                            {/* Project Header */}
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                                  {project.title}
+                                </h3>
+                                <div className="flex items-center space-x-3 text-sm">
+                                  {/* Estado */}
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                                    project.status === 'activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    <span className={`w-2 h-2 rounded-full ${
+                                      project.status === 'activo' ? 'bg-green-500' : 'bg-gray-400'
+                                    }`}></span>
+                                    {project.status === 'activo' ? 'Activo' : 'Inactivo'}
+                                  </span>
+
+                                  {/* Prioridad */}
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    project.priority === 'alta' ? 'bg-red-100 text-red-800' :
+                                    project.priority === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}>
+                                    {project.priority === 'alta' ? '🔴 Alta' :
+                                     project.priority === 'media' ? '🟡 Media' : '🟢 Baja'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Project Description */}
+                            {project.description && (
+                              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                                {project.description}
+                              </p>
+                            )}
+
+                            {/* Project Stats */}
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Tareas:</span>
+                                <span className="font-medium">
+                                  {`${project.tasks?.filter(t => t.completed).length || 0} / ${project.tasks?.length || 0}`}
+                                </span>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{
+                                    backgroundColor: (project.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
+                                    width: `${project.progress || 0}%`,
+                                  }}
+                                ></div>
+                              </div>
+
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Progreso:</span>
+                                <span className="font-medium">{project.progress || 0}%</span>
+                              </div>
+
+                              {/* Deadline */}
+                              {project.deadline && (
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-500">Fecha límite:</span>
+                                  <span className="font-medium text-orange-600">
+                                    {new Date(project.deadline).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Card para Nuevo Proyecto */}
+                        <div
+                          onClick={() => setShowCreateProject(true)}
+                          className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 shadow-sm hover:shadow-2xl transition-all duration-300 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 hover:scale-105 hover:-translate-y-2 flex flex-col items-center justify-center min-h-[200px] group"
+                        >
+                          <div className="flex flex-col items-center space-y-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                              <Plus size={24} className="text-blue-600" />
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-lg font-semibold mb-1 text-gray-700 group-hover:text-white transition-colors">Nuevo Proyecto</h3>
+                              <p className="text-sm text-gray-500 group-hover:text-gray-200 transition-colors">Haz click para crear un proyecto</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sección de Proyectos Inactivos */}
+                    {inactiveProjects.length > 0 && (
+                      <div>
+                        <div className="mb-6">
+                          <h2 className={`text-xl font-semibold mb-2 flex items-center gap-3 ${
+                            currentTheme === 'minimal' || currentTheme === 'brutalist'
+                              ? 'text-gray-900'
+                              : 'text-white bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent'
+                          }`}>
+                            <div className={`w-2 h-8 rounded-full ${
+                              currentTheme === 'minimal' || currentTheme === 'brutalist'
+                                ? 'bg-orange-500'
+                                : 'bg-gradient-to-b from-orange-400 to-red-400'
+                            }`}></div>
+                            Proyectos Inactivos
+                          </h2>
+                          <p className={`text-sm ${
+                            currentTheme === 'minimal' || currentTheme === 'brutalist'
+                              ? 'text-gray-600'
+                              : 'text-gray-300'
+                          }`}>Proyectos pausados o en espera de revisión</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+                          {inactiveProjects.map(project => (
+                            <div
+                              key={project.id}
+                              onClick={() => {
+                                setSelectedProject(project);
+                                setShowProjectDetailModal(true);
+                              }}
+                              className={`rounded-lg p-6 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:-translate-y-1 ${
+                                currentTheme === 'minimal' || currentTheme === 'brutalist'
+                                  ? 'bg-white border border-gray-200 shadow-sm hover:shadow-lg hover:border-indigo-300'
+                                  : 'bg-white border border-gray-200/50 shadow-lg backdrop-blur-none hover:shadow-2xl hover:border-gray-300 hover:scale-105 hover:-translate-y-2'
+                              }`}
+                            >
+                              {/* Project Header */}
+                              <div className="flex justify-between items-start mb-4">
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-semibold text-gray-700 mb-2 line-clamp-2">
+                                    {project.title}
+                                  </h3>
+                                  <div className="flex items-center space-x-3 text-sm">
+                                    {/* Estado */}
+                                    <span className="px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 bg-gray-100 text-gray-600">
+                                      <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                      Inactivo
+                                    </span>
+
+                                    {/* Prioridad */}
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      project.priority === 'alta' ? 'bg-red-100 text-red-800' :
+                                      project.priority === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-green-100 text-green-800'
+                                    }`}>
+                                      {project.priority === 'alta' ? '🔴 Alta' :
+                                       project.priority === 'media' ? '🟡 Media' : '🟢 Baja'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Project Description */}
+                              {project.description && (
+                                <p className="text-gray-500 text-sm mb-4 line-clamp-3">
+                                  {project.description}
+                                </p>
+                              )}
+
+                              {/* Project Stats */}
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-500">Tareas:</span>
+                                  <span className="font-medium text-gray-600">
+                                    {`${project.tasks?.filter(t => t.completed).length || 0} / ${project.tasks?.length || 0}`}
+                                  </span>
+                                </div>
+
+                                {/* Progress Bar */}
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="h-2 rounded-full transition-all duration-300 bg-gray-400"
+                                    style={{
+                                      width: `${project.progress || 0}%`,
+                                    }}
+                                  ></div>
+                                </div>
+
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-500">Progreso:</span>
+                                  <span className="font-medium text-gray-600">{project.progress || 0}%</span>
+                                </div>
+
+                                {/* Deadline */}
+                                {project.deadline && (
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">Fecha límite:</span>
+                                    <span className="font-medium text-gray-600">
+                                      {new Date(project.deadline).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Funciones para los modales
+  const saveAssistantConfig = async () => {
+    try {
+      const response = await authenticatedFetch('/assistant-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ config: assistantConfig }),
+      });
+
+      if (response.ok) {
+        setIsConfigSaved(true);
+        setTimeout(() => setIsConfigSaved(false), 2000);
+      } else {
+        throw new Error('Error al guardar configuración');
+      }
+    } catch (error) {
+      console.error('Error al guardar configuración:', error);
+      alert('Error al guardar la configuración');
+    }
+  };
+
+  const saveUserConfig = async () => {
+    try {
+      // Validar contraseñas si se están cambiando
+      if (userConfig.newPassword) {
+        if (userConfig.newPassword.length < 6) {
+          alert('La nueva contraseña debe tener al menos 6 caracteres');
+          return;
+        }
+        if (userConfig.newPassword !== userConfig.confirmPassword) {
+          alert('Las contraseñas no coinciden');
+          return;
+        }
+
+        // Implementar cambio de contraseña
+        const response = await authenticatedFetch(`${getApiBase()}/change-password`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            newPassword: userConfig.newPassword
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al cambiar contraseña');
+        }
+      }
+
+      // Guardar configuración del asistente (que incluye la memoria)
+      await saveAssistantConfig();
+
+      // Limpiar campos de contraseña después de guardar
+      setUserConfig(prev => ({
+        ...prev,
+        newPassword: '',
+        confirmPassword: ''
+      }));
+
+      setShowUserProfileModal(false);
+      setShowPasswordFields(false);
+
+      alert('Configuración guardada exitosamente' + (userConfig.newPassword ? ' y contraseña actualizada' : ''));
+    } catch (error) {
+      console.error('Error guardando configuración de usuario:', error);
+      alert('Error al guardar: ' + error.message);
+    }
+  };
+
+  // Efecto para actualizar userConfig cuando el usuario se carga
+  useEffect(() => {
+    if (user) {
+      setUserConfig(prev => ({
+        ...prev,
+        name: user.name || '',
+        email: user.email || ''
+      }));
+    }
+  }, [user]);
+
+  // Efecto para persistir el theme
+  useEffect(() => {
+    localStorage.setItem('smartchatix-theme', currentTheme);
+  }, [currentTheme]);
+
+  // Efecto para cerrar dropdowns al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown') && !event.target.closest('.user-button')) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserDropdown]);
+
+  const renderAssistantView = () => {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Header de configuración del asistente */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg mb-4 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold flex items-center">
+                <Settings className="mr-2" size={20} />
+                Configuración del Asistente
+              </h2>
+              <p className="text-purple-100 text-sm">
+                Personaliza tu asistente personal {assistantConfig.assistantName}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                El chat está en el bubble flotante
+              </span>
+              <Bot size={20} />
+            </div>
+          </div>
+        </div>
+
+        {/* Contenido de configuración */}
+        <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden">
+          {/* Panel de Configuración Izquierdo */}
           {showConfigPanel && (
-            <div className="w-1/3 ml-4 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-              {/* Header del panel */}
+            <div className="w-80 mr-4 bg-gray-900 text-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+              {/* Header del menú */}
+              <div className="p-4 border-b border-gray-700">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-bold">Configuración</h3>
+                  <button
+                    onClick={() => {
+                      setShowConfigPanel(false);
+                      setSelectedConfigSection('');
+                    }}
+                    className="p-1 hover:bg-gray-700 rounded"
+                    title="Cerrar menú"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {/* Opciones del menú */}
+              <div className="flex-1 p-4">
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setSelectedConfigSection('user')}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedConfigSection === 'user'
+                        ? 'bg-gray-700 text-white'
+                        : 'hover:bg-gray-800 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <User size={18} className="mr-3" />
+                      <div>
+                        <div className="font-medium">Usuario</div>
+                        <div className="text-xs text-gray-400">Nombre, memoria personal</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedConfigSection('assistant')}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedConfigSection === 'assistant'
+                        ? 'bg-gray-700 text-white'
+                        : 'hover:bg-gray-800 text-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Bot size={18} className="mr-3" />
+                      <div>
+                        <div className="font-medium">Asistente</div>
+                        <div className="text-xs text-gray-400">Personalidad, prompt, especialidades</div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Panel de Contenido de Configuración y Chat */}
+          <>
+            {showConfigPanel && selectedConfigSection && (
+              <div className="flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+                {/* Header del panel de contenido */}
               <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-bold flex items-center">
                     <Settings className="mr-2" size={18} />
-                    Configuración
+                    {selectedConfigSection === 'user' ? 'Configuración de Usuario' : 'Configuración del Asistente'}
                   </h3>
                   <button
-                    onClick={() => setShowConfigPanel(false)}
+                    onClick={() => setSelectedConfigSection('')}
                     className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
                     title="Cerrar panel"
                   >
@@ -2020,112 +3447,219 @@ Responde siempre en español y mantén el tono configurado.`;
 
               {/* Contenido del panel */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* Datos del usuario */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    👤 Datos del Usuario
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Tu nombre
-                      </label>
-                      <input
-                        type="text"
-                        value={assistantConfig.userName}
-                        onChange={(e) => handleConfigChange('userName', e.target.value)}
-                        placeholder="¿Cómo te gustaría que te llame?"
-                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Configuración del Asistente */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    🤖 Asistente
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Nombre del asistente
-                      </label>
-                      <input
-                        type="text"
-                        value={assistantConfig.assistantName}
-                        onChange={(e) => handleConfigChange('assistantName', e.target.value)}
-                        placeholder="Nombre de tu asistente"
-                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    {/* Especialidades */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
-                        🎓 Especialidades
-                      </label>
-                      {assistantConfig.specialties.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1">
-                          {assistantConfig.specialties.map((specialty) => (
-                            <span
-                              key={specialty}
-                              className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800"
-                            >
-                              {specialty}
-                              <button
-                                onClick={() => removeSpecialty(specialty)}
-                                className="ml-1 text-indigo-600 hover:text-indigo-800"
-                                title="Eliminar"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="space-y-1 max-h-24 overflow-y-auto text-xs">
-                        {availableSpecialties.map((specialty) => (
-                          <label
-                            key={specialty}
-                            className="flex items-center hover:bg-gray-100 p-1 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={assistantConfig.specialties.includes(specialty)}
-                              onChange={() => {
-                                if (assistantConfig.specialties.includes(specialty)) {
-                                  removeSpecialty(specialty);
-                                } else {
-                                  handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
-                                }
-                              }}
-                              className="mr-2 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="text-gray-700">{specialty}</span>
-                          </label>
-                        ))}
+                {selectedConfigSection === 'user' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                      👤 Datos del Usuario
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Tu nombre
+                        </label>
+                        <input
+                          type="text"
+                          value={assistantConfig.userName}
+                          onChange={(e) => handleConfigChange('userName', e.target.value)}
+                          placeholder="¿Cómo te gustaría que te llame?"
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
                       </div>
                     </div>
+                  </div>
+                )}
 
-                    {/* Tono */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        🎯 Tono
-                      </label>
-                      <select
-                        value={assistantConfig.tone}
-                        onChange={(e) => handleConfigChange('tone', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="Motivador">Motivador</option>
-                        <option value="Profesional">Profesional</option>
-                        <option value="Amigable">Amigable</option>
-                        <option value="Directo">Directo</option>
-                      </select>
+                {selectedConfigSection === 'assistant' && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                      🤖 Asistente
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Nombre del asistente
+                        </label>
+                        <input
+                          type="text"
+                          value={assistantConfig.assistantName}
+                          onChange={(e) => handleConfigChange('assistantName', e.target.value)}
+                          placeholder="Nombre de tu asistente"
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      {/* Especialidades */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-2">
+                          🎓 Especialidades
+                        </label>
+                        {assistantConfig.specialties.length > 0 && (
+                          <div className="mb-2 flex flex-wrap gap-1">
+                            {assistantConfig.specialties.map((specialty) => (
+                              <span
+                                key={specialty}
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800"
+                              >
+                                {specialty}
+                                <button
+                                  onClick={() => removeSpecialty(specialty)}
+                                  className="ml-1 text-indigo-600 hover:text-indigo-800"
+                                  title="Eliminar"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <div
+                            className="space-y-1 max-h-24 overflow-y-auto text-xs pr-1 border border-gray-200 rounded-md px-2 py-1 bg-white"
+                          >
+                            {availableSpecialties.map((specialty) => (
+                              <label
+                                key={specialty}
+                                className="flex items-center hover:bg-gray-100 px-1 py-0.5 rounded cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={assistantConfig.specialties.includes(specialty)}
+                                  onChange={() => {
+                                    if (assistantConfig.specialties.includes(specialty)) {
+                                      removeSpecialty(specialty);
+                                    } else {
+                                      handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
+                                    }
+                                  }}
+                                  className="mr-2 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-gray-700">{specialty}</span>
+                              </label>
+                            ))}
+                          </div>
+                          {/* Indicador de fade-out para mostrar que hay más contenido */}
+                          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none rounded-b-md"></div>
+                        </div>
+
+                        {/* Campo para agregar especialidad personalizada */}
+                        <div className="mt-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newCustomSpecialty}
+                              onChange={(e) => setNewCustomSpecialty(e.target.value)}
+                              placeholder="Escribe una especialidad personalizada"
+                              className="flex-1 p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  addCustomSpecialty();
+                                }
+                              }}
+                            />
+                            <button
+                              onClick={addCustomSpecialty}
+                              disabled={!newCustomSpecialty.trim()}
+                              className="px-3 py-2 bg-indigo-500 text-white rounded text-xs hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Agregar especialidad"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Prompt Inicial */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          📝 Prompt Inicial del Asistente
+                        </label>
+                        <textarea
+                          value={assistantConfig.systemPrompt}
+                          onChange={(e) => handleConfigChange('systemPrompt', e.target.value)}
+                          placeholder="Define la personalidad y comportamiento de tu asistente..."
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[100px] resize-vertical"
+                          rows={4}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Este prompt define cómo se comportará tu asistente en las conversaciones.
+                        </p>
+                      </div>
+
+                      {/* Tono */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          🎯 Tono
+                        </label>
+                        <select
+                          value={assistantConfig.tone}
+                          onChange={(e) => handleConfigChange('tone', e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="Motivador">Motivador</option>
+                          <option value="Profesional">Profesional</option>
+                          <option value="Amigable">Amigable</option>
+                          <option value="Directo">Directo</option>
+                        </select>
+                      </div>
+
+                      {/* Memoria a Largo Plazo */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          🧠 Memoria a Largo Plazo
+                        </label>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Estos campos se van llenando automáticamente durante las interacciones, pero puedes completarlos para que te conozca más rápido.
+                        </p>
+
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Rasgos de personalidad</label>
+                            <textarea
+                              value={assistantConfig.memory.personalityTraits}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, personalityTraits: e.target.value})}
+                              placeholder="Ej: Soy una persona analítica y organizada..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Motivadores personales</label>
+                            <textarea
+                              value={assistantConfig.memory.motivationalTriggers}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, motivationalTriggers: e.target.value})}
+                              placeholder="Ej: Me motivan los desafíos, reconocimiento..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Estilo de aprendizaje</label>
+                            <textarea
+                              value={assistantConfig.memory.learningStyle}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, learningStyle: e.target.value})}
+                              placeholder="Ej: Aprendo mejor con ejemplos prácticos..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Prioridades actuales</label>
+                            <textarea
+                              value={assistantConfig.memory.currentPriorities}
+                              onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, currentPriorities: e.target.value})}
+                              placeholder="Ej: Enfocarme en proyectos de desarrollo web..."
+                              className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Botón Guardar */}
                 <button
@@ -2139,567 +3673,402 @@ Responde siempre en español y mantén el tono configurado.`;
               </div>
             </div>
           )}
+
+          {/* Chat Principal - Se oculta cuando hay configuración seleccionada */}
+          {!(showConfigPanel && selectedConfigSection) && (
+            <div className={`transition-all duration-300 ${showConfigPanel ? 'flex-1' : 'w-full'} flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50 rounded-xl shadow-2xl border border-indigo-100`}>
+              {/* Mensajes del chat */}
+              <div className="flex-1 p-6 overflow-y-auto space-y-6 min-h-0">
+                {messages.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                      <span className="text-2xl">🤖</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">¡Hola! Soy {assistantConfig.assistantName}</h3>
+                    <p className="text-gray-600 max-w-md mx-auto">
+                      Estoy aquí para ayudarte con tus proyectos, responder preguntas y hacer tu trabajo más eficiente.
+                      ¡Pregúntame lo que necesites!
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8 max-w-2xl mx-auto">
+                      <button
+                        onClick={() => setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`)}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        💼 Análisis de proyectos ({projects.length})
+                      </button>
+                      <button
+                        onClick={() => {
+                          const pendingTasks = projects.reduce((total, project) =>
+                            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
+                          );
+                          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
+                        }}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        ✅ Optimizar tareas pendientes
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentHour = new Date().getHours();
+                          const timeBasedPrompt = currentHour < 12
+                            ? 'Dame una estrategia productiva para empezar bien el día'
+                            : currentHour < 18
+                            ? 'Necesito mantener el foco y energía para la tarde'
+                            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
+                          setNewMessage(timeBasedPrompt);
+                        }}
+                        className="p-3 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 text-sm text-gray-700 hover:text-indigo-700"
+                      >
+                        🚀 Coaching personalizado
+                      </button>
+                    </div>
+
+                    {/* Additional contextual suggestions */}
+                    {projects.length > 0 && (
+                      <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <h4 className="text-sm font-semibold text-indigo-800 mb-2">💡 Sugerencias inteligentes</h4>
+                        <div className="space-y-2">
+                          {projects.filter(p => p.status === 'active').length > 0 && (
+                            <button
+                              onClick={() => setNewMessage(`¿Cómo puedo mejorar la eficiencia en mis proyectos activos: ${projects.filter(p => p.status === 'active').map(p => p.title).join(', ')}?`)}
+                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                            >
+                              📈 Optimizar proyectos activos
+                            </button>
+                          )}
+                          {projects.some(p => p.tasks?.some(t => !t.completed)) && (
+                            <button
+                              onClick={() => setNewMessage('Ayúdame a crear un plan de acción para completar las tareas más importantes de esta semana')}
+                              className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                            >
+                              🎯 Plan de acción semanal
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setNewMessage('Basándote en mi histórico de productividad, ¿qué hábitos debería desarrollar para ser más eficiente?')}
+                            className="block w-full text-left text-sm text-indigo-700 hover:text-indigo-900 p-2 rounded hover:bg-indigo-100 transition-colors"
+                          >
+                            🌱 Desarrollo de hábitos
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {messages.map((message, index) => (
+                  <div
+                    key={message.id}
+                    className={`w-full animate-fadeIn ${message.type === 'user' ? 'flex justify-end' : 'flex justify-start'}`}
+                    style={{animationDelay: `${index * 0.1}s`}}
+                  >
+                    <div className={`max-w-[85%] ${message.type === 'user' ? 'order-2' : 'order-1'}`}>
+                      <div
+                        className={`relative px-6 py-4 rounded-2xl shadow-lg backdrop-blur-sm ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white ml-8'
+                            : 'bg-white/90 border border-gray-100 mr-8'
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className={`absolute -top-2 ${message.type === 'user' ? '-right-2' : '-left-2'} w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                          message.type === 'user'
+                            ? 'bg-gradient-to-r from-pink-400 to-purple-500'
+                            : 'bg-gradient-to-r from-indigo-400 to-blue-500'
+                        }`}>
+                          {message.type === 'assistant' ? (
+                            <Bot size={16} className="text-white" />
+                          ) : (
+                            <User size={16} className="text-white" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="pt-2">
+                          {message.type === 'assistant' ? (
+                            <div className="text-gray-800 leading-relaxed">
+                              <ReactMarkdown
+                                components={{
+                                  p: ({children}) => <p className="mb-3 last:mb-0 text-sm leading-7">{children}</p>,
+                                  ul: ({children}) => <ul className="mb-3 pl-5 space-y-2 list-disc marker:text-indigo-400">{children}</ul>,
+                                  ol: ({children}) => <ol className="mb-3 pl-5 space-y-2 list-decimal marker:text-indigo-400">{children}</ol>,
+                                  li: ({children}) => <li className="text-sm text-gray-700 leading-6">{children}</li>,
+                                  h1: ({children}) => <h1 className="text-lg font-bold mb-3 text-gray-900 border-b border-gray-200 pb-2">{children}</h1>,
+                                  h2: ({children}) => <h2 className="text-base font-bold mb-2 text-gray-900">{children}</h2>,
+                                  h3: ({children}) => <h3 className="text-sm font-semibold mb-2 text-gray-900">{children}</h3>,
+                                  strong: ({children}) => <strong className="font-semibold text-gray-900 bg-yellow-100 px-1 rounded">{children}</strong>,
+                                  em: ({children}) => <em className="italic text-indigo-600">{children}</em>,
+                                  code: ({children}) => <code className="bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-xs font-mono text-gray-800">{children}</code>,
+                                  blockquote: ({children}) => <blockquote className="border-l-4 border-indigo-300 pl-4 mb-3 italic text-gray-700 bg-indigo-50 py-2 rounded-r-lg">{children}</blockquote>,
+                                  br: () => <br className="mb-2" />
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="text-sm leading-relaxed font-medium">{message.content}</p>
+                          )}
+
+                          {/* Timestamp */}
+                          <div className={`text-xs mt-3 pt-2 border-t ${
+                            message.type === 'user'
+                              ? 'text-indigo-100 border-indigo-400/30'
+                              : 'text-gray-400 border-gray-200'
+                          } flex items-center justify-between`}>
+                            <span>{message.timestamp}</span>
+                            {message.type === 'assistant' && (
+                              <span className="text-indigo-500 font-medium text-xs">{assistantConfig.assistantName}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Indicador de que el asistente está escribiendo */}
+                {isAssistantTyping && (
+                  <div className="w-full flex justify-start animate-fadeIn">
+                    <div className="max-w-[85%] mr-8">
+                      <div className="relative px-6 py-4 bg-white/90 border border-gray-100 rounded-2xl shadow-lg backdrop-blur-sm">
+                        {/* Avatar */}
+                        <div className="absolute -top-2 -left-2 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-400 to-blue-500 flex items-center justify-center shadow-lg">
+                          <Bot size={16} className="text-white" />
+                        </div>
+
+                        <div className="pt-2 flex items-center space-x-3">
+                          <span className="text-sm text-gray-600 font-medium">{assistantConfig.assistantName} está escribiendo</span>
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
+                            <div className="w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full animate-bounce" style={{animationDelay: "0.4s"}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+              {/* Input para nuevo mensaje */}
+              <div className="flex-shrink-0 p-6 border-t border-gray-200 bg-gradient-to-r from-white via-indigo-50/30 to-white backdrop-blur-sm">
+                {/* Controles de voz */}
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex space-x-2">
+                    {speechSupported ? (
+                      <button
+                        onClick={isListening ? stopListening : startListening}
+                        disabled={isAssistantTyping}
+                        className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                          isListening
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
+                      >
+                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                        <span className="ml-1">{isListening ? 'Grabando (2s de pausa para terminar)' : 'Hablar'}</span>
+                      </button>
+                    ) : (
+                      <div className="px-3 py-2 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium">
+                        <MicOff size={16} className="inline mr-1" />
+                        Voz no disponible
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setVoiceEnabled(!voiceEnabled)}
+                      className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
+                        voiceEnabled
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : 'bg-gray-400 text-white hover:bg-gray-500'
+                      }`}
+                      title={voiceEnabled ? 'Desactivar voz del asistente' : 'Activar voz del asistente'}
+                    >
+                      {voiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                    </button>
+
+                    {isSpeaking && (
+                      <button
+                        onClick={stopSpeaking}
+                        className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
+                        title="Detener síntesis de voz"
+                      >
+                        <VolumeX size={16} />
+                        <span className="ml-1">Silenciar</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={isListening ? 'Escuchando... (Haz una pausa de 2 segundos para terminar)' : `💬 Pregúntale algo a ${assistantConfig.assistantName}...`}
+                      className={`w-full p-4 border-2 rounded-2xl focus:outline-none focus:border-transparent text-sm transition-all duration-200 shadow-sm ${
+                        isListening
+                          ? 'border-red-300 focus:ring-4 focus:ring-red-500/20 bg-red-50'
+                          : 'border-gray-200 focus:ring-4 focus:ring-indigo-500/20 bg-white hover:border-indigo-300'
+                      } ${isAssistantTyping ? 'opacity-50' : ''}`}
+                      disabled={isAssistantTyping}
+                    />
+                    {newMessage.trim() && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                          {newMessage.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() || isAssistantTyping}
+                    className="px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+                    title="Enviar mensaje"
+                  >
+                    <Send size={18} />
+                    <span className="font-medium hidden sm:block">Enviar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          </>
+
         </div>
       </div>
     );
   };
 
   // Main component JSX
+  // Mostrar pantalla de carga mientras verifica autenticación
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite'
+      }}>
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar loading mientras se verifica la autenticación
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite'
+      }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar pantalla de login si no está autenticado
+  if (!isAuthenticated) {
+    return <Auth onLogin={login} />;
+  }
+
+  const themeStyles = getThemeStyles(currentTheme);
+  const headerStyles = getHeaderStyles(currentTheme);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="flex-shrink-0 px-4 py-3 border-b bg-white shadow-sm">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800">Tu Asistente Coach Personal</h1>
-        <p className="text-sm text-gray-600 hidden sm:block">Gestiona tus proyectos y mantente enfocado en tus objetivos diarios</p>
-      </div>
-
-      {/* Navigation */}
-      <div className="flex-shrink-0 px-4 py-2 bg-white border-b">
-          <div className="flex gap-1 overflow-x-auto">
-            <button
-              onClick={() => setActiveView('dashboard')}
-              className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
-                activeView === 'dashboard'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <TrendingUp size={14} className="mr-1" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveView('projects')}
-              className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
-                activeView === 'projects'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <Target size={14} className="mr-1" />
-              Proyectos
-            </button>
-            <button
-              onClick={() => setActiveView('assistant')}
-              className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
-                activeView === 'assistant'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <Bot size={14} className="mr-1" />
-              Asistente
-            </button>
-          </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full px-4 py-4">
-          {activeView === 'dashboard' ? renderDashboard() :
-           activeView === 'projects' ? renderProjectsView() :
-           renderAssistantView()}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default PersonalCoachAssistant;
-        </div>
-
-        {/* Sección 1: Configuración del Asistente */}
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          {/* Nombre del usuario - Arriba de todo */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              👤 Tu nombre
-            </label>
-            <input
-              type="text"
-              value={assistantConfig.userName}
-              onChange={(e) => handleConfigChange('userName', e.target.value)}
-              placeholder="¿Cómo te gustaría que te llame?"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <h3 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
-            <Settings className="mr-2 text-indigo-500" size={20} />
-            Configuración del Asistente
-          </h3>
-
-          <div className="space-y-4">
-            {/* Nombre del asistente */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                🤖 Nombre del asistente
-              </label>
-              <input
-                type="text"
-                value={assistantConfig.assistantName}
-                onChange={(e) => handleConfigChange('assistantName', e.target.value)}
-                placeholder="Nombre de tu asistente personal"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+    <div className={`min-h-screen flex flex-col ${themeStyles.className}`} style={{
+      background: themeStyles.background,
+      backgroundSize: themeStyles.backgroundSize,
+      animation: themeStyles.animation,
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div className={`flex-shrink-0 px-6 py-4 ${headerStyles.className || ''}`} style={{
+        background: headerStyles.background,
+        backdropFilter: headerStyles.backdropFilter,
+        border: headerStyles.border,
+        borderBottom: headerStyles.borderBottom,
+        boxShadow: headerStyles.boxShadow,
+        color: headerStyles.color,
+        position: 'relative'
+      }}>
+        <div className="flex items-center justify-between">
+          {/* Logo y Nombre juntos */}
+          <div className="flex items-center space-x-3">
+            {/* Logo de SmartChatix */}
+            <div className="relative flex items-center justify-center">
+            <div className={`${currentTheme === 'brutalist' ? 'w-10 h-10 md:w-14 md:h-14' : 'w-14 h-14'} flex items-center justify-center ${currentTheme === 'brutalist' ? 'p-1 md:p-2' : 'p-2'} mr-4 ${
+              currentTheme === 'retro' ? 'cyber-logo' :
+              currentTheme === 'minimal' ? 'bg-white/50 rounded-xl backdrop-blur-sm soft-shadow' :
+              currentTheme === 'brutalist' ? 'brutalist-card bg-white' :
+              'bg-white/50 rounded-xl backdrop-blur-sm'
+            }`} style={{
+              animation: currentTheme === 'retro' ? 'retroWave 6s ease-in-out infinite' :
+                        currentTheme === 'minimal' ? 'floatSoft 4s ease-in-out infinite' :
+                        currentTheme === 'brutalist' ? 'glitchEffect 7s infinite reverse' :
+                        'floatSoft 4s ease-in-out infinite'
+            }}>
+              {/* Logo SmartChatix - Oficial */}
+              <img
+                src="/smartchatix_logo.svg"
+                alt="SmartChatix Logo"
+                width="44"
+                height="24"
+                className="drop-shadow-lg"
               />
             </div>
-
-            {/* Especialidades del asistente */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                🎓 Tu Asistente es Especialista en:
-              </label>
-
-              {/* Especialidades seleccionadas */}
-              {assistantConfig.specialties.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {assistantConfig.specialties.map((specialty) => (
-                    <span
-                      key={specialty}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800"
-                    >
-                      {specialty}
-                      <button
-                        onClick={() => removeSpecialty(specialty)}
-                        className="ml-2 text-indigo-600 hover:text-indigo-800"
-                        title="Eliminar especialidad"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Selector de especialidades disponibles */}
-              <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                {availableSpecialties.map((specialty) => (
-                  <label
-                    key={specialty}
-                    className={`flex items-center p-2 rounded cursor-pointer transition-colors ${
-                      assistantConfig.specialties.includes(specialty)
-                        ? 'bg-indigo-50 border border-indigo-200'
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={assistantConfig.specialties.includes(specialty)}
-                      onChange={() => handleSpecialtyToggle(specialty)}
-                      className="mr-3 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-gray-700">{specialty}</span>
-                  </label>
-                ))}
-              </div>
-
-              {/* Agregar especialidad personalizada */}
-              <div className="mt-3 space-y-2">
-                <label className="block text-xs font-medium text-gray-600">
-                  ➕ Agregar especialidad personalizada:
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customSpecialty}
-                    onChange={(e) => setCustomSpecialty(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addCustomSpecialty()}
-                    placeholder="ej: Inteligencia Artificial, Blockchain..."
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                  <button
-                    onClick={addCustomSpecialty}
-                    disabled={!customSpecialty.trim()}
-                    className="px-3 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Agregar
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Prompt base */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                📝 Descripción del Asistente (Prompt base)
-              </label>
-              <textarea
-                value={assistantConfig.basePrompt}
-                onChange={(e) => handleConfigChange('basePrompt', e.target.value)}
-                placeholder="Describe cómo quieres que se comporte tu asistente..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                rows="4"
-              />
-            </div>
-
-            {/* Selector de tono */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                🎭 Tono del asistente
-              </label>
-              <select
-                value={assistantConfig.tone}
-                onChange={(e) => handleConfigChange('tone', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                {toneOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Áreas de enfoque */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                🎯 Áreas de enfoque
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {focusAreasOptions.map(area => (
-                  <label key={area.key} className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={assistantConfig.focusAreas[area.key]}
-                      onChange={() => handleFocusAreaChange(area.key)}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-gray-700">{area.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Botón guardar */}
-            <button
-              onClick={saveConfiguration}
-              className={`w-full flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-all ${
-                isConfigSaved
-                  ? 'bg-green-500 text-white'
-                  : 'bg-indigo-500 hover:bg-indigo-600 text-white'
-              }`}
-            >
-              {isConfigSaved ? (
-                <>
-                  <CheckCircle2 size={20} className="mr-2" />
-                  Configuración Guardada
-                </>
-              ) : (
-                <>
-                  <Save size={20} className="mr-2" />
-                  Guardar Configuración
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Sección 2: Memoria a Largo Plazo */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold flex items-center text-gray-800">
-              <span className="mr-2">🧠</span>
-              Memoria del Asistente
-            </h3>
-            <button
-              onClick={() => setShowMemorySection(!showMemorySection)}
-              className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              {showMemorySection ? '🔽 Ocultar' : '🔧 Configurar'}
-            </button>
           </div>
 
-          <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
-            <p className="text-sm text-green-800">
-              <strong>✨ Aprendizaje Automático:</strong> El asistente aprende sobre ti naturalmente a través de nuestras conversaciones.
-              Opcionalmente, puedes completar algunos campos para acelerar la personalización.
+          {/* Nombre y slogan */}
+          <div className="flex flex-col">
+            <h1 className={`text-2xl md:text-3xl font-bold ${currentTheme === 'brutalist' ? 'terminal-font' : currentTheme === 'minimal' ? 'system-font' : 'retro-font'}`} style={headerStyles.titleStyle}>
+              {currentTheme === 'brutalist' ? '> SMARTCHATIX_' : 'SMARTCHATIX'}
+            </h1>
+            <p className={`text-sm font-light -mt-1 ${currentTheme === 'brutalist' ? 'terminal-font' : 'synthwave-font'}`} style={headerStyles.subtitleStyle}>
+              {currentTheme === 'brutalist' ? '[SYSTEM_READY] assistant.exe' : '◢ DIGITAL ASSISTANT ◤'}
             </p>
-          </div>
-
-          {showMemorySection && (
-            <>
-              <p className="text-sm text-gray-600 mb-6">
-                Estos campos son opcionales. El asistente aprenderá automáticamente sobre ti, pero puedes
-                completar cualquier información que consideres importante para acelerar la personalización.
-              </p>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Columna 1: Información Personal y Emocional */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🎭 Rasgos de Personalidad
-                </label>
-                <textarea
-                  placeholder="Ej: Soy una persona ambiciosa pero a veces me desenfoco fácilmente..."
-                  value={assistantConfig.memory.personalityTraits}
-                  onChange={(e) => updateMemory('personalityTraits', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🚀 Qué te Motiva
-                </label>
-                <textarea
-                  placeholder="Ej: Me motiva ver resultados rápidos, los desafíos técnicos, ayudar a otros..."
-                  value={assistantConfig.memory.motivationalTriggers}
-                  onChange={(e) => updateMemory('motivationalTriggers', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  😰 Desafíos y Luchas Actuales
-                </label>
-                <textarea
-                  placeholder="Ej: Procrastinación, gestión del tiempo, perfeccionismo, ansiedad..."
-                  value={assistantConfig.memory.challengesAndStruggles}
-                  onChange={(e) => updateMemory('challengesAndStruggles', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  💭 Contexto Emocional Actual
-                </label>
-                <textarea
-                  placeholder="Ej: Me siento optimista pero algo abrumado, tengo presión por resultados..."
-                  value={assistantConfig.memory.emotionalContext}
-                  onChange={(e) => updateMemory('emotionalContext', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-            </div>
-
-            {/* Columna 2: Información Profesional y de Crecimiento */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🏆 Logros y Fortalezas
-                </label>
-                <textarea
-                  placeholder="Ej: Completé un proyecto complejo el mes pasado, soy bueno resolviendo problemas..."
-                  value={assistantConfig.memory.achievements}
-                  onChange={(e) => updateMemory('achievements', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📚 Estilo de Aprendizaje
-                </label>
-                <textarea
-                  placeholder="Ej: Aprendo mejor con ejemplos prácticos, prefiero tutoriales visuales..."
-                  value={assistantConfig.memory.learningStyle}
-                  onChange={(e) => updateMemory('learningStyle', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ⏰ Patrones de Trabajo
-                </label>
-                <textarea
-                  placeholder="Ej: Soy más productivo en las mañanas, trabajo mejor con deadlines claros..."
-                  value={assistantConfig.memory.workPatterns}
-                  onChange={(e) => updateMemory('workPatterns', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🌱 Áreas de Crecimiento
-                </label>
-                <textarea
-                  placeholder="Ej: Quiero mejorar mi comunicación, ser más consistente, aprender nuevas tecnologías..."
-                  value={assistantConfig.memory.growthAreas}
-                  onChange={(e) => updateMemory('growthAreas', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🎯 Prioridades Actuales
-                </label>
-                <textarea
-                  placeholder="Ej: Completar el proyecto X antes de fin de mes, mejorar mi rendimiento en Y..."
-                  value={assistantConfig.memory.currentPriorities}
-                  onChange={(e) => updateMemory('currentPriorities', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  rows="3"
-                />
-              </div>
-            </div>
-            </div>
-
-          <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-            <h4 className="font-medium text-amber-900 mb-2">🤖 Aprendizaje Inteligente:</h4>
-            <ul className="text-sm text-amber-800 space-y-1">
-              <li>• El asistente observa tus patrones de trabajo y preferencias</li>
-              <li>• Identifica automáticamente tus desafíos y fortalezas</li>
-              <li>• Aprende qué tipo de motivación funciona mejor contigo</li>
-              <li>• Se adapta a tu estilo de comunicación y necesidades</li>
-              <li>• Puedes actualizar manualmente cualquier campo si lo deseas</li>
-            </ul>
-          </div>
-          </>
-          )}
-        </div>
-
-      </div>
-
-      {/* Right Column - Chat */}
-      <div className="flex-1 bg-white rounded-lg shadow-lg flex flex-col overflow-hidden">
-        {/* Header del chat */}
-        <div className="p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-          <h3 className="text-lg font-semibold flex items-center text-gray-800">
-            <MessageCircle className="mr-2 text-indigo-500" size={18} />
-              Conversación con {assistantConfig.assistantName}
-            </h3>
-            <div className="mt-1 space-y-1">
-              {assistantConfig.specialties.length > 0 && (
-                <div className="text-sm text-indigo-600 font-medium">
-                  🎓 Especialista en: {assistantConfig.specialties.join(', ')}
-                </div>
-              )}
-              {assistantConfig.userName && (
-                <p className="text-sm text-gray-600">
-                  👤 Hablando con: {assistantConfig.userName}
-                </p>
-              )}
             </div>
           </div>
 
-          {/* Mensajes del chat */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0">
-            {messages.map(message => (
-              <div
-                key={message.id}
-                className="w-full"
-              >
-                <div
-                  className={`w-full px-4 py-3 ${
-                    message.type === 'user'
-                      ? 'bg-indigo-50 border-l-4 border-indigo-500'
-                      : 'bg-gray-50 border-l-4 border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-start space-x-2">
-                    {message.type === 'assistant' && (
-                      <Bot size={16} className="text-indigo-500 mt-1 flex-shrink-0" />
-                    )}
-                    {message.type === 'user' && (
-                      <User size={16} className="text-indigo-200 mt-1 flex-shrink-0" />
-                    )}
-                    <div>
-                      {message.type === 'assistant' ? (
-                        <div className="text-sm leading-relaxed">
-                          <ReactMarkdown
-                            components={{
-                              p: ({children}) => <p className="mb-2 last:mb-0 text-sm">{children}</p>,
-                              ul: ({children}) => <ul className="mb-2 pl-4 space-y-1 list-disc">{children}</ul>,
-                              ol: ({children}) => <ol className="mb-2 pl-4 space-y-1 list-decimal">{children}</ol>,
-                              li: ({children}) => <li className="text-sm text-gray-800">{children}</li>,
-                              h1: ({children}) => <h1 className="text-base font-bold mb-2 text-gray-900">{children}</h1>,
-                              h2: ({children}) => <h2 className="text-sm font-bold mb-1 text-gray-900">{children}</h2>,
-                              h3: ({children}) => <h3 className="text-sm font-semibold mb-1 text-gray-900">{children}</h3>,
-                              strong: ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                              em: ({children}) => <em className="italic">{children}</em>,
-                              code: ({children}) => <code className="bg-gray-200 px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
-                              blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2 italic text-gray-700">{children}</blockquote>,
-                              br: () => <br className="mb-1" />
-                            }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <p className="text-sm leading-relaxed">{message.content}</p>
-                      )}
-                      <p className={`text-xs mt-1 ${
-                        message.type === 'user' ? 'text-indigo-200' : 'text-gray-500'
-                      }`}>
-                        {message.timestamp}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* Información de usuario y logout */}
+          <div className="flex items-center space-x-4">
+            <div className={`hidden md:flex flex-col text-right ${currentTheme === 'brutalist' ? 'terminal-font' : currentTheme === 'minimal' ? 'system-font' : 'retro-font'}`}>
+              <span className="text-sm font-bold" style={headerStyles.userStyle}>
+                {currentTheme === 'brutalist' ? `USER: ${(user?.name || 'GUEST').toUpperCase()}` :
+                 currentTheme === 'minimal' ? `${user?.name || 'Usuario'}` :
+                 `◥ ${user?.name || 'GUEST'} ◤`}
+              </span>
+              <span className="text-xs" style={headerStyles.emailStyle}>
+                {currentTheme === 'brutalist' ? `[${user?.email || 'anonymous@localhost'}]` :
+                 user?.email || (currentTheme === 'retro' ? 'guest@retro.net' : 'guest@app.com')}
+              </span>
+            </div>
 
-            {/* Indicador de que el asistente está escribiendo */}
-            {isAssistantTyping && (
-              <div className="flex justify-start">
-                <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-2xl px-4 py-3 rounded-lg shadow-sm bg-gray-100 text-gray-800 rounded-bl-none">
-                  <div className="flex items-start space-x-2">
-                    <Bot size={16} className="text-indigo-500 mt-1 flex-shrink-0" />
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">{assistantConfig.assistantName} está escribiendo</span>
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0.1s"}}></div>
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input para nuevo mensaje */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Escribe tu mensaje aquí..."
-                className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
+            <div className="relative">
               <button
-                onClick={sendMessage}
-                disabled={!newMessage.trim() || isAssistantTyping}
-                className="px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                title={isAssistantTyping ? "Esperando respuesta..." : "Enviar mensaje"}
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="user-button w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold hover:shadow-lg transition-shadow"
+                title="Menu de usuario"
               >
-                {isAssistantTyping ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Send size={20} />
-                )}
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
               </button>
             </div>
           </div>
         </div>
       </div>
-    );
-  };
-
-  // Main component JSX
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="flex-shrink-0 px-4 py-3 border-b bg-white shadow-sm">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800">Tu Asistente Coach Personal</h1>
-        <p className="text-sm text-gray-600 hidden sm:block">Gestiona tus proyectos y mantente enfocado en tus objetivos diarios</p>
-      </div>
 
       {/* Navigation */}
       <div className="flex-shrink-0 px-4 py-2 bg-white border-b">
@@ -2743,11 +4112,1469 @@ export default PersonalCoachAssistant;
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full px-4 py-4">
-          {activeView === 'dashboard' ? renderDashboard() :
-           activeView === 'projects' ? renderProjectsView() :
-           renderAssistantView()}
+          {activeView === 'dashboard' ?
+            renderDashboard() :
+            activeView === 'projects' ?
+              renderProjectsView() :
+              renderAssistantView()
+          }
         </div>
       </div>
+
+      {/* Modal de Configuración del Asistente */}
+      {showAssistantModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                  <Settings className="mr-2" size={24} />
+                  Configuración del Asistente
+                </h3>
+                <button
+                  onClick={() => setShowAssistantModal(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Nombre del asistente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del asistente
+                  </label>
+                  <input
+                    type="text"
+                    value={assistantConfig.assistantName}
+                    onChange={(e) => handleConfigChange('assistantName', e.target.value)}
+                    placeholder="Nombre de tu asistente"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Tu nombre */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tu nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={assistantConfig.userName}
+                    onChange={(e) => handleConfigChange('userName', e.target.value)}
+                    placeholder="¿Cómo te gustaría que te llame?"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Especialidades */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Especialidades
+                  </label>
+                  {assistantConfig.specialties.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {assistantConfig.specialties.map((specialty) => (
+                        <span
+                          key={specialty}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800"
+                        >
+                          {specialty}
+                          <button
+                            onClick={() => removeSpecialty(specialty)}
+                            className="ml-2 text-indigo-600 hover:text-indigo-800"
+                            title="Eliminar"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    {availableSpecialties.map((specialty) => (
+                      <label
+                        key={specialty}
+                        className="flex items-center hover:bg-gray-50 p-1 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={assistantConfig.specialties.includes(specialty)}
+                          onChange={() => {
+                            if (assistantConfig.specialties.includes(specialty)) {
+                              removeSpecialty(specialty);
+                            } else {
+                              handleConfigChange('specialties', [...assistantConfig.specialties, specialty]);
+                            }
+                          }}
+                          className="mr-2 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-gray-700">{specialty}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Especialidad personalizada */}
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={newCustomSpecialty}
+                      onChange={(e) => setNewCustomSpecialty(e.target.value)}
+                      placeholder="Especialidad personalizada"
+                      className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          addCustomSpecialty();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={addCustomSpecialty}
+                      disabled={!newCustomSpecialty.trim()}
+                      className="px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Prompt del sistema */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prompt del sistema
+                  </label>
+                  <textarea
+                    value={assistantConfig.systemPrompt}
+                    onChange={(e) => handleConfigChange('systemPrompt', e.target.value)}
+                    placeholder="Define la personalidad y comportamiento de tu asistente..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-vertical"
+                    rows={4}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Este prompt define cómo se comportará tu asistente en las conversaciones.
+                  </p>
+                </div>
+
+                {/* Tono */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tono de conversación
+                  </label>
+                  <select
+                    value={assistantConfig.tone}
+                    onChange={(e) => handleConfigChange('tone', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Motivador">Motivador</option>
+                    <option value="Profesional">Profesional</option>
+                    <option value="Amigable">Amigable</option>
+                    <option value="Directo">Directo</option>
+                  </select>
+                </div>
+
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowAssistantModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    saveAssistantConfig();
+                    setShowAssistantModal(false);
+                  }}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 flex items-center"
+                >
+                  <Save className="mr-1" size={16} />
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dropdown de Usuario */}
+      {showUserDropdown && (
+        <div className="fixed top-16 right-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50 user-dropdown">
+          <div className="p-2">
+            <button
+              onClick={() => {
+                setShowUserDropdown(false);
+                setShowUserProfileModal(true);
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center"
+            >
+              <User className="mr-2" size={16} />
+              Perfil
+            </button>
+
+            {/* Selector de Theme */}
+            <div className="px-3 py-2 border-t border-gray-100">
+              <div className="flex items-center mb-1">
+                <Settings className="mr-1" size={12} />
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Theme</label>
+              </div>
+              <select
+                value={currentTheme}
+                onChange={(e) => setCurrentTheme(e.target.value)}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="retro">🌆 Retro Synthwave</option>
+                <option value="minimal">✨ Minimal Elegante</option>
+                <option value="brutalist">⚡ Brutalist Tech</option>
+                <option value="colorful">🌈 Colorful Gradient</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowUserDropdown(false);
+                logout();
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center"
+            >
+              <LogOut className="mr-2" size={16} />
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Perfil de Usuario */}
+      {showUserProfileModal && (
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                  <User className="mr-2" size={24} />
+                  Configuración de Usuario
+                </h3>
+                <button
+                  onClick={() => setShowUserProfileModal(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Nombre editable */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={userConfig.name}
+                    onChange={(e) => setUserConfig(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Email solo lectura */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={userConfig.email}
+                    disabled
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Cambiar contraseña - Expandible */}
+                <div>
+                  <div
+                    onClick={() => setShowPasswordFields(!showPasswordFields)}
+                    className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 cursor-pointer">
+                        Cambiar contraseña (opcional)
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Actualizar contraseña de acceso
+                      </p>
+                    </div>
+                    <div className={`transform transition-transform duration-200 ${showPasswordFields ? 'rotate-180' : ''}`}>
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {showPasswordFields && (
+                    <div className="mt-3 space-y-3" style={{
+                      animation: 'fadeIn 0.3s ease-in-out'
+                    }}>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            value={userConfig.newPassword}
+                            onChange={(e) => setUserConfig(prev => ({ ...prev, newPassword: e.target.value }))}
+                            placeholder="Mínimo 6 caracteres"
+                            className="w-full p-2 pr-8 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar nueva contraseña</label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={userConfig.confirmPassword}
+                            onChange={(e) => setUserConfig(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            placeholder="Repite la nueva contraseña"
+                            className="w-full p-2 pr-8 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {userConfig.newPassword && userConfig.confirmPassword && userConfig.newPassword !== userConfig.confirmPassword && (
+                        <p className="text-red-500 text-xs">Las contraseñas no coinciden</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Memoria a largo plazo - Expandible */}
+                <div>
+                  <div
+                    onClick={() => setShowMemoryFields(!showMemoryFields)}
+                    className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 cursor-pointer">
+                        Memoria a largo plazo (opcional)
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Ayuda al asistente a conocerte mejor
+                      </p>
+                    </div>
+                    <div className={`transform transition-transform duration-200 ${showMemoryFields ? 'rotate-180' : ''}`}>
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {showMemoryFields && (
+                    <div className="mt-3 space-y-3" style={{
+                      animation: 'fadeIn 0.3s ease-in-out'
+                    }}>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Rasgos de personalidad</label>
+                        <textarea
+                          value={assistantConfig.memory.personalityTraits}
+                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, personalityTraits: e.target.value})}
+                          placeholder="Ej: Soy una persona analítica y organizada..."
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                          rows={2}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Qué te motiva</label>
+                        <textarea
+                          value={assistantConfig.memory.motivationalTriggers}
+                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, motivationalTriggers: e.target.value})}
+                          placeholder="Ej: Me motivan los desafíos, reconocimiento..."
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                          rows={2}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Estilo de aprendizaje</label>
+                        <textarea
+                          value={assistantConfig.memory.learningStyle}
+                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, learningStyle: e.target.value})}
+                          placeholder="Ej: Aprendo mejor con ejemplos prácticos..."
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                          rows={2}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Prioridades actuales</label>
+                        <textarea
+                          value={assistantConfig.memory.currentPriorities}
+                          onChange={(e) => handleConfigChange('memory', {...assistantConfig.memory, currentPriorities: e.target.value})}
+                          placeholder="Ej: Enfocarme en proyectos de desarrollo web..."
+                          className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowUserProfileModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    saveUserConfig();
+                    setShowUserProfileModal(false);
+                  }}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 flex items-center"
+                >
+                  <Save className="mr-1" size={16} />
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        </>
+      )}
+
+      {/* Modal para crear nuevo proyecto */}
+      {showCreateProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Crear Nuevo Proyecto</h3>
+                <button
+                  onClick={() => setShowCreateProject(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre del proyecto
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Desarrollo de aplicación móvil"
+                    value={newProject.title}
+                    onChange={(e) => setNewProject({...newProject, title: e.target.value})}
+                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descripción (opcional)
+                  </label>
+                  <textarea
+                    placeholder="Describe brevemente el proyecto..."
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows="3"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Prioridad
+                    </label>
+                    <select
+                      value={newProject.priority}
+                      onChange={(e) => setNewProject({...newProject, priority: e.target.value})}
+                      className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="baja">Baja</option>
+                      <option value="media">Media</option>
+                      <option value="alta">Alta</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fecha límite (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={newProject.deadline}
+                      onChange={(e) => setNewProject({...newProject, deadline: e.target.value})}
+                      className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowCreateProject(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    addProject();
+                    setShowCreateProject(false);
+                  }}
+                  disabled={!newProject.title.trim()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
+                >
+                  <Plus size={16} className="mr-1" />
+                  Crear Proyecto
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de detalle del proyecto */}
+      {showProjectDetailModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999999,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowProjectDetailModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '10px',
+              padding: '30px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header con título y botón de cierre */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '25px',
+              borderBottom: '1px solid #e5e7eb',
+              paddingBottom: '15px'
+            }}>
+              {editingProjectTitleId === selectedProject?.id ? (
+                <input
+                  type="text"
+                  value={editingProjectTitleText}
+                  onChange={(e) => setEditingProjectTitleText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      saveProjectTitle();
+                    } else if (e.key === 'Escape') {
+                      cancelEditingProjectTitle();
+                    }
+                  }}
+                  style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    margin: 0,
+                    color: '#1f2937',
+                    border: '2px solid #3b82f6',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    background: 'white',
+                    width: '100%'
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h2 style={{
+                    fontSize: '24px',
+                    fontWeight: 'bold',
+                    margin: 0,
+                    color: '#1f2937'
+                  }}>
+                    {selectedProject?.title || 'Proyecto'}
+                  </h2>
+                  <button
+                    onClick={() => startEditingProjectTitle(selectedProject.id, selectedProject.title)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      color: '#6b7280',
+                      borderRadius: '4px'
+                    }}
+                    title="Editar título"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => setShowProjectDetailModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '5px',
+                  borderRadius: '5px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Descripción del proyecto */}
+            {selectedProject?.description && (
+              <div style={{ marginBottom: '25px' }}>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  marginBottom: '10px',
+                  color: '#374151'
+                }}>
+                  Descripción
+                </h3>
+                <p style={{
+                  fontSize: '16px',
+                  color: '#6b7280',
+                  lineHeight: '1.6',
+                  margin: 0
+                }}>
+                  {selectedProject?.description}
+                </p>
+              </div>
+            )}
+
+            {/* Estadísticas básicas */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: '#f8fafc',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #e5e7eb'
+            }}>
+              {/* Información compacta en una línea */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px'
+              }}>
+                {/* Stats compactos - izquierda */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '20px',
+                  flex: '1'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      color: '#3b82f6'
+                    }}>
+                      {selectedProject?.tasks?.length || 0}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#6b7280'
+                    }}>
+                      tareas
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      color: '#10b981'
+                    }}>
+                      {selectedProject?.tasks?.filter(t => t.completed).length || 0}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#6b7280'
+                    }}>
+                      hechas
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <div style={{
+                      width: '32px',
+                      height: '4px',
+                      backgroundColor: '#e5e7eb',
+                      borderRadius: '2px',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        backgroundColor: (selectedProject?.progress || 0) >= 100 ? '#10b981' : '#3b82f6',
+                        width: `${selectedProject?.progress || 0}%`,
+                        transition: 'width 0.3s ease'
+                      }} />
+                    </div>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: '#374151'
+                    }}>
+                      {selectedProject?.progress || 0}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Controles - derecha */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <select
+                    value={selectedProject?.priority || 'media'}
+                    onChange={async (e) => {
+                      const newPriority = e.target.value;
+                      setSelectedProject(prev => ({ ...prev, priority: newPriority }));
+
+                      try {
+                        await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                          method: 'PUT',
+                          body: JSON.stringify({
+                            project: { priority: newPriority }
+                          })
+                        });
+                      } catch (error) {
+                        console.error('Error actualizando prioridad:', error);
+                      }
+
+                      setProjects(projects.map(project =>
+                        project.id === selectedProject?.id
+                          ? { ...project, priority: newPriority }
+                          : project
+                      ));
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="baja">🟢 Baja</option>
+                    <option value="media">🟡 Media</option>
+                    <option value="alta">🔴 Alta</option>
+                  </select>
+
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedProject?.status === 'activo'}
+                      onChange={async (e) => {
+                        const newStatus = e.target.checked ? 'activo' : 'inactivo';
+                        setSelectedProject(prev => ({ ...prev, status: newStatus }));
+
+                        try {
+                          await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                              project: { status: newStatus }
+                            })
+                          });
+                        } catch (error) {
+                          console.error('Error actualizando estado:', error);
+                        }
+
+                        setProjects(projects.map(project =>
+                          project.id === selectedProject?.id
+                            ? { ...project, status: newStatus }
+                            : project
+                        ));
+                      }}
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        accentColor: '#10b981'
+                      }}
+                    />
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: '500',
+                      color: selectedProject?.status === 'activo' ? '#10b981' : '#6b7280'
+                    }}>
+                      {selectedProject?.status === 'activo' ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+
+            </div>
+
+
+            {/* Sección de tareas */}
+            <div style={{ marginTop: '25px' }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                marginBottom: '15px',
+                color: '#374151',
+                borderBottom: '1px solid #e5e7eb',
+                paddingBottom: '10px'
+              }}>
+                Tareas ({selectedProject?.tasks?.length || 0})
+              </h3>
+
+              {/* Lista de tareas existentes */}
+              {selectedProject?.tasks && selectedProject.tasks.length > 0 && (
+                <div style={{
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  marginBottom: '15px'
+                }}>
+                  {selectedProject.tasks.map((task, index) => (
+                    <div
+                      key={task.id || index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '10px 12px',
+                        marginBottom: '8px',
+                        backgroundColor: task.completed ? '#f0fdf4' : '#f9fafb',
+                        border: task.completed ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        transition: 'all 0.2s ease',
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                        minWidth: 0
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => toggleProjectTaskCompletion(selectedProject.id, task.id)}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          cursor: 'pointer'
+                        }}
+                      />
+
+                      {/* Texto de la tarea */}
+                      {editingProjectTaskId === task.id ? (
+                        <input
+                          type="text"
+                          value={editingProjectTaskText}
+                          onChange={(e) => setEditingProjectTaskText(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              saveTaskName();
+                            } else if (e.key === 'Escape') {
+                              cancelEditingTaskName();
+                            }
+                          }}
+                          onBlur={saveTaskName}
+                          style={{
+                            flex: 1,
+                            fontSize: '14px',
+                            color: '#374151',
+                            border: '1px solid #3b82f6',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            background: 'white'
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          onDoubleClick={() => startEditingTaskName(task.id, task.text || task.title || '')}
+                          style={{
+                            flex: 1,
+                            fontSize: '14px',
+                            color: task.completed ? '#16a34a' : '#374151',
+                            textDecoration: task.completed ? 'line-through' : 'none',
+                            fontWeight: task.completed ? '500' : '400',
+                            cursor: 'text',
+                            minWidth: 0,
+                            wordWrap: 'break-word',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {task.text || task.title || 'Tarea sin título'}
+                        </span>
+                      )}
+
+                      {/* Input de progreso */}
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={task.progress || 0}
+                        onChange={(e) => {
+                          const newProgress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                          updateTaskProgress(selectedProject.id, task.id, newProgress);
+                        }}
+                        style={{
+                          width: '50px',
+                          padding: '2px 4px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          textAlign: 'center'
+                        }}
+                      />
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>%</span>
+
+                      {/* Barra de progreso mini */}
+                      <div style={{
+                        width: '60px',
+                        height: '4px',
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: '2px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          height: '100%',
+                          backgroundColor: task.completed ? '#16a34a' : '#3b82f6',
+                          width: `${task.progress || 0}%`,
+                          transition: 'width 0.3s ease'
+                        }} />
+                      </div>
+
+                      {/* Botones de acción */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                        flexShrink: 0,
+                        minWidth: 0
+                      }}>
+                        {task.completed && (
+                          <CheckCircle
+                            size={16}
+                            style={{
+                              color: '#16a34a'
+                            }}
+                          />
+                        )}
+                        {/* Timer Controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {/* Timer Display */}
+                          <span style={{
+                            fontSize: '10px',
+                            color: taskTimers[task.id]?.isActive ? '#3b82f6' : '#6b7280',
+                            fontWeight: taskTimers[task.id]?.isActive ? 'bold' : 'normal',
+                            minWidth: '35px'
+                          }}>
+                            {getTaskElapsedTime(task.id)}
+                          </span>
+
+                          {/* Play/Pause Button */}
+                          <button
+                            onClick={() => {
+                              if (taskTimers[task.id]?.isActive) {
+                                pauseTimer(task.id);
+                              } else {
+                                startTimer(task.id);
+                              }
+                            }}
+                            style={{
+                              backgroundColor: taskTimers[task.id]?.isActive ? '#f59e0b' : '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
+                              fontSize: '10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                            title={taskTimers[task.id]?.isActive ? "Pausar timer" : "Iniciar timer"}
+                          >
+                            {taskTimers[task.id]?.isActive ? '⏸️' : '▶️'}
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => updateTaskProgress(selectedProject.id, task.id, 100)}
+                          style={{
+                            backgroundColor: '#16a34a',
+                            color: 'white',
+                            border: 'none',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '9px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          100%
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteProjectTask(selectedProject.id, task.id);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            color: '#ef4444',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title="Eliminar tarea"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botón minimalista estilo Trello para agregar nueva tarea */}
+              {!isAddingTask ? (
+                <div
+                  onClick={() => {
+                    console.log('🖱️ Click en agregar tarea - activando modo edición');
+                    setIsAddingTask(true);
+                    setTimeout(() => {
+                      const input = document.getElementById('newTaskInput');
+                      if (input) {
+                        input.focus();
+                      }
+                    }, 50);
+                  }}
+                  style={{
+                    marginTop: '15px',
+                    padding: '8px 12px',
+                    borderRadius: '3px',
+                    border: '2px dashed #d1d5db',
+                    color: '#5e6c84',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: 'transparent',
+                    textAlign: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#e4e6ea';
+                    e.target.style.color = '#172b4d';
+                    e.target.style.borderColor = '#3b82f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = 'transparent';
+                    e.target.style.color = '#5e6c84';
+                    e.target.style.borderColor = '#d1d5db';
+                  }}
+                >
+                  <Plus size={14} />
+                  Agregar nueva tarea
+                </div>
+              ) : (
+                <div style={{
+                  marginTop: '15px',
+                  padding: '8px',
+                  borderRadius: '3px',
+                  backgroundColor: 'white',
+                  boxShadow: '0 1px 0 rgba(9,30,66,.25)'
+                }}>
+                  <input
+                    id="newTaskInput"
+                    type="text"
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && newTaskText.trim()) {
+                        addTaskFromModal(selectedProject.id);
+                      }
+                      if (e.key === 'Escape') {
+                        setNewTaskText('');
+                        setIsAddingTask(false);
+                      }
+                    }}
+                    placeholder="Introduzca un título para esta tarjeta..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: 'none',
+                      borderRadius: '3px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      resize: 'none',
+                      lineHeight: '20px',
+                      fontFamily: 'inherit'
+                    }}
+                    autoFocus
+                  />
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '8px'
+                  }}>
+                    <button
+                      onClick={() => {
+                        console.log('🖱️ Click en botón Agregar');
+                        addTaskFromModal(selectedProject.id);
+                      }}
+                      disabled={!newTaskText.trim()}
+                      style={{
+                        backgroundColor: newTaskText.trim() ? '#0ea5e9' : '#ddd',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '3px',
+                        cursor: newTaskText.trim() ? 'pointer' : 'not-allowed',
+                        fontSize: '14px',
+                        fontWeight: '400',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (newTaskText.trim()) {
+                          e.target.style.backgroundColor = '#0284c7';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (newTaskText.trim()) {
+                          e.target.style.backgroundColor = '#0ea5e9';
+                        }
+                      }}
+                    >
+                      Agregar tarea
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNewTaskText('');
+                        setIsAddingTask(false);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        color: '#6b778c',
+                        fontSize: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Cancelar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Botones de acción */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderTop: '1px solid #e5e7eb',
+              paddingTop: '20px'
+            }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    // Verificar si el proyecto está activo y tiene tareas
+                    const isActive = selectedProject.status === 'activo';
+                    const hasTasks = selectedProject.tasks && selectedProject.tasks.length > 0;
+
+                    if (isActive && hasTasks) {
+                      alert('No puedes eliminar un proyecto activo que tiene tareas. Puedes cambiarlo a inactivo primero o eliminar todas sus tareas.');
+                      return;
+                    }
+
+                    if (confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
+                      deleteProject(selectedProject.id);
+                      setShowProjectDetailModal(false);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Trash2 size={16} />
+                  Eliminar Proyecto
+                </button>
+              </div>
+              <div style={{
+                fontSize: '14px',
+                color: '#6b7280',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <span>
+                  <span style={{ fontWeight: '600' }}>
+                    {selectedProject?.tasks?.filter(t => t.completed).length || 0}
+                  </span> de{' '}
+                  <span style={{ fontWeight: '600' }}>
+                    {selectedProject?.tasks?.length || 0}
+                  </span> tareas completadas
+                </span>
+              </div>
+              <button
+                onClick={() => setShowProjectDetailModal(false)}
+                style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* Chat Bubble Flotante para Asistente IA */}
+      {chatBubbleOpen && (
+        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
+          {/* Header del Chat */}
+          <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <Bot size={16} className="text-white" />
+              </div>
+              <span className="font-semibold text-gray-800">Asistente IA</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setChatBubbleMinimized(!chatBubbleMinimized)}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title={chatBubbleMinimized ? "Expandir" : "Minimizar"}
+              >
+                <ChevronDown size={16} className={`text-gray-600 transform transition-transform ${chatBubbleMinimized ? 'rotate-180' : ''}`} />
+              </button>
+              <button
+                onClick={() => setChatBubbleOpen(false)}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Contenido del Chat */}
+          {!chatBubbleMinimized && (
+            <>
+              {/* Área de mensajes */}
+              <div className="flex-1 p-3 overflow-y-auto">
+                <div className="text-center" style={{ color: '#374151', padding: '10px' }}>
+                  <Bot size={32} className="mx-auto mb-2" style={{ color: '#9CA3AF' }} />
+                  <p style={{
+                    color: '#111827',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                    marginBottom: '8px',
+                    lineHeight: '1.4'
+                  }}>
+                    ¡Hola! Soy tu asistente personal.
+                  </p>
+                  <p style={{
+                    color: '#6B7280',
+                    fontSize: '12px',
+                    lineHeight: '1.3'
+                  }}>
+                    ¿En qué puedo ayudarte hoy?
+                  </p>
+                </div>
+                {messages.length > 0 && (
+                  <div className="space-y-3">
+                    {messages.map((msg, index) => (
+                      <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div
+                          className="px-3 py-2 rounded-lg text-sm"
+                          style={{
+                            backgroundColor: msg.sender === 'user' ? '#3B82F6' : '#F3F4F6',
+                            color: msg.sender === 'user' ? '#FFFFFF' : '#111827',
+                            maxWidth: '250px',
+                            minWidth: '120px',
+                            width: 'auto'
+                          }}
+                        >
+                          {msg.sender === 'assistant' ? (
+                            <div style={{ color: '#111827', minHeight: '20px' }}>
+                              {msg.text}
+                            </div>
+                          ) : (
+                            <span style={{ color: msg.sender === 'user' ? '#FFFFFF' : '#111827', minHeight: '20px' }}>
+                              {msg.text}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Input para nuevo mensaje */}
+              <div className="p-3 border-t border-gray-200">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    placeholder="Escribe tu pregunta..."
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: '#111827',
+                      backgroundColor: '#FFFFFF'
+                    }}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() || isAssistantTyping}
+                    className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Botón flotante para abrir chat bubble */}
+      <button
+        onClick={() => {
+          setChatBubbleOpen(!chatBubbleOpen);
+          if (!chatBubbleOpen) {
+            // Siempre mostrar mensaje de bienvenida cuando se abre
+            setTimeout(() => {
+              setMessages([{
+                sender: 'assistant',
+                text: '¡Hola! 👋 Soy tu asistente personal de SmartChatix. Estoy aquí para ayudarte a gestionar tus proyectos y tareas de manera más eficiente. \n\n¿Qué te gustaría hacer hoy?'
+              }]);
+            }, 300);
+          }
+        }}
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 ${
+          chatBubbleOpen
+            ? 'bg-gray-500 hover:bg-gray-600'
+            : 'bg-blue-500 hover:bg-blue-600'
+        } text-white hover:scale-110`}
+        title={chatBubbleOpen ? "Cerrar Asistente" : "Abrir Asistente IA"}
+      >
+        {chatBubbleOpen ? (
+          <ChevronDown size={24} />
+        ) : (
+          <Bot size={24} />
+        )}
+      </button>
+
     </div>
   );
 };

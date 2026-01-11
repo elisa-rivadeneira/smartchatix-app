@@ -65,7 +65,9 @@
       "Bash(git gc:*)",
       "WebSearch",
       "WebFetch(domain:ai.google.dev)",
-      "WebFetch(domain:codelabs.developers.google.com)"
+      "WebFetch(domain:codelabs.developers.google.com)",
+      "Bash(timeout:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

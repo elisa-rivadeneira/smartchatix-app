@@ -471,5 +471,205 @@
       "userAgent": "curl/7.81.0",
       "token": "eyJhbGciOiJIUzI1NiIs..."
     }
+  },
+  {
+    "timestamp": "2025-10-30T19:24:37.723Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "hasPassword": true,
+      "timestamp": "2025-10-30T19:24:37.722Z"
+    }
+  },
+  {
+    "timestamp": "2025-10-30T19:24:38.060Z",
+    "level": "SUCCESS",
+    "message": "Login exitoso",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "userId": "77332a54-fe8c-44fc-a03a-d7d826ce0ca4",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "tokenPrefix": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2025-10-30T19:44:11.288Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "hasPassword": true,
+      "timestamp": "2025-10-30T19:44:11.287Z"
+    }
+  },
+  {
+    "timestamp": "2025-10-30T19:44:11.627Z",
+    "level": "SUCCESS",
+    "message": "Login exitoso",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "userId": "77332a54-fe8c-44fc-a03a-d7d826ce0ca4",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "tokenPrefix": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2025-10-30T20:59:38.082Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "hasPassword": true,
+      "timestamp": "2025-10-30T20:59:38.081Z"
+    }
+  },
+  {
+    "timestamp": "2025-10-30T20:59:38.411Z",
+    "level": "SUCCESS",
+    "message": "Login exitoso",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "userId": "77332a54-fe8c-44fc-a03a-d7d826ce0ca4",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "tokenPrefix": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2025-10-30T23:48:37.804Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+      "hasPassword": true,
+      "timestamp": "2025-10-30T23:48:37.804Z"
+    }
+  },
+  {
+    "timestamp": "2025-10-30T23:48:38.143Z",
+    "level": "SUCCESS",
+    "message": "Login exitoso",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "userId": "77332a54-fe8c-44fc-a03a-d7d826ce0ca4",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+      "tokenPrefix": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:06:07.661Z",
+    "level": "INFO",
+    "message": "Intento de login",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "hasPassword": true,
+      "timestamp": "2026-01-10T17:06:07.660Z"
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:06:07.977Z",
+    "level": "ERROR",
+    "message": "Login fallido",
+    "details": {
+      "email": "erivadeneiraq@gmail.com",
+      "error": "Contraseña incorrecta",
+      "stack": "Error: Contraseña incorrecta\n    at /home/oem/project_manager/src/database/userDatabase.js:350:20\n    at /home/oem/project_manager/node_modules/bcryptjs/umd/index.js:324:18\n    at /home/oem/project_manager/node_modules/bcryptjs/umd/index.js:1178:18\n    at Immediate.next (/home/oem/project_manager/node_modules/bcryptjs/umd/index.js:1067:13)\n    at process.processImmediate (node:internal/timers:483:21)",
+      "isMobile": false,
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:06:23.206Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/verify",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:46:06.161Z",
+    "level": "WARNING",
+    "message": "Intento de acceso sin token",
+    "details": {
+      "url": "/api/profile",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0"
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:46:07.467Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/verify",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:46:20.958Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/verify",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2026-01-10T17:47:42.084Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/api/profile",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
+  },
+  {
+    "timestamp": "2026-01-11T16:06:47.069Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/daily-tasks",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
   }
 ]
