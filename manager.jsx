@@ -2633,14 +2633,9 @@ Responde siempre en español y mantén el tono configurado.`;
 
       try {
         // Llamar al API para persistir el cambio
-        const authToken = localStorage.getItem('authToken');
-        const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}`, {
+        const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${taskId}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify({ completed: newCompleted }),
+          body: JSON.stringify({ completed: newCompleted })
         });
 
         if (response.ok) {
@@ -2663,7 +2658,12 @@ Responde siempre en español y mantén el tono configurado.`;
             updateProjectProgressFromTasks(task.projectId);
           }
         } else {
-          console.error('Error updating task completion');
+          const errorText = await response.text();
+          console.error('Error updating task completion:', {
+            status: response.status,
+            statusText: response.statusText,
+            response: errorText
+          });
         }
       } catch (error) {
         console.error('Error calling API to update task:', error);
