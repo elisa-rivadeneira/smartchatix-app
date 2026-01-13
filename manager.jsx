@@ -1,9 +1,29 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock, RotateCcw } from 'lucide-react';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock, RotateCcw, GripVertical } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
 import Swal from 'sweetalert2';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import {
+  CSS,
+} from '@dnd-kit/utilities';
 
 // Estilos CSS para diseño retro-futurista años 80 synthwave
 const style = document.createElement('style');
@@ -153,7 +173,107 @@ const getApiBase = () => {
   return `http://${devHost}:3001/api/auth`;
 };
 
+// Componente para elementos sorteable de tareas
+const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgent, editingTaskId, editingTaskText, setEditingTaskText, saveEditedTask, cancelEditingTask, startEditingTask }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: task.id });
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const project = task.projectId ? null : null; // Simplificado por ahora
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-start p-3 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-all duration-200 ${
+        task.completed ? 'opacity-60 bg-gray-50' : ''
+      } ${isUrgent ? 'border-l-4 border-l-red-500 bg-red-50' : ''}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="mr-2 mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+      >
+        <GripVertical size={16} />
+      </div>
+
+      <input
+        type="checkbox"
+        checked={task.completed}
+        onChange={() => onToggle(task.id)}
+        className={`mr-3 ${isUrgent ? 'text-red-600' : ''}`}
+      />
+
+      <div className="flex-1">
+        {editingTaskId === task.id ? (
+          <input
+            type="text"
+            value={editingTaskText}
+            onChange={(e) => setEditingTaskText(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') saveEditedTask();
+            }}
+            onBlur={saveEditedTask}
+            className="w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:border-blue-500"
+            autoFocus
+          />
+        ) : (
+          <div
+            onClick={() => startEditingTask(task.id, task.text)}
+            className="cursor-pointer hover:bg-gray-50 p-1 rounded"
+          >
+            <span className={task.completed ? 'line-through text-gray-500' : ''}>
+              {task.text}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1 ml-2">
+        {editingTaskId === task.id ? (
+          <button
+            onClick={saveEditedTask}
+            className="text-green-600 hover:text-green-800"
+            title="Guardar"
+          >
+            <Save size={16} />
+          </button>
+        ) : (
+          <button
+            onClick={() => startEditingTask(task.id, task.text)}
+            className="text-blue-600 hover:text-blue-800"
+            title="Editar"
+          >
+            <Edit3 size={16} />
+          </button>
+        )}
+        <button
+          onClick={() => onArchive(task.id)}
+          className="text-green-600 hover:text-green-800"
+          title="Archivar"
+        >
+          <Archive size={16} />
+        </button>
+        <button
+          onClick={() => onDelete(task.id)}
+          className="text-red-600 hover:text-red-800"
+          title="Eliminar"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const PersonalCoachAssistant = () => {
   console.log("*testeoooo.jsx");
@@ -2693,12 +2813,8 @@ Responde siempre en español y mantén el tono configurado.`;
     if (result.isConfirmed) {
       try {
         // Llamar al API para eliminar la tarea de la base de datos
-        const authToken = localStorage.getItem('authToken');
-        const response = await authenticatedFetch(`${getApiBase()}/assistant/task/${taskId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
+        const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${taskId}`, {
+          method: 'DELETE'
         });
 
         if (response.ok) {
@@ -2939,6 +3055,52 @@ Responde siempre en español y mantén el tono configurado.`;
   const cancelEditingTask = () => {
     setEditingTaskId(null);
     setEditingTaskText('');
+  };
+
+  // Configurar sensores para drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Función para manejar el final del drag and drop
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = dailyTasks.findIndex((task) => task.id === active.id);
+      const newIndex = dailyTasks.findIndex((task) => task.id === over?.id);
+
+      const reorderedTasks = arrayMove(dailyTasks, oldIndex, newIndex);
+
+      // Actualizar estado local inmediatamente
+      setDailyTasks(reorderedTasks);
+
+      // Enviar nuevo orden al servidor
+      try {
+        const orderedTaskIds = reorderedTasks.map((task, index) => ({
+          id: task.id,
+          order: index
+        }));
+
+        const response = await authenticatedFetch(`${getApiBase()}/daily-tasks-reorder`, {
+          method: 'PUT',
+          body: JSON.stringify({ tasks: orderedTaskIds })
+        });
+
+        if (!response.ok) {
+          console.error('Error actualizando orden de tareas');
+          // Revertir en caso de error
+          setDailyTasks(dailyTasks);
+        }
+      } catch (error) {
+        console.error('Error enviando nuevo orden:', error);
+        // Revertir en caso de error
+        setDailyTasks(dailyTasks);
+      }
+    }
   };
 
   const getProjectsByStatus = (status) => projects.filter(p => p.status === status);
@@ -3212,9 +3374,35 @@ Responde siempre en español y mantén el tono configurado.`;
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2 md:space-y-3">
-                  {dailyTasks.map(task => renderTaskItem(task))}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={dailyTasks.map(task => task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2 md:space-y-3">
+                      {dailyTasks.map(task => (
+                        <SortableTaskItem
+                          key={task.id}
+                          task={task}
+                          onToggle={toggleTask}
+                          onDelete={deleteTask}
+                          onArchive={archiveTask}
+                          isUrgent={false}
+                          editingTaskId={editingTaskId}
+                          editingTaskText={editingTaskText}
+                          setEditingTaskText={setEditingTaskText}
+                          saveEditedTask={saveEditedTask}
+                          cancelEditingTask={cancelEditingTask}
+                          startEditingTask={startEditingTask}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
 

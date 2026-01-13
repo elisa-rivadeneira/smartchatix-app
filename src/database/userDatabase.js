@@ -108,6 +108,7 @@ class UserDatabase {
           completed BOOLEAN DEFAULT 0,
           project_id TEXT,
           project_task_id TEXT,
+          task_order INTEGER DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
           FOREIGN KEY (project_id) REFERENCES user_projects (id) ON DELETE SET NULL,
@@ -207,9 +208,46 @@ class UserDatabase {
           completed++;
           if (completed === total) {
             console.log('✅ Todas las tablas creadas exitosamente');
-            resolve();
+
+            // Ejecutar migraciones
+            this.runMigrations().then(() => {
+              resolve();
+            }).catch((err) => {
+              console.error('Error en migraciones:', err);
+              resolve(); // No fallar si las migraciones fallan
+            });
           }
         });
+      });
+    });
+  }
+
+  // Ejecutar migraciones de base de datos
+  async runMigrations() {
+    return new Promise((resolve, reject) => {
+      // Migración: Agregar campo task_order a daily_tasks si no existe
+      this.db.all("PRAGMA table_info(daily_tasks)", (err, columns) => {
+        if (err) {
+          console.error('Error verificando estructura de daily_tasks:', err);
+          return reject(err);
+        }
+
+        const hasTaskOrder = columns.some(col => col.name === 'task_order');
+
+        if (!hasTaskOrder) {
+          console.log('🔄 Agregando campo task_order a daily_tasks...');
+          this.db.run("ALTER TABLE daily_tasks ADD COLUMN task_order INTEGER DEFAULT 0", (alterErr) => {
+            if (alterErr) {
+              console.error('Error agregando campo task_order:', alterErr);
+              return reject(alterErr);
+            }
+            console.log('✅ Campo task_order agregado exitosamente');
+            resolve();
+          });
+        } else {
+          console.log('✅ Campo task_order ya existe');
+          resolve();
+        }
       });
     });
   }
@@ -495,7 +533,7 @@ class UserDatabase {
       const query = `
         SELECT * FROM daily_tasks
         WHERE user_id = ? AND (archived = 0 OR archived IS NULL)
-        ORDER BY created_at DESC
+        ORDER BY task_order ASC, created_at DESC
       `;
 
       this.db.all(query, [userId], (err, tasks) => {

@@ -1212,4 +1212,57 @@ router.get('/assistant/archived-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Reordenar tareas diarias
+router.put('/daily-tasks-reorder', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔄 [REORDER] Petición de reordenamiento recibida:', {
+      tasks: req.body.tasks,
+      userId: req.user.userId,
+      timestamp: new Date().toISOString()
+    });
+
+    const { tasks } = req.body;
+    const userId = req.user.userId;
+
+    if (!tasks || !Array.isArray(tasks)) {
+      return res.status(400).json({ error: 'Se requiere un array de tareas' });
+    }
+
+    // Actualizar el orden de cada tarea
+    for (const taskOrder of tasks) {
+      const { id, order } = taskOrder;
+
+      const updateQuery = `
+        UPDATE daily_tasks
+        SET task_order = ?
+        WHERE id = ? AND user_id = ?
+      `;
+
+      await new Promise((resolve, reject) => {
+        userDB.db.run(updateQuery, [order, id, userId], function(err) {
+          if (err) {
+            console.error('❌ [REORDER] Error actualizando orden de tarea:', err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+    }
+
+    console.log('✅ [REORDER] Orden de tareas actualizado exitosamente');
+
+    res.json({
+      success: true,
+      message: 'Orden de tareas actualizado correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ [REORDER] Error general en reordenamiento:', error);
+    res.status(500).json({
+      error: 'Error al reordenar tareas'
+    });
+  }
+});
+
 module.exports = { router, authenticateToken, userDB };
