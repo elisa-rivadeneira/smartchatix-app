@@ -671,5 +671,81 @@
       "userAgent": "curl/7.81.0",
       "token": "eyJhbGciOiJIUzI1NiIs..."
     }
+  },
+  {
+    "timestamp": "2026-01-14T04:15:42.126Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/task-details/31738e57-64b3-4cb0-9d1b-6e66427f138c/attachments",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "token": "null..."
+    }
+  },
+  {
+    "timestamp": "2026-01-14T04:15:51.032Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/task-details/31738e57-64b3-4cb0-9d1b-6e66427f138c/attachments",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "token": "null..."
+    }
+  },
+  {
+    "timestamp": "2026-01-14T04:19:38.652Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/task-details/31738e57-64b3-4cb0-9d1b-6e66427f138c/attachments",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "token": "null..."
+    }
+  },
+  {
+    "timestamp": "2026-01-14T04:23:16.642Z",
+    "level": "WARNING",
+    "message": "Intento de acceso sin token",
+    "details": {
+      "url": "/attachments/4f0a1ecc-a9bc-44a2-bca2-4741bbf1f523.jpeg",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
+  },
+  {
+    "timestamp": "2026-01-14T04:23:24.628Z",
+    "level": "WARNING",
+    "message": "Intento de acceso sin token",
+    "details": {
+      "url": "/attachments/4f0a1ecc-a9bc-44a2-bca2-4741bbf1f523.jpeg",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
+  },
+  {
+    "timestamp": "2026-01-14T04:23:42.021Z",
+    "level": "WARNING",
+    "message": "Intento de acceso sin token",
+    "details": {
+      "url": "/attachments/4f0a1ecc-a9bc-44a2-bca2-4741bbf1f523.jpeg",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
+  },
+  {
+    "timestamp": "2026-01-14T04:26:33.024Z",
+    "level": "WARNING",
+    "message": "Intento de acceso sin token",
+    "details": {
+      "url": "/attachments/4f0a1ecc-a9bc-44a2-bca2-4741bbf1f523.jpeg",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
   }
 ]
