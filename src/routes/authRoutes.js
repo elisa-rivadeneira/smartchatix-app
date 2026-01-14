@@ -2,6 +2,8 @@ const express = require('express');
 const UserDatabase = require('../database/userDatabase');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+const crypto = require('crypto');
 
 const router = express.Router();
 const userDB = new UserDatabase();
@@ -1261,6 +1263,242 @@ router.put('/daily-tasks-reorder', authenticateToken, async (req, res) => {
     console.error('❌ [REORDER] Error general en reordenamiento:', error);
     res.status(500).json({
       error: 'Error al reordenar tareas'
+    });
+  }
+});
+
+// ===================== CONFIGURACIÓN PARA ARCHIVOS ADJUNTOS =====================
+
+// Configurar multer para subida de archivos
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../../uploads/tasks');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = crypto.randomUUID();
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB límite
+  },
+  fileFilter: function (req, file, cb) {
+    // Permitir todos los tipos de archivo por ahora
+    cb(null, true);
+  }
+});
+
+// ===================== ENDPOINTS PARA CONTENIDO DETALLADO DE TAREAS =====================
+
+// Obtener detalles completos de una tarea
+router.get('/task-details/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+
+    console.log(`📋 [TASK-DETAILS] Obteniendo detalles para tarea: ${taskId}, usuario: ${userId}`);
+
+    const details = await userDB.getTaskDetails(taskId, userId);
+
+    res.json({
+      success: true,
+      data: details
+    });
+
+  } catch (error) {
+    console.error('❌ [TASK-DETAILS] Error:', error);
+    res.status(500).json({
+      error: 'Error al obtener detalles de la tarea'
+    });
+  }
+});
+
+// Guardar detalles de tarea
+router.post('/task-details/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const { description, notes } = req.body;
+
+    console.log(`💾 [SAVE-DETAILS] Guardando detalles para tarea: ${taskId}`);
+
+    const result = await userDB.saveTaskDetails(taskId, userId, {
+      description,
+      notes
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [SAVE-DETAILS] Error:', error);
+    res.status(500).json({
+      error: 'Error al guardar detalles de la tarea'
+    });
+  }
+});
+
+// Agregar subtarea
+router.post('/task-details/:taskId/subtasks', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const { text, order_index } = req.body;
+
+    console.log(`➕ [ADD-SUBTASK] Nueva subtarea para tarea: ${taskId}`);
+
+    const result = await userDB.addSubtask(taskId, userId, {
+      text,
+      order_index
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [ADD-SUBTASK] Error:', error);
+    res.status(500).json({
+      error: 'Error al agregar subtarea'
+    });
+  }
+});
+
+// Actualizar subtarea
+router.put('/subtasks/:subtaskId', authenticateToken, async (req, res) => {
+  try {
+    const { subtaskId } = req.params;
+    const userId = req.user.id;
+    const { text, completed } = req.body;
+
+    console.log(`✏️ [UPDATE-SUBTASK] Actualizando subtarea: ${subtaskId}`);
+
+    const result = await userDB.updateSubtask(subtaskId, userId, {
+      text,
+      completed
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [UPDATE-SUBTASK] Error:', error);
+    res.status(500).json({
+      error: 'Error al actualizar subtarea'
+    });
+  }
+});
+
+// Eliminar subtarea
+router.delete('/subtasks/:subtaskId', authenticateToken, async (req, res) => {
+  try {
+    const { subtaskId } = req.params;
+    const userId = req.user.id;
+
+    console.log(`🗑️ [DELETE-SUBTASK] Eliminando subtarea: ${subtaskId}`);
+
+    const result = await userDB.deleteSubtask(subtaskId, userId);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [DELETE-SUBTASK] Error:', error);
+    res.status(500).json({
+      error: 'Error al eliminar subtarea'
+    });
+  }
+});
+
+// Subir archivos adjuntos
+router.post('/task-details/:taskId/attachments', authenticateToken, upload.array('files'), async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+    const files = req.files;
+
+    console.log(`📎 [UPLOAD-FILES] Subiendo ${files.length} archivo(s) para tarea: ${taskId}`);
+
+    const results = [];
+
+    for (const file of files) {
+      const isImage = file.mimetype.startsWith('image/');
+
+      const attachmentData = {
+        filename: file.filename,
+        original_name: file.originalname,
+        file_path: file.path,
+        file_size: file.size,
+        mime_type: file.mimetype,
+        is_image: isImage
+      };
+
+      const result = await userDB.addAttachment(taskId, userId, attachmentData);
+      results.push({
+        ...result,
+        file: {
+          id: result.id,
+          filename: file.filename,
+          original_name: file.originalname,
+          size: file.size,
+          type: file.mimetype,
+          is_image: isImage
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      files: results
+    });
+
+  } catch (error) {
+    console.error('❌ [UPLOAD-FILES] Error:', error);
+    res.status(500).json({
+      error: 'Error al subir archivos'
+    });
+  }
+});
+
+// Eliminar archivo adjunto
+router.delete('/attachments/:attachmentId', authenticateToken, async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const userId = req.user.id;
+
+    console.log(`🗑️ [DELETE-ATTACHMENT] Eliminando archivo: ${attachmentId}`);
+
+    const result = await userDB.deleteAttachment(attachmentId, userId);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [DELETE-ATTACHMENT] Error:', error);
+    res.status(500).json({
+      error: 'Error al eliminar archivo'
+    });
+  }
+});
+
+// Servir archivos adjuntos
+router.get('/attachments/:filename', authenticateToken, (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, '../../uploads/tasks', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    res.sendFile(filePath);
+
+  } catch (error) {
+    console.error('❌ [SERVE-FILE] Error:', error);
+    res.status(500).json({
+      error: 'Error al servir archivo'
     });
   }
 });

@@ -86,7 +86,17 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
+// Middleware JSON condicional - no procesar FormData
+app.use((req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+
+  // Solo aplicar parsing JSON si NO es multipart/form-data
+  if (contentType.includes('application/json')) {
+    return express.json()(req, res, next);
+  }
+
+  next();
+});
 
 // Configuración de sesiones
 app.use(session({
@@ -143,6 +153,12 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser((user, done) => {
   done(null, user);
+});
+
+// Serve attachments BEFORE static files
+app.use('/uploads', (req, res, next) => {
+  console.log(`🎯 UPLOADS REQUEST: ${req.path}`);
+  express.static(path.join(__dirname, 'uploads/tasks'))(req, res, next);
 });
 
 app.use(express.static('dist'));

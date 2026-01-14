@@ -152,6 +152,48 @@ class UserDatabase {
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )`,
 
+        // Tabla de contenido detallado de tareas
+        `CREATE TABLE IF NOT EXISTS task_details (
+          id TEXT PRIMARY KEY,
+          task_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          description TEXT, -- Contenido en formato HTML/markdown
+          notes TEXT, -- Notas adicionales
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES daily_tasks (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )`,
+
+        // Tabla de subtareas/checklist
+        `CREATE TABLE IF NOT EXISTS task_subtasks (
+          id TEXT PRIMARY KEY,
+          task_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          text TEXT NOT NULL,
+          completed BOOLEAN DEFAULT 0,
+          order_index INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES daily_tasks (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )`,
+
+        // Tabla de archivos adjuntos
+        `CREATE TABLE IF NOT EXISTS task_attachments (
+          id TEXT PRIMARY KEY,
+          task_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          original_name TEXT NOT NULL,
+          file_path TEXT NOT NULL,
+          file_size INTEGER,
+          mime_type TEXT,
+          is_image BOOLEAN DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES daily_tasks (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )`,
+
         // Tabla de insights del asistente (memoria conversacional)
         `CREATE TABLE IF NOT EXISTS assistant_insights (
           id TEXT PRIMARY KEY,
@@ -789,6 +831,224 @@ class UserDatabase {
       });
     });
   }
+
+  // ===================== MÉTODOS PARA CONTENIDO DETALLADO DE TAREAS =====================
+
+  // Obtener detalles completos de una tarea
+  async getTaskDetails(taskId, userId) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        SELECT td.*,
+               (SELECT json_group_array(json_object(
+                 'id', ts.id,
+                 'text', ts.text,
+                 'completed', ts.completed,
+                 'order_index', ts.order_index
+               ))
+               FROM task_subtasks ts
+               WHERE ts.task_id = td.task_id AND ts.user_id = td.user_id
+               ORDER BY ts.order_index) as subtasks,
+               (SELECT json_group_array(json_object(
+                 'id', ta.id,
+                 'filename', ta.filename,
+                 'original_name', ta.original_name,
+                 'file_path', ta.file_path,
+                 'file_size', ta.file_size,
+                 'mime_type', ta.mime_type,
+                 'is_image', ta.is_image,
+                 'created_at', ta.created_at
+               ))
+               FROM task_attachments ta
+               WHERE ta.task_id = td.task_id AND ta.user_id = td.user_id) as attachments
+        FROM task_details td
+        WHERE td.task_id = ? AND td.user_id = ?
+      `;
+
+      this.db.get(query, [taskId, userId], (err, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (result) {
+          // Parsear los arrays JSON
+          result.subtasks = result.subtasks ? JSON.parse(result.subtasks) : [];
+          result.attachments = result.attachments ? JSON.parse(result.attachments) : [];
+        }
+
+        resolve(result || null);
+      });
+    });
+  }
+
+  // Guardar detalles de tarea
+  async saveTaskDetails(taskId, userId, detailsData) {
+    return new Promise((resolve, reject) => {
+      // Primero verificar si ya existe un registro
+      const checkQuery = `SELECT id FROM task_details WHERE task_id = ? AND user_id = ?`;
+
+      this.db.get(checkQuery, [taskId, userId], (err, existingRecord) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        let query;
+        let params;
+
+        if (existingRecord) {
+          // Actualizar registro existente
+          query = `
+            UPDATE task_details
+            SET description = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE task_id = ? AND user_id = ?
+          `;
+          params = [
+            detailsData.description || '',
+            detailsData.notes || '',
+            taskId,
+            userId
+          ];
+        } else {
+          // Crear nuevo registro
+          const detailId = uuidv4();
+          query = `
+            INSERT INTO task_details (id, task_id, user_id, description, notes)
+            VALUES (?, ?, ?, ?, ?)
+          `;
+          params = [
+            detailId,
+            taskId,
+            userId,
+            detailsData.description || '',
+            detailsData.notes || ''
+          ];
+        }
+
+        this.db.run(query, params, function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve({
+            success: true,
+            id: existingRecord ? existingRecord.id : params[0],
+            updated: !!existingRecord
+          });
+        });
+      });
+    });
+  }
+
+  // Agregar subtarea
+  async addSubtask(taskId, userId, subtaskData) {
+    return new Promise((resolve, reject) => {
+      const subtaskId = uuidv4();
+      const query = `
+        INSERT INTO task_subtasks (id, task_id, user_id, text, order_index)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+
+      this.db.run(query, [
+        subtaskId,
+        taskId,
+        userId,
+        subtaskData.text,
+        subtaskData.order_index || 0
+      ], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ success: true, id: subtaskId });
+      });
+    });
+  }
+
+  // Actualizar subtarea
+  async updateSubtask(subtaskId, userId, updates) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        UPDATE task_subtasks
+        SET text = ?, completed = ?
+        WHERE id = ? AND user_id = ?
+      `;
+
+      this.db.run(query, [
+        updates.text,
+        updates.completed ? 1 : 0,
+        subtaskId,
+        userId
+      ], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ success: true, changes: this.changes });
+      });
+    });
+  }
+
+  // Eliminar subtarea
+  async deleteSubtask(subtaskId, userId) {
+    return new Promise((resolve, reject) => {
+      const query = `DELETE FROM task_subtasks WHERE id = ? AND user_id = ?`;
+
+      this.db.run(query, [subtaskId, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ success: true, changes: this.changes });
+      });
+    });
+  }
+
+  // Agregar archivo adjunto
+  async addAttachment(taskId, userId, attachmentData) {
+    return new Promise((resolve, reject) => {
+      const attachmentId = uuidv4();
+      const query = `
+        INSERT INTO task_attachments (id, task_id, user_id, filename, original_name, file_path, file_size, mime_type, is_image)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      this.db.run(query, [
+        attachmentId,
+        taskId,
+        userId,
+        attachmentData.filename,
+        attachmentData.original_name,
+        attachmentData.file_path,
+        attachmentData.file_size || 0,
+        attachmentData.mime_type || '',
+        attachmentData.is_image ? 1 : 0
+      ], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ success: true, id: attachmentId });
+      });
+    });
+  }
+
+  // Eliminar archivo adjunto
+  async deleteAttachment(attachmentId, userId) {
+    return new Promise((resolve, reject) => {
+      const query = `DELETE FROM task_attachments WHERE id = ? AND user_id = ?`;
+
+      this.db.run(query, [attachmentId, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ success: true, changes: this.changes });
+      });
+    });
+  }
+
+  // ===================== FIN MÉTODOS PARA CONTENIDO DETALLADO =====================
 
   // Cerrar conexión
   close() {

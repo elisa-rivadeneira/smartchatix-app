@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock, RotateCcw, GripVertical } from 'lucide-react';
+import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock, RotateCcw, GripVertical, FileText, Paperclip, Image, X, Bold, Italic, List, AlignLeft, Type, Upload, Download, Maximize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import useAuth from './src/hooks/useAuth';
@@ -154,6 +154,32 @@ style.textContent = `
       inset 0 0 20px rgba(255, 255, 255, 0.2);
     animation: retroWave 6s ease-in-out infinite;
   }
+
+  /* Estilos para imágenes en markdown preview */
+  .markdown-preview img {
+    max-width: 300px !important;
+    max-height: 200px !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin: 8px 0;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .markdown-preview img:hover {
+    transform: scale(1.05);
+  }
+
+  /* Responsive: en pantallas pequeñas las imágenes son aún más pequeñas */
+  @media (max-width: 768px) {
+    .markdown-preview img {
+      max-width: 200px !important;
+      max-height: 150px !important;
+    }
+  }
 `;
 document.head.appendChild(style);
 
@@ -173,8 +199,22 @@ const getApiBase = () => {
   return `http://${devHost}:3001/api/auth`;
 };
 
+// Función para generar URLs de attachments (sin autenticación)
+const getAttachmentBase = () => {
+  const hostname = window.location.hostname;
+
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return '/uploads';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  return `http://${devHost}:3001/uploads`;
+};
+
 // Componente para elementos sorteable de tareas
-const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgent, editingTaskId, editingTaskText, setEditingTaskText, saveEditedTask, cancelEditingTask, startEditingTask }) => {
+const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgent, editingTaskId, editingTaskText, setEditingTaskText, saveEditedTask, cancelEditingTask, startEditingTask, onOpenTaskDetail }) => {
   const {
     attributes,
     listeners,
@@ -256,6 +296,13 @@ const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgen
             <Edit3 size={16} />
           </button>
         )}
+        <button
+          onClick={() => onOpenTaskDetail(task)}
+          className="text-purple-600 hover:text-purple-800"
+          title="Edición Completa"
+        >
+          <Maximize2 size={16} />
+        </button>
         <button
           onClick={() => onArchive(task.id)}
           className="text-green-600 hover:text-green-800"
@@ -558,6 +605,19 @@ const PersonalCoachAssistant = () => {
   const [showAssistantModal, setShowAssistantModal] = useState(false);
   const [showUserProfileModal, setShowUserProfileModal] = useState(false);
   const [showMemoryFields, setShowMemoryFields] = useState(false);
+
+  // Estados para modal de edición completa de tareas
+  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState(null);
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(true);
+  const [taskDetailData, setTaskDetailData] = useState({
+    description: '',
+    notes: '',
+    subtasks: [],
+    attachments: []
+  });
+  const [editingInlineDescription, setEditingInlineDescription] = useState(false);
+  const [editingInlineNotes, setEditingInlineNotes] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -3057,6 +3117,470 @@ Responde siempre en español y mantén el tono configurado.`;
     setEditingTaskText('');
   };
 
+  // ===================== FUNCIONES PARA MODAL DE EDICIÓN COMPLETA =====================
+
+  // Abrir modal de edición completa de tarea
+  const openTaskDetailModal = async (task) => {
+    try {
+      setSelectedTaskForDetail(task);
+      setShowTaskDetailModal(true);
+
+      console.log('📋 [MODAL] Cargando detalles de tarea:', task.id);
+
+      // Cargar detalles existentes si los hay
+      const response = await authenticatedFetch(`${getApiBase()}/task-details/${task.id}`);
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          setTaskDetailData({
+            description: data.data.description || '',
+            notes: data.data.notes || '',
+            subtasks: data.data.subtasks || [],
+            attachments: data.data.attachments || []
+          });
+        } else {
+          // Si no hay detalles, inicializar vacío
+          setTaskDetailData({
+            description: '',
+            notes: '',
+            subtasks: [],
+            attachments: []
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Error cargando detalles de tarea:', error);
+      setTaskDetailData({
+        description: '',
+        notes: '',
+        subtasks: [],
+        attachments: []
+      });
+    }
+  };
+
+  // Cerrar modal
+  const closeTaskDetailModal = () => {
+    setShowTaskDetailModal(false);
+    setSelectedTaskForDetail(null);
+    setTaskDetailData({
+      description: '',
+      notes: '',
+      subtasks: [],
+      attachments: []
+    });
+  };
+
+  // Guardar detalles de tarea
+  const saveTaskDetails = async () => {
+    if (!selectedTaskForDetail) return;
+
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/task-details/${selectedTaskForDetail.id}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          description: taskDetailData.description,
+          notes: taskDetailData.notes
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          Swal.fire({
+            title: '¡Guardado!',
+            text: 'Los detalles de la tarea se guardaron correctamente',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            background: '#1f2937',
+            color: '#f9fafb'
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Error guardando detalles:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudieron guardar los detalles',
+        icon: 'error',
+        background: '#1f2937',
+        color: '#f9fafb'
+      });
+    }
+  };
+
+  // Agregar subtarea
+  const addSubtask = async () => {
+    if (!selectedTaskForDetail) return;
+
+    const newSubtaskText = prompt('Ingresa el texto de la nueva subtarea:');
+    if (!newSubtaskText?.trim()) return;
+
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/task-details/${selectedTaskForDetail.id}/subtasks`, {
+        method: 'POST',
+        body: JSON.stringify({
+          text: newSubtaskText.trim(),
+          order_index: taskDetailData.subtasks.length
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTaskDetailData(prev => ({
+            ...prev,
+            subtasks: [...prev.subtasks, {
+              id: data.id,
+              text: newSubtaskText.trim(),
+              completed: false,
+              order_index: prev.subtasks.length
+            }]
+          }));
+        }
+      }
+
+    } catch (error) {
+      console.error('Error agregando subtarea:', error);
+    }
+  };
+
+  // Actualizar subtarea
+  const updateSubtask = async (subtaskId, updates) => {
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/subtasks/${subtaskId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+
+      if (response.ok) {
+        setTaskDetailData(prev => ({
+          ...prev,
+          subtasks: prev.subtasks.map(subtask =>
+            subtask.id === subtaskId ? { ...subtask, ...updates } : subtask
+          )
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error actualizando subtarea:', error);
+    }
+  };
+
+  // Eliminar subtarea
+  const deleteSubtask = async (subtaskId) => {
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/subtasks/${subtaskId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setTaskDetailData(prev => ({
+          ...prev,
+          subtasks: prev.subtasks.filter(subtask => subtask.id !== subtaskId)
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error eliminando subtarea:', error);
+    }
+  };
+
+  // Manejar pegar imágenes en el editor
+  const handlePasteImage = async (event) => {
+    const items = event.clipboardData.items;
+
+    for (let item of items) {
+      if (item.type.indexOf('image') !== -1) {
+        event.preventDefault();
+
+        const file = item.getAsFile();
+        const formData = new FormData();
+        formData.append('files', file);
+
+        try {
+          // Usar fetch directamente en lugar de authenticatedFetch para FormData
+          const token = localStorage.getItem('authToken');
+          const response = await fetch(`${getApiBase()}/task-details/${selectedTaskForDetail.id}/attachments`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              // Agregar la imagen al contenido del editor
+              const imageUrl = `${getAttachmentBase()}/${data.files[0].file.filename}`;
+              const imageMarkdown = `![${data.files[0].file.original_name}](${imageUrl})`;
+
+              setTaskDetailData(prev => ({
+                ...prev,
+                description: prev.description + '\n\n' + imageMarkdown,
+                attachments: [...prev.attachments, data.files[0].file]
+              }));
+            }
+          }
+
+        } catch (error) {
+          console.error('Error subiendo imagen pegada:', error);
+        }
+      }
+    }
+  };
+
+  // Funciones de formateo de texto para el editor
+  const insertFormatting = (format) => {
+    const textarea = document.querySelector('#description-editor');
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    const beforeSelection = textarea.value.substring(0, start);
+    const afterSelection = textarea.value.substring(end);
+
+    let formattedText = '';
+    let newCursorPos = start;
+
+    switch (format) {
+      case 'bold':
+        if (selectedText) {
+          formattedText = `**${selectedText}**`;
+          newCursorPos = start + formattedText.length;
+        } else {
+          formattedText = '**texto en negrita**';
+          newCursorPos = start + 2; // Posicionar cursor dentro de los asteriscos
+        }
+        break;
+
+      case 'italic':
+        if (selectedText) {
+          formattedText = `*${selectedText}*`;
+          newCursorPos = start + formattedText.length;
+        } else {
+          formattedText = '*texto en cursiva*';
+          newCursorPos = start + 1;
+        }
+        break;
+
+      case 'list':
+        const lines = selectedText.split('\n');
+        if (selectedText) {
+          formattedText = lines.map(line => line.trim() ? `- ${line.trim()}` : line).join('\n');
+        } else {
+          formattedText = '- Elemento de lista\n- Otro elemento';
+          newCursorPos = start + 2;
+        }
+        break;
+
+      case 'heading':
+        if (selectedText) {
+          formattedText = `## ${selectedText}`;
+          newCursorPos = start + formattedText.length;
+        } else {
+          formattedText = '## Título';
+          newCursorPos = start + 3;
+        }
+        break;
+
+      default:
+        return;
+    }
+
+    const newValue = beforeSelection + formattedText + afterSelection;
+
+    // Actualizar el estado
+    setTaskDetailData(prev => ({
+      ...prev,
+      description: newValue
+    }));
+
+    // Enfocar y posicionar cursor
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  // Insertar imagen desde botón
+  const insertImageFromButton = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+
+    input.onchange = async (e) => {
+      if (!selectedTaskForDetail || !e.target.files.length) return;
+
+      const formData = new FormData();
+      for (const file of e.target.files) {
+        formData.append('files', file);
+      }
+
+      try {
+        // Usar fetch directamente en lugar de authenticatedFetch para FormData
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${getApiBase()}/task-details/${selectedTaskForDetail.id}/attachments`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Insertar markdown de imagen en el cursor
+            const textarea = document.querySelector('#description-editor');
+            const cursorPos = textarea ? textarea.selectionStart : 0;
+
+            const imageMarkdowns = data.files.map(fileData => {
+              const imageUrl = `${getAttachmentBase()}/${fileData.file.filename}`;
+              return `![${fileData.file.original_name}](${imageUrl})`;
+            }).join('\n\n');
+
+            const beforeCursor = taskDetailData.description.substring(0, cursorPos);
+            const afterCursor = taskDetailData.description.substring(cursorPos);
+            const newContent = beforeCursor + '\n\n' + imageMarkdowns + '\n\n' + afterCursor;
+
+            setTaskDetailData(prev => ({
+              ...prev,
+              description: newContent,
+              attachments: [...prev.attachments, ...data.files.map(f => f.file)]
+            }));
+
+            // Posicionar cursor después de las imágenes
+            setTimeout(() => {
+              if (textarea) {
+                const newPos = cursorPos + imageMarkdowns.length + 4;
+                textarea.focus();
+                textarea.setSelectionRange(newPos, newPos);
+              }
+            }, 0);
+          }
+        }
+      } catch (error) {
+        console.error('Error subiendo imagen:', error);
+      }
+    };
+
+    input.click();
+  };
+
+  // Insertar archivo desde botón
+  const insertFileFromButton = () => {
+    const input = document.querySelector('input[type="file"][multiple]');
+    if (input) {
+      input.click();
+    }
+  };
+
+  // Funciones para edición WYSIWYG con contentEditable
+  const handleDescriptionClick = () => {
+    setEditingInlineDescription(true);
+  };
+
+  const handleNotesClick = () => {
+    setEditingInlineNotes(true);
+  };
+
+  const handleDescriptionBlur = (e) => {
+    setEditingInlineDescription(false);
+    // Convertir HTML a markdown para mantener compatibilidad
+    const htmlContent = e.target.innerHTML;
+    const markdownContent = htmlToMarkdown(htmlContent);
+    setTaskDetailData(prev => ({ ...prev, description: markdownContent }));
+  };
+
+  const handleNotesBlur = (e) => {
+    setEditingInlineNotes(false);
+    // Convertir HTML a markdown para mantener compatibilidad
+    const htmlContent = e.target.innerHTML;
+    const markdownContent = htmlToMarkdown(htmlContent);
+    setTaskDetailData(prev => ({ ...prev, notes: markdownContent }));
+  };
+
+  // Convertir HTML básico a markdown
+  const htmlToMarkdown = (html) => {
+    return html
+      .replace(/<div><br><\/div>/g, '\n')
+      .replace(/<div>(.*?)<\/div>/g, '\n$1')
+      .replace(/<br\s*\/?>/g, '\n')
+      .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
+      .replace(/<b>(.*?)<\/b>/g, '**$1**')
+      .replace(/<em>(.*?)<\/em>/g, '*$1*')
+      .replace(/<i>(.*?)<\/i>/g, '*$1*')
+      .replace(/<img[^>]+src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/g, '![$2]($1)')
+      .replace(/<img[^>]+src="([^"]*)"[^>]*>/g, '![]($1)')
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+  };
+
+  // Convertir markdown a HTML para contentEditable
+  const markdownToHtml = (markdown) => {
+    if (!markdown) return '';
+
+    return markdown
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="wysiwyg-image" style="max-width: 300px; max-height: 200px; object-fit: contain; border-radius: 8px; margin: 8px 0; cursor: pointer;" />')
+      .replace(/\n/g, '<br>');
+  };
+
+  // Efecto para manejar clics en imágenes dentro de contentEditable
+  useEffect(() => {
+    const handleImageClick = (e) => {
+      if (e.target.classList.contains('wysiwyg-image')) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Crear modal para ver imagen en tamaño completo
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+          cursor: pointer;
+        `;
+
+        const img = document.createElement('img');
+        img.src = e.target.src;
+        img.alt = e.target.alt;
+        img.style.cssText = `
+          max-width: 90vw;
+          max-height: 90vh;
+          object-fit: contain;
+          border-radius: 8px;
+        `;
+
+        modal.appendChild(img);
+        modal.onclick = () => document.body.removeChild(modal);
+        document.body.appendChild(modal);
+      }
+    };
+
+    document.addEventListener('click', handleImageClick);
+    return () => document.removeEventListener('click', handleImageClick);
+  }, []);
+
+  // ===================== FIN FUNCIONES MODAL DE EDICIÓN =====================
+
   // Configurar sensores para drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -3398,6 +3922,7 @@ Responde siempre en español y mantén el tono configurado.`;
                           saveEditedTask={saveEditedTask}
                           cancelEditingTask={cancelEditingTask}
                           startEditingTask={startEditingTask}
+                          onOpenTaskDetail={openTaskDetailModal}
                         />
                       ))}
                     </div>
@@ -5418,6 +5943,362 @@ Responde siempre en español y mantén el tono configurado.`;
           </div>
         </div>
         </>
+      )}
+
+      {/* Modal de Edición Completa de Tarea */}
+      {showTaskDetailModal && selectedTaskForDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <FileText className="mr-3 text-blue-600" size={28} />
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">
+                      {selectedTaskForDetail.text}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Editor completo de contenido
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={saveTaskDetails}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center transition-colors"
+                  >
+                    <Save className="mr-2" size={16} />
+                    Guardar
+                  </button>
+                  <button
+                    onClick={closeTaskDetailModal}
+                    className="text-gray-500 hover:text-gray-700 text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-3 h-full">
+                {/* Panel Principal - Editor */}
+                <div className="lg:col-span-2 flex flex-col border-r border-gray-200">
+                  {/* Toolbar */}
+                  <div className="p-3 border-b border-gray-200 bg-gray-50">
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => insertFormatting('bold')}
+                        className="p-2 hover:bg-gray-200 rounded"
+                        title="Negrita"
+                      >
+                        <Bold size={16} />
+                      </button>
+                      <button
+                        onClick={() => insertFormatting('italic')}
+                        className="p-2 hover:bg-gray-200 rounded"
+                        title="Cursiva"
+                      >
+                        <Italic size={16} />
+                      </button>
+                      <button
+                        onClick={() => insertFormatting('list')}
+                        className="p-2 hover:bg-gray-200 rounded"
+                        title="Lista"
+                      >
+                        <List size={16} />
+                      </button>
+                      <div className="w-px h-6 bg-gray-300"></div>
+                      <button
+                        onClick={insertFileFromButton}
+                        className="p-2 hover:bg-gray-200 rounded"
+                        title="Subir archivo"
+                      >
+                        <Paperclip size={16} />
+                      </button>
+                      <button
+                        onClick={insertImageFromButton}
+                        className="p-2 hover:bg-gray-200 rounded"
+                        title="Insertar imagen"
+                      >
+                        <Image size={16} />
+                      </button>
+                      <div className="w-px h-6 bg-gray-300"></div>
+                      <button
+                        onClick={() => setShowMarkdownPreview(!showMarkdownPreview)}
+                        className={`p-2 hover:bg-gray-200 rounded ${!showMarkdownPreview ? 'bg-blue-100 text-blue-600' : ''}`}
+                        title={showMarkdownPreview ? 'Mostrar Código' : 'Mostrar Preview'}
+                      >
+                        <Type size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Editor Principal */}
+                  <div className="flex-1 p-4">
+                    <div className="grid grid-cols-1 h-full">
+                      {/* Panel de Edición */}
+                      {!showMarkdownPreview && (
+                        <div className="flex flex-col">
+                        <div className="mb-4 flex-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Descripción detallada
+                          </label>
+                          <textarea
+                            id="description-editor"
+                            value={taskDetailData.description}
+                            onChange={(e) => setTaskDetailData(prev => ({ ...prev, description: e.target.value }))}
+                            onPaste={handlePasteImage}
+                            placeholder="Describe todos los detalles de esta tarea. Puedes pegar imágenes con Ctrl+V..."
+                            className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${showMarkdownPreview ? 'h-48' : 'h-64'}`}
+                          />
+                        </div>
+
+                        <div className="flex-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Notas adicionales
+                          </label>
+                          <textarea
+                            value={taskDetailData.notes}
+                            onChange={(e) => setTaskDetailData(prev => ({ ...prev, notes: e.target.value }))}
+                            placeholder="Agrega notas, recordatorios o comentarios..."
+                            className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${showMarkdownPreview ? 'h-24' : 'h-32'}`}
+                          />
+                        </div>
+                        </div>
+                      )}
+
+                      {/* Panel de Preview */}
+                      {showMarkdownPreview && (
+                        <div className="flex flex-col">
+                          <div className="mb-4 flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Preview - Descripción
+                            </label>
+                            <div className="w-full h-64 p-3 border border-gray-200 rounded-lg bg-gray-50 overflow-y-auto prose prose-sm max-w-none markdown-preview">
+                              <div
+                                className="cursor-text min-h-full"
+                                contentEditable={editingInlineDescription}
+                                suppressContentEditableWarning={true}
+                                onFocus={() => setEditingInlineDescription(true)}
+                                onBlur={handleDescriptionBlur}
+                                onClick={handleDescriptionClick}
+                                dangerouslySetInnerHTML={{
+                                  __html: editingInlineDescription
+                                    ? markdownToHtml(taskDetailData.description)
+                                    : taskDetailData.description
+                                      ? markdownToHtml(taskDetailData.description)
+                                      : '<p class="text-gray-400 italic">Haz clic aquí para comenzar a escribir...</p>'
+                                }}
+                                style={{
+                                  minHeight: '100%',
+                                  outline: 'none',
+                                  padding: editingInlineDescription ? '8px' : '0',
+                                  border: editingInlineDescription ? '2px solid #3b82f6' : 'none',
+                                  borderRadius: editingInlineDescription ? '4px' : '0',
+                                  backgroundColor: editingInlineDescription ? '#fefefe' : 'transparent'
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Preview - Notas
+                            </label>
+                            <div className="w-full h-32 p-3 border border-gray-200 rounded-lg bg-gray-50 overflow-y-auto prose prose-sm max-w-none markdown-preview">
+                              <div
+                                className="cursor-text min-h-full"
+                                contentEditable={editingInlineNotes}
+                                suppressContentEditableWarning={true}
+                                onFocus={() => setEditingInlineNotes(true)}
+                                onBlur={handleNotesBlur}
+                                onClick={handleNotesClick}
+                                dangerouslySetInnerHTML={{
+                                  __html: editingInlineNotes
+                                    ? markdownToHtml(taskDetailData.notes)
+                                    : taskDetailData.notes
+                                      ? markdownToHtml(taskDetailData.notes)
+                                      : '<p class="text-gray-400 italic">Haz clic aquí para añadir notas...</p>'
+                                }}
+                                style={{
+                                  minHeight: '100%',
+                                  outline: 'none',
+                                  padding: editingInlineNotes ? '8px' : '0',
+                                  border: editingInlineNotes ? '2px solid #3b82f6' : 'none',
+                                  borderRadius: editingInlineNotes ? '4px' : '0',
+                                  backgroundColor: editingInlineNotes ? '#fefefe' : 'transparent'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Panel Lateral - Subtareas y Archivos */}
+                <div className="lg:col-span-1 flex flex-col">
+                  <div className="flex-1 overflow-y-auto">
+                    {/* Subtareas */}
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+                          <CheckCircle className="mr-2" size={16} />
+                          Subtareas ({taskDetailData.subtasks.length})
+                        </h4>
+                        <button
+                          onClick={addSubtask}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {taskDetailData.subtasks.map((subtask) => (
+                          <div key={subtask.id} className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded">
+                            <input
+                              type="checkbox"
+                              checked={subtask.completed}
+                              onChange={(e) => updateSubtask(subtask.id, { ...subtask, completed: e.target.checked })}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-sm ${subtask.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                                {subtask.text}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => deleteSubtask(subtask.id)}
+                              className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Archivos Adjuntos */}
+                    <div className="p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+                          <Paperclip className="mr-2" size={16} />
+                          Archivos ({taskDetailData.attachments.length})
+                        </h4>
+                        <label className="text-blue-600 hover:text-blue-800 cursor-pointer">
+                          <Upload size={16} />
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={async (e) => {
+                              if (!selectedTaskForDetail || !e.target.files.length) return;
+
+                              const formData = new FormData();
+                              for (const file of e.target.files) {
+                                formData.append('files', file);
+                              }
+
+                              try {
+                                // Usar fetch directamente en lugar de authenticatedFetch para FormData
+                                const token = localStorage.getItem('authToken');
+                                const response = await fetch(`${getApiBase()}/task-details/${selectedTaskForDetail.id}/attachments`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`
+                                  },
+                                  body: formData
+                                });
+
+                                if (response.ok) {
+                                  const data = await response.json();
+                                  if (data.success) {
+                                    setTaskDetailData(prev => ({
+                                      ...prev,
+                                      attachments: [...prev.attachments, ...data.files.map(f => f.file)]
+                                    }));
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Error subiendo archivos:', error);
+                              }
+
+                              e.target.value = ''; // Reset input
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {taskDetailData.attachments.map((attachment) => (
+                          <div key={attachment.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded border border-gray-200">
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              {attachment.is_image ? (
+                                <Image size={16} className="text-green-600 flex-shrink-0" />
+                              ) : (
+                                <FileText size={16} className="text-blue-600 flex-shrink-0" />
+                              )}
+                              <span className="text-sm text-gray-700 truncate">{attachment.original_name}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = `${getAttachmentBase()}/${attachment.filename}`;
+                                  link.download = attachment.original_name;
+                                  link.click();
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                                title="Descargar"
+                              >
+                                <Download size={14} />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const response = await authenticatedFetch(`${getAttachmentBase()}/${attachment.id}`, {
+                                      method: 'DELETE'
+                                    });
+
+                                    if (response.ok) {
+                                      setTaskDetailData(prev => ({
+                                        ...prev,
+                                        attachments: prev.attachments.filter(a => a.id !== attachment.id)
+                                      }));
+                                    }
+                                  } catch (error) {
+                                    console.error('Error eliminando archivo:', error);
+                                  }
+                                }}
+                                className="text-red-500 hover:text-red-700"
+                                title="Eliminar"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer del panel lateral */}
+                  <div className="p-4 border-t border-gray-200 bg-gray-50">
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <div>📋 {taskDetailData.subtasks.filter(s => s.completed).length} / {taskDetailData.subtasks.length} subtareas completadas</div>
+                      <div>📎 {taskDetailData.attachments.length} archivo(s) adjunto(s)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal para crear nuevo proyecto */}
