@@ -8,6 +8,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const AssistantManager = require('./src/assistantManager');
 const UserDatabase = require('./src/database/userDatabase');
 const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
+const DatabaseBackupSystem = require('./backup_system');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 3001;
 // Initialize assistant and database
 const assistant = new AssistantManager();
 const userDB = new UserDatabase();
+const backupSystem = new DatabaseBackupSystem();
 let assistantContext = null;
 
 // Middleware de logging
@@ -537,12 +539,18 @@ process.on('SIGTERM', shutdown);
 const startServer = async () => {
   await initializeAssistant();
 
+  // Inicializar sistema de backup automático
+  console.log('💾 Inicializando sistema de backup...');
+  await backupSystem.init();
+  await backupSystem.scheduleBackups();
+
   app.listen(PORT, '0.0.0.0', () => {
     const now = new Date().toLocaleString('es-ES');
     console.log(`🚀🚀🚀🚀🚀 Servidor ejecutándoseeeeeeeeeeee aqui en http://0.0.0.0:${PORT} - ${now}`);
     console.log(`📡📡📡 NUEVO CAMBIOOK  Accesible desde localhost: http://localhost:${PORT}`);
     console.log(`📱 Accesible desde red local: http://[tu-ip-local]:${PORT} - ${now}`);
     console.log(`📡 API disponible en /api/ - ${now}`);
+    console.log(`💾 Sistema de backup automático: ✅ ACTIVO`);
   });
 };
 

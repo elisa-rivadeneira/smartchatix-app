@@ -46,3 +46,11 @@ data/smartchatix.db
 *_backup_*.json
 user_memory.json
 auth_logs.json
+
+# Database backups (never commit user data)
+backups/
+data/users_*.db
+*.db.backup
+# User uploads
+uploads/
+# User logs and memory
