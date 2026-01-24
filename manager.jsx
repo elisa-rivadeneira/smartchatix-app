@@ -3509,6 +3509,72 @@ Responde siempre en español y mantén el tono configurado.`;
     setTaskDetailData(prev => ({ ...prev, notes: markdownContent }));
   };
 
+  // Manejar pegar imágenes en editores WYSIWYG contentEditable
+  const handleWysiwygPasteImage = async (event, field) => {
+    const items = event.clipboardData.items;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      if (item.type.startsWith('image/')) {
+        event.preventDefault();
+
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const formData = new FormData();
+        formData.append('files', file);
+
+        try {
+          console.log('Subiendo imagen...');
+          const response = await fetch('http://localhost:3001/upload.php', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              // Insertar imagen en el editor contentEditable
+              const imageUrl = `http://localhost:3001/uploads/tasks/${data.files[0].file.filename}`;
+              const imgElement = document.createElement('img');
+              imgElement.src = imageUrl;
+              imgElement.alt = data.files[0].file.original_name;
+              imgElement.className = 'wysiwyg-image';
+              imgElement.style.cssText = 'max-width: 300px; max-height: 200px; object-fit: contain; border-radius: 8px; margin: 8px 0; cursor: pointer;';
+
+              // Insertar imagen en la posición del cursor
+              const selection = window.getSelection();
+              if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(imgElement);
+
+                // Mover cursor después de la imagen
+                range.setStartAfter(imgElement);
+                range.setEndAfter(imgElement);
+                selection.removeAllRanges();
+                selection.addRange(range);
+              }
+
+              // No convertir a markdown inmediatamente, dejar que se mantenga como HTML
+              // La conversión se hará cuando el usuario salga del editor (onBlur)
+
+              console.log('Imagen subida correctamente');
+            } else {
+              console.error('Error al subir imagen:', data.message || 'Error desconocido');
+            }
+          } else {
+            console.error('Error al subir imagen');
+          }
+        } catch (error) {
+          console.error('Error al subir imagen:', error);
+        }
+        break;
+      }
+    }
+  };
+
   // Convertir HTML básico a markdown
   const htmlToMarkdown = (html) => {
     return html
@@ -6085,6 +6151,7 @@ Responde siempre en español y mantén el tono configurado.`;
                                 onFocus={() => setEditingInlineDescription(true)}
                                 onBlur={handleDescriptionBlur}
                                 onClick={handleDescriptionClick}
+                                onPaste={(e) => handleWysiwygPasteImage(e, 'description')}
                                 dangerouslySetInnerHTML={{
                                   __html: editingInlineDescription
                                     ? markdownToHtml(taskDetailData.description)
@@ -6116,6 +6183,7 @@ Responde siempre en español y mantén el tono configurado.`;
                                 onFocus={() => setEditingInlineNotes(true)}
                                 onBlur={handleNotesBlur}
                                 onClick={handleNotesClick}
+                                onPaste={(e) => handleWysiwygPasteImage(e, 'notes')}
                                 dangerouslySetInnerHTML={{
                                   __html: editingInlineNotes
                                     ? markdownToHtml(taskDetailData.notes)

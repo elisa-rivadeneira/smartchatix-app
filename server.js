@@ -9,6 +9,9 @@ const AssistantManager = require('./src/assistantManager');
 const UserDatabase = require('./src/database/userDatabase');
 const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
 const DatabaseBackupSystem = require('./backup_system');
+const multer = require('multer');
+const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -245,6 +248,80 @@ app.get('/auth/user', (req, res) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Configurar multer para compatibilidad con frontend (upload.php)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, 'uploads/tasks');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = crypto.randomUUID();
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB límite
+  },
+  fileFilter: function (req, file, cb) {
+    // Permitir imágenes y documentos comunes
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
+      'application/pdf', 'text/plain',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido'), false);
+    }
+  }
+});
+
+// Endpoint compatible con frontend: /upload.php
+app.post('/upload.php', upload.array('files'), (req, res) => {
+  try {
+    const files = req.files;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se subieron archivos'
+      });
+    }
+
+    // Respuesta compatible con el frontend
+    const fileData = files.map(file => ({
+      file: {
+        filename: file.filename,
+        original_name: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype
+      }
+    }));
+
+    res.json({
+      success: true,
+      message: 'Archivos subidos exitosamente',
+      files: fileData
+    });
+
+  } catch (error) {
+    console.error('Error en upload:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al subir archivos: ' + error.message
+    });
+  }
+});
 
 // Initialize assistant on server start
 const initializeAssistant = async () => {

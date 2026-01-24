@@ -67,7 +67,8 @@
       "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:codelabs.developers.google.com)",
       "Bash(timeout:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(php:*)"
     ],
     "deny": [],
     "ask": []
