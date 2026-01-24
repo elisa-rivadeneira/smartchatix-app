@@ -1,0 +1,66 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🛡️  EJECUTANDO VALIDACIONES PRE-COMMIT..."
+
+# 1. Verificar URLs hardcodeadas
+echo "🔍 Verificando URLs hardcodeadas..."
+if grep -r "http://localhost:" --include="*.jsx" --include="*.js" --include="*.ts" --include="*.tsx" src/ manager.jsx 2>/dev/null; then
+    echo "❌ COMMIT BLOQUEADO: Se encontraron URLs hardcodeadas"
+    echo "💡 Usa getApiBase() en su lugar"
+    echo "💡 Ejemplo: fetch(\`\${getApiBase()}/api/endpoint\`)"
+    exit 1
+fi
+
+# 2. Verificar fetch sin getApiBase en nuevos archivos
+echo "🔍 Verificando fetch calls..."
+if git diff --cached --name-only | xargs grep -l "fetch(" | xargs grep -H "fetch.*/" | grep -v "getApiBase\|https://api\." | grep -v "node_modules"; then
+    echo "⚠️  ADVERTENCIA: Se encontraron fetch calls que podrían necesitar getApiBase()"
+    echo "💡 Verifica que usen URLs dinámicas para compatibilidad con producción"
+fi
+
+# 3. Verificar que no se rompan funciones críticas
+echo "🔍 Verificando funciones críticas..."
+CRITICAL_FUNCTIONS=(
+    "handlePasteImage"
+    "handleWysiwygPasteImage"
+    "sendAssistantMessage"
+    "authenticatedFetch"
+)
+
+for func in "${CRITICAL_FUNCTIONS[@]}"; do
+    if ! grep -q "$func" manager.jsx 2>/dev/null; then
+        echo "⚠️  ADVERTENCIA: Función crítica '$func' no encontrada"
+    fi
+done
+
+# 4. Verificar estructura de archivos críticos
+echo "🔍 Verificando archivos críticos..."
+CRITICAL_FILES=(
+    "server.js"
+    "manager.jsx"
+    ".env.example"
+)
+
+for file in "${CRITICAL_FILES[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "❌ COMMIT BLOQUEADO: Archivo crítico '$file' falta"
+        exit 1
+    fi
+done
+
+# 5. Verificar que existan endpoints críticos en server.js
+echo "🔍 Verificando endpoints críticos..."
+CRITICAL_ENDPOINTS=(
+    "/upload.php"
+    "/api/assistant/response"
+    "/api/auth"
+)
+
+for endpoint in "${CRITICAL_ENDPOINTS[@]}"; do
+    if ! grep -q "$endpoint" server.js 2>/dev/null; then
+        echo "⚠️  ADVERTENCIA: Endpoint crítico '$endpoint' no encontrado en server.js"
+    fi
+done
+
+echo "✅ Validaciones pre-commit completadas"

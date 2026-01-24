@@ -68,7 +68,9 @@
       "WebFetch(domain:codelabs.developers.google.com)",
       "Bash(timeout:*)",
       "Bash(grep:*)",
-      "Bash(php:*)"
+      "Bash(php:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/safe_deploy.sh:*)"
     ],
     "deny": [],
     "ask": []

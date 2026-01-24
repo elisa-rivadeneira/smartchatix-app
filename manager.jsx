@@ -2696,63 +2696,26 @@ Responde siempre en español y mantén el tono configurado.`;
     setIsAssistantTyping(true);
 
     try {
-      // Llamada a OpenAI API con autenticación
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Llamada al asistente a través del backend
+      const response = await fetch('/api/assistant/response', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: buildSystemPrompt() || 'Eres un asistente personal útil.'
-            },
-            ...formatConversationHistory(),
-            {
-              role: 'user',
-              content: currentMessage || 'Hola'
-            }
-          ].filter(msg => msg.content), // Filtrar mensajes con contenido null/undefined
-          functions: assistantFunctions,
-          function_call: "auto",
-          max_tokens: 1000,
-          temperature: 0.7
+          message: currentMessage || 'Hola'
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Error de OpenAI: ${response.status}`);
+        throw new Error(`Error del asistente: ${response.status}`);
       }
 
       const result = await response.json();
-      const message = result.choices[0].message;
-
-      let assistantResponse = message.content;
-      let functionResults = [];
-
-      // Verificar si hay function calls
-      if (message.function_call) {
-        const functionName = message.function_call.name;
-        const functionArgs = JSON.parse(message.function_call.arguments);
-
-        // Ejecutar la función
-        const functionResult = executeAssistantFunction(functionName, functionArgs);
-        functionResults.push(functionResult);
-
-        // Si la función fue exitosa, agregar información adicional a la respuesta
-        if (functionResult.success) {
-          assistantResponse = assistantResponse
-            ? `${assistantResponse}\n\n✅ ${functionResult.message}`
-            : `✅ ${functionResult.message}`;
-        } else {
-          assistantResponse = assistantResponse
-            ? `${assistantResponse}\n\n❌ ${functionResult.message}`
-            : `❌ ${functionResult.message}`;
-        }
-      }
+      let assistantResponse = result.message || result.response;
+      // Las function calls ahora se manejan en el backend
+      // Si hay funciones ejecutadas, ya vienen incluidas en assistantResponse
 
       const assistantMessage = {
         id: Date.now() + 1,
@@ -3527,7 +3490,7 @@ Responde siempre en español y mantén el tono configurado.`;
 
         try {
           console.log('Subiendo imagen...');
-          const response = await fetch('http://localhost:3001/upload.php', {
+          const response = await fetch(`${getApiBase()}/upload.php`, {
             method: 'POST',
             body: formData
           });
@@ -3536,7 +3499,7 @@ Responde siempre en español y mantén el tono configurado.`;
             const data = await response.json();
             if (data.success) {
               // Insertar imagen en el editor contentEditable
-              const imageUrl = `http://localhost:3001/uploads/tasks/${data.files[0].file.filename}`;
+              const imageUrl = `${getApiBase()}/uploads/${data.files[0].file.filename}`;
               const imgElement = document.createElement('img');
               imgElement.src = imageUrl;
               imgElement.alt = data.files[0].file.original_name;
