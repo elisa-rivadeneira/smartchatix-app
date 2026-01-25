@@ -747,5 +747,17 @@
       "ip": "127.0.0.1",
       "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     }
+  },
+  {
+    "timestamp": "2026-01-25T19:47:36.697Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/api/daily-tasks",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "token": "test..."
+    }
   }
 ]

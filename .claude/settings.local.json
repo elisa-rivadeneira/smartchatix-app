@@ -70,7 +70,8 @@
       "Bash(grep:*)",
       "Bash(php:*)",
       "Bash(chmod:*)",
-      "Bash(./scripts/safe_deploy.sh:*)"
+      "Bash(./scripts/safe_deploy.sh:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
