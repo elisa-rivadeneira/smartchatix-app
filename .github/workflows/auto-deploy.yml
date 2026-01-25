@@ -1,0 +1,170 @@
+name: 🚀 Auto Deploy to Production (Safe)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 🛡️ Safe Auto Deploy
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: 📋 Install dependencies
+      run: npm install
+
+    - name: 🧪 Run critical tests
+      run: |
+        echo "Running critical feature tests..."
+        # Verificar que no hay URLs hardcodeadas
+        if grep -r "http://localhost:" --include="*.jsx" --include="*.js" . 2>/dev/null; then
+          echo "❌ DEPLOY BLOCKED: Hardcoded URLs found"
+          exit 1
+        fi
+        echo "✅ No hardcoded URLs found"
+
+        # Verificar funciones críticas
+        CRITICAL_FUNCTIONS=("handlePasteImage" "sendAssistantMessage" "getApiBase")
+        for func in "${CRITICAL_FUNCTIONS[@]}"; do
+          if ! grep -q "$func" manager.jsx 2>/dev/null; then
+            echo "❌ DEPLOY BLOCKED: Critical function '$func' missing"
+            exit 1
+          fi
+        done
+        echo "✅ All critical functions present"
+
+    - name: 🔐 Deploy with SSH (Database Protection)
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          set -e
+
+          echo "🛡️ Starting SAFE auto-deploy..."
+          cd ${{ secrets.PRODUCTION_PATH }}
+
+          # 1. BACKUP OBLIGATORIO de base de datos
+          echo "💾 Creating database backup..."
+          if [ -f users.db ]; then
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            cp users.db "backups/auto_deploy_${timestamp}.db"
+            echo "✅ Database backed up: backups/auto_deploy_${timestamp}.db"
+          else
+            echo "⚠️ No database found to backup"
+          fi
+
+          # 2. BACKUP de archivos críticos
+          echo "📁 Creating files backup..."
+          mkdir -p backups/pre_deploy
+          cp -f package.json backups/pre_deploy/ 2>/dev/null || true
+          cp -f server.js backups/pre_deploy/ 2>/dev/null || true
+
+          # 3. PROTEGER base de datos antes del pull
+          echo "🔒 Protecting database..."
+          if [ -f users.db ]; then
+            mv users.db users.db.PROTECTED
+            echo "✅ Database protected"
+          fi
+
+          # 4. GIT PULL (ahora es seguro)
+          echo "📥 Pulling latest changes..."
+          git fetch origin
+          git reset --hard origin/main
+
+          # 5. RESTAURAR base de datos
+          echo "🔓 Restoring protected database..."
+          if [ -f users.db.PROTECTED ]; then
+            mv users.db.PROTECTED users.db
+            echo "✅ Database restored"
+          fi
+
+          # 6. INSTALAR dependencias si cambió package.json
+          echo "📦 Installing dependencies..."
+          npm install --production --silent
+
+          # 7. VERIFICAR que todo está bien
+          echo "🔍 Verifying deployment..."
+          if [ ! -f users.db ]; then
+            echo "❌ CRITICAL: Database missing after deploy!"
+            if [ -f "backups/auto_deploy_${timestamp}.db" ]; then
+              echo "🚨 Restoring from backup..."
+              cp "backups/auto_deploy_${timestamp}.db" users.db
+              echo "✅ Database restored from backup"
+            fi
+          fi
+
+          if [ ! -f server.js ]; then
+            echo "❌ CRITICAL: server.js missing!"
+            exit 1
+          fi
+
+          # 8. REINICIAR aplicación (PM2 si lo usas)
+          echo "🔄 Restarting application..."
+          # Descomenta según tu setup:
+          # pm2 restart smartchatix || pm2 start server.js --name smartchatix
+          # systemctl restart smartchatix
+          # docker-compose restart
+
+          echo "🎉 AUTO-DEPLOY COMPLETED SUCCESSFULLY!"
+          echo "💾 Database: PROTECTED"
+          echo "📅 Timestamp: $(date)"
+
+          # 9. LIMPIAR backups antiguos (mantener últimos 10)
+          echo "🧹 Cleaning old backups..."
+          cd backups
+          ls -t auto_deploy_*.db 2>/dev/null | tail -n +11 | xargs rm -f || true
+
+    - name: 🔍 Post-deploy validation
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          echo "🔍 Validating deployment..."
+          cd ${{ secrets.PRODUCTION_PATH }}
+
+          # Verificar que la DB existe y no está vacía
+          if [ -f users.db ]; then
+            size=$(stat -c%s users.db)
+            if [ $size -gt 0 ]; then
+              echo "✅ Database OK (${size} bytes)"
+            else
+              echo "❌ Database is empty!"
+              exit 1
+            fi
+          else
+            echo "❌ Database missing!"
+            exit 1
+          fi
+
+          # Verificar archivos críticos
+          for file in server.js package.json; do
+            if [ -f $file ]; then
+              echo "✅ $file present"
+            else
+              echo "❌ $file missing!"
+              exit 1
+            fi
+          done
+
+          echo "🎉 VALIDATION COMPLETED - DEPLOY SUCCESS!"
+
+    - name: 📱 Notify success
+      if: success()
+      run: |
+        echo "🎉 AUTO-DEPLOY SUCCESS!"
+        echo "✅ Database protected throughout process"
+        echo "✅ All validations passed"
+        echo "🌐 Production updated: https://app.smartchatix.com"
