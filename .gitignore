@@ -39,8 +39,9 @@ node_modules/
 database.sqlite
 .nixpacks/
 
-# Database and data files
+# Database and data files - NEVER COMMIT USER DATA
 *.db
+data/
 data/users.db
 data/smartchatix.db
 *_backup_*.db
