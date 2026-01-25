@@ -41,9 +41,9 @@ database.sqlite
 
 # Database and data files - NEVER COMMIT USER DATA
 *.db
-data/
 data/users.db
 data/smartchatix.db
+data/*.db
 *_backup_*.db
 *_backup_*.json
 user_memory.json
