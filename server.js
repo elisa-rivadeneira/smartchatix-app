@@ -382,7 +382,7 @@ app.post('/api/assistant/message', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/assistant/response', authenticateToken, (req, res) => {
+app.post('/api/assistant/response', authenticateToken, async (req, res) => {
   const { message } = req.body;
 
   if (!message) {
@@ -390,7 +390,7 @@ app.post('/api/assistant/response', authenticateToken, (req, res) => {
   }
 
   try {
-    const result = assistant.sendAssistantMessage(message);
+    const result = await assistant.sendAssistantMessage(message);
     res.json(result);
   } catch (error) {
     console.error('Error sending assistant message:', error);

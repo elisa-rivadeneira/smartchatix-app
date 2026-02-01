@@ -184,7 +184,24 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Configuración dinámica de API
+// Para endpoints regulares de API
 const getApiBase = () => {
+  const hostname = window.location.hostname;
+
+  // En producción (cualquier dominio que no sea localhost)
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    console.log('📱 Manager modo producción detectado:', hostname);
+    return '/api';
+  }
+
+  // En desarrollo - usar variable de entorno si está disponible
+  const devHost = import.meta.env.VITE_DEV_SERVER_HOST || 'localhost';
+  console.log('🔧 Manager modo desarrollo detectado, usando:', devHost);
+  return `http://${devHost}:3001/api`;
+};
+
+// Para endpoints de autenticación
+const getAuthApiBase = () => {
   const hostname = window.location.hostname;
 
   // En producción (cualquier dominio que no sea localhost)
@@ -635,7 +652,7 @@ const PersonalCoachAssistant = () => {
   // Estados para funciones de voz
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
 
@@ -1020,7 +1037,7 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
 
-        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
+        const response = await authenticatedFetch(`${getAuthApiBase()}/projects`, {
           method: 'POST',
           body: JSON.stringify({ project: projectData })
         });
@@ -1081,7 +1098,7 @@ const PersonalCoachAssistant = () => {
           tasks: []
         };
 
-        const response = await authenticatedFetch(`${getApiBase()}/projects`, {
+        const response = await authenticatedFetch(`${getAuthApiBase()}/projects`, {
           method: 'POST',
           body: JSON.stringify({ project: projectData })
         });
@@ -1154,7 +1171,7 @@ const PersonalCoachAssistant = () => {
     console.log('🔥 INICIANDO ELIMINACIÓN DE PROYECTO:', projectId);
     try {
       // Eliminar del backend primero
-      const deleteUrl = `${getApiBase()}/projects/${projectId}`;
+      const deleteUrl = `${getAuthApiBase()}/projects/${projectId}`;
       console.log('🗑️ Eliminando proyecto con URL:', deleteUrl);
 
       const response = await authenticatedFetch(deleteUrl, {
@@ -2674,7 +2691,11 @@ Responde siempre en español y mantén el tono configurado.`;
   };
 
   const sendMessage = async () => {
+    console.log('🚀 sendMessage ejecutándose, mensaje:', newMessage);
     if (!newMessage.trim() || isAssistantTyping) return;
+
+    const token = localStorage.getItem('authToken');
+    console.log('🔑 Token obtenido:', token ? 'SÍ' : 'NO');
 
     // Detener reconocimiento de voz si está activo
     if (isListening && recognitionRef.current) {
@@ -2697,7 +2718,9 @@ Responde siempre en español y mantén el tono configurado.`;
 
     try {
       // Llamada al asistente a través del backend
-      const response = await fetch('/api/assistant/response', {
+      const url = `${getApiBase()}/assistant/response`;
+      console.log('🌐 Enviando petición a:', url);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2721,8 +2744,7 @@ Responde siempre en español y mantén el tono configurado.`;
         id: Date.now() + 1,
         type: 'assistant',
         text: assistantResponse || "He procesado tu solicitud.",
-        timestamp: new Date().toLocaleTimeString(),
-        functionResults: functionResults
+        timestamp: new Date().toLocaleTimeString()
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -2746,13 +2768,18 @@ Responde siempre en español y mantén el tono configurado.`;
       }
 
     } catch (error) {
-      console.error('Error enviando mensaje:', error);
+      console.error('❌ Error enviando mensaje:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
 
       // Mensaje de error para el usuario con respuesta de demostración
       const errorMessage = {
         id: Date.now() + 1,
         type: 'assistant',
-        text: `Entiendo tu mensaje: "${currentMessage}". El servicio de IA está temporalmente no disponible, pero el chat bubble funciona perfectamente. ¡Puedes ver cómo se visualizan los mensajes!`,
+        text: `❌ ERROR: ${error.message}. Tu mensaje: "${currentMessage}"`,
         timestamp: new Date().toLocaleTimeString()
       };
 
@@ -6715,7 +6742,7 @@ Responde siempre en español y mantén el tono configurado.`;
                         setSelectedProject(prev => ({ ...prev, status: newStatus }));
 
                         try {
-                          await authenticatedFetch(`${getApiBase()}/projects/${selectedProject?.id}`, {
+                          await authenticatedFetch(`${getAuthApiBase()}/projects/${selectedProject?.id}`, {
                             method: 'PUT',
                             body: JSON.stringify({
                               project: { status: newStatus }

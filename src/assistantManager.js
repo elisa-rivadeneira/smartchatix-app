@@ -1,5 +1,6 @@
 const UserMemory = require('./userMemory');
 const DailyScheduler = require('./dailyScheduler');
+const OpenAI = require('openai');
 
 class AssistantManager {
   constructor() {
@@ -7,6 +8,11 @@ class AssistantManager {
     this.dailyScheduler = new DailyScheduler();
     this.isActive = false;
     this.sessionStartTime = null;
+
+    // Initialize OpenAI
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
   }
 
   initialize() {
@@ -74,15 +80,52 @@ class AssistantManager {
     return updates;
   }
 
-  sendAssistantMessage(message) {
-    // Log assistant message
-    this.dailyScheduler.logMessage('assistant', message);
+  async sendAssistantMessage(message) {
+    try {
+      console.log('🤖 Enviando mensaje a OpenAI:', message);
 
-    return {
-      timestamp: new Date().toISOString(),
-      message,
-      logged: true
-    };
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "Soy tu asistente personal para gestión de proyectos. Hablo de forma natural y cercana, como un colega que te ayuda con tus tareas. Soy directo pero amigable, uso un tono conversacional y evito sonar formal o robótico. Me gusta ser útil y dar consejos prácticos con un toque personal."
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      });
+
+      const assistantResponse = completion.choices[0].message.content;
+      console.log('✅ Respuesta de OpenAI recibida:', assistantResponse);
+
+      // Log assistant message
+      this.dailyScheduler.logMessage('assistant', assistantResponse);
+
+      return {
+        timestamp: new Date().toISOString(),
+        message: assistantResponse,
+        logged: true
+      };
+    } catch (error) {
+      console.error('❌ Error llamando a OpenAI:', error);
+
+      // Fallback response if OpenAI fails
+      const fallbackResponse = `He recibido tu mensaje: "${message}". Hay un problema temporalmente con el servicio de IA, pero estoy trabajando para resolverlo.`;
+
+      this.dailyScheduler.logMessage('assistant', fallbackResponse);
+
+      return {
+        timestamp: new Date().toISOString(),
+        message: fallbackResponse,
+        logged: true,
+        error: error.message
+      };
+    }
   }
 
   addProject(projectData) {
