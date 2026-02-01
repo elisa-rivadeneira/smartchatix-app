@@ -11,17 +11,20 @@ class DatabaseMigrations {
         up: async (migrationInstance) => {
           console.log('🔧 Running migration: Add archived column...');
 
-          // Check if archived column exists in tasks table
-          try {
-            await migrationInstance.runQuery('ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0');
-            console.log('✅ Added archived column to tasks table');
-          } catch (error) {
-            if (error.message.includes('duplicate column name')) {
-              console.log('✅ archived column already exists in tasks table');
-            } else {
-              console.log('ℹ️ tasks table may not exist or column already present');
-            }
-          }
+          // Ensure daily_tasks table exists first
+          await migrationInstance.runQuery(`
+            CREATE TABLE IF NOT EXISTS daily_tasks (
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              text TEXT NOT NULL,
+              completed INTEGER DEFAULT 0,
+              project_id TEXT,
+              project_task_id TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              completed_at DATETIME,
+              task_order INTEGER
+            )
+          `);
 
           // Check if archived column exists in daily_tasks table
           try {
@@ -31,7 +34,30 @@ class DatabaseMigrations {
             if (error.message.includes('duplicate column name')) {
               console.log('✅ archived column already exists in daily_tasks table');
             } else {
-              console.log('ℹ️ daily_tasks table may not exist or column already present');
+              console.log('ℹ️ daily_tasks table issue:', error.message);
+            }
+          }
+
+          // Ensure tasks table exists first (if used)
+          await migrationInstance.runQuery(`
+            CREATE TABLE IF NOT EXISTS tasks (
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              text TEXT NOT NULL,
+              completed INTEGER DEFAULT 0,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+
+          // Check if archived column exists in tasks table
+          try {
+            await migrationInstance.runQuery('ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0');
+            console.log('✅ Added archived column to tasks table');
+          } catch (error) {
+            if (error.message.includes('duplicate column name')) {
+              console.log('✅ archived column already exists in tasks table');
+            } else {
+              console.log('ℹ️ tasks table issue:', error.message);
             }
           }
         }
