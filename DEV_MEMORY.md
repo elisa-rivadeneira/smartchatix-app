@@ -80,7 +80,23 @@ getApiBase() → "https://app.smartchatix.com"
 
 ## 🔧 **PROBLEMAS RESUELTOS RECIENTES**
 
-### ✅ **Sesión Actual (24/01/2026)**
+### ✅ **Sesión Actual (01/02/2026)**
+
+1. **PROBLEMA**: Error 500 en producción - columna 'archived' no existe
+   - **SÍNTOMA**: `SQLITE_ERROR: no such column: archived` en /api/auth/profile
+   - **CAUSA**: Base de datos de producción desactualizada vs local
+   - **SOLUCIÓN**: Ejecutar `./scripts/fix_database_schema.sh` en servidor
+   - **PREVENCIÓN**: Usar siempre `./scripts/safe_deploy.sh` para sincronizar BD
+   - **ESTADO**: Script identificado, pendiente ejecución en servidor
+
+2. **PROBLEMA**: Autenticación Google OAuth se colgaba en callback
+   - **SÍNTOMA**: "Unable to connect" después de autenticar con Google
+   - **CAUSA**: Falta de logging para identificar dónde falla el proceso
+   - **SOLUCIÓN**: Agregado logging detallado en GoogleStrategy y callback
+   - **ARCHIVOS**: server.js líneas 138-142, 189-190
+   - **ESTADO**: ✅ Resuelto - logging implementado
+
+### ✅ **Sesión Previa (24/01/2026)**
 
 1. **PROBLEMA**: Asistente no funcionaba por CORS
    - **CAUSA**: Frontend llamaba directo a OpenAI
@@ -210,6 +226,6 @@ git commit -m "Update dev memory with session learnings"
 
 ---
 
-**📅 Última actualización**: 24/01/2026
-**🧠 Sesiones acumuladas**: 1
+**📅 Última actualización**: 01/02/2026
+**🧠 Sesiones acumuladas**: 2
 **🎯 Próxima prioridad**: Mantener estabilidad y agregar nuevas features sin romper existentes
