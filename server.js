@@ -135,6 +135,12 @@ if (!googleClientId || !googleClientSecret) {
     callbackURL: callbackURL
   }, async (accessToken, refreshToken, profile, done) => {
     try {
+      console.log('🔑 Google OAuth Strategy - Profile received:', {
+        id: profile.id,
+        email: profile.emails?.[0]?.value,
+        name: profile.displayName
+      });
+
       // Aquí guardarías el usuario en tu base de datos
       // Por ahora, devolvemos el perfil directamente
       const user = {
@@ -144,8 +150,11 @@ if (!googleClientId || !googleClientSecret) {
         picture: profile.photos[0].value,
         googleId: profile.id
       };
+
+      console.log('✅ Google OAuth Strategy - User created:', user);
       return done(null, user);
     } catch (error) {
+      console.error('❌ Google OAuth Strategy - Error:', error);
       return done(error, null);
     }
   }));
@@ -177,6 +186,8 @@ if (googleClientId && googleClientSecret) {
   app.get('/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/login' }),
     (req, res) => {
+      console.log('🌐 Google OAuth Callback - Request received');
+      console.log('👤 User authenticated:', req.user);
       try {
         // Generar token JWT para el usuario de Google
         const jwt = require('jsonwebtoken');
