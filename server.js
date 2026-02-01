@@ -9,6 +9,7 @@ const AssistantManager = require('./src/assistantManager');
 const UserDatabase = require('./src/database/userDatabase');
 const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
 const DatabaseBackupSystem = require('./backup_system');
+const DatabaseMigrations = require('./src/database/migrations');
 const multer = require('multer');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -631,6 +632,12 @@ const startServer = async () => {
   console.log('💾 Inicializando sistema de backup...');
   await backupSystem.init();
   await backupSystem.scheduleBackups();
+
+  // Ejecutar migraciones de base de datos
+  console.log('🔧 Ejecutando migraciones de base de datos...');
+  const migrations = new DatabaseMigrations('users.db');
+  await migrations.runMigrations();
+  migrations.close();
 
   app.listen(PORT, '0.0.0.0', () => {
     const now = new Date().toLocaleString('es-ES');
