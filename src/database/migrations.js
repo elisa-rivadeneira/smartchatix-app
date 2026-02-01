@@ -35,6 +35,28 @@ class DatabaseMigrations {
             }
           }
         }
+      },
+      {
+        version: 2,
+        description: 'Add archived column to all remaining tables',
+        up: async (migrationInstance) => {
+          console.log('🔧 Running migration: Add archived to all tables...');
+
+          const tables = ['users', 'projects', 'user_sessions'];
+
+          for (const table of tables) {
+            try {
+              await migrationInstance.runQuery(`ALTER TABLE ${table} ADD COLUMN archived INTEGER DEFAULT 0`);
+              console.log(`✅ Added archived column to ${table} table`);
+            } catch (error) {
+              if (error.message.includes('duplicate column name') || error.message.includes('no such table')) {
+                console.log(`ℹ️ Table ${table} already has archived column or doesn't exist`);
+              } else {
+                console.log(`ℹ️ ${table} table issue:`, error.message);
+              }
+            }
+          }
+        }
       }
       // Future migrations go here
     ];
