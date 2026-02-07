@@ -567,8 +567,16 @@ router.delete('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
     const { taskId } = req.params;
     const userId = req.user.userId;
 
+    console.log('🗑️ [DELETE DAILY-TASK] Petición recibida:', {
+      taskId,
+      userId,
+      userObj: req.user,
+      timestamp: new Date().toISOString()
+    });
+
     // Verificar que la tarea pertenece al usuario
     const taskQuery = 'SELECT * FROM daily_tasks WHERE id = ? AND user_id = ?';
+    console.log('🗑️ [DELETE DAILY-TASK] Ejecutando query:', taskQuery, [taskId, userId]);
     userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
       if (err) {
         console.error('Error verificando tarea diaria:', err);
@@ -576,16 +584,25 @@ router.delete('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
       }
 
       if (!task) {
+        console.log('🗑️ [DELETE DAILY-TASK] Tarea no encontrada:', { taskId, userId });
         return res.status(404).json({ error: 'Tarea diaria no encontrada' });
       }
 
+      console.log('🗑️ [DELETE DAILY-TASK] Tarea encontrada:', task);
+
       // Eliminar la tarea
       const deleteQuery = 'DELETE FROM daily_tasks WHERE id = ? AND user_id = ?';
+      console.log('🗑️ [DELETE DAILY-TASK] Ejecutando eliminación:', deleteQuery, [taskId, userId]);
       userDB.db.run(deleteQuery, [taskId, userId], function(deleteErr) {
         if (deleteErr) {
-          console.error('Error eliminando tarea diaria:', deleteErr);
+          console.error('❌ [DELETE DAILY-TASK] Error eliminando tarea diaria:', deleteErr);
           return res.status(500).json({ error: 'Error al eliminar tarea' });
         }
+
+        console.log('✅ [DELETE DAILY-TASK] Tarea eliminada exitosamente:', {
+          taskId,
+          changes: this.changes
+        });
 
         res.json({
           success: true,
