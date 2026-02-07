@@ -8,10 +8,10 @@ class ProductionBackupManager {
     constructor() {
         this.backupDir = path.join(__dirname, '../backups/production');
         this.timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        this.remoteHost = process.env.PRODUCTION_HOST || 'your-production-server.com';
+        this.remoteHost = process.env.PRODUCTION_HOST || 'localhost';
         this.remoteUser = process.env.PRODUCTION_USER || 'root';
-        this.remotePath = process.env.PRODUCTION_PATH || '/var/www/project_manager';
-        this.dbPath = process.env.PRODUCTION_DB_PATH || '/var/www/project_manager/users.db';
+        this.remotePath = process.env.PRODUCTION_PATH || '/app';
+        this.dbPath = process.env.PRODUCTION_DB_PATH || '/app/data/users.db';
     }
 
     ensureBackupDirectory() {
@@ -28,13 +28,23 @@ class ProductionBackupManager {
             const backupFileName = `production_db_${this.timestamp}.db`;
             const localBackupPath = path.join(this.backupDir, backupFileName);
 
-            // Descargar base de datos de producción
-            const scpCommand = `scp ${this.remoteUser}@${this.remoteHost}:${this.dbPath} ${localBackupPath}`;
+            // Si estamos en localhost, usar cp en lugar de scp
+            if (this.remoteHost === 'localhost' || this.remoteHost === '127.0.0.1') {
+                console.log(`📁 Copiando localmente: ${this.dbPath} → ${localBackupPath}`);
+                if (fs.existsSync(this.dbPath)) {
+                    fs.copyFileSync(this.dbPath, localBackupPath);
+                    console.log(`✅ Backup local guardado: ${localBackupPath}`);
+                } else {
+                    throw new Error(`Base de datos no encontrada: ${this.dbPath}`);
+                }
+            } else {
+                // Usar SCP para servidores remotos
+                const scpCommand = `scp ${this.remoteUser}@${this.remoteHost}:${this.dbPath} ${localBackupPath}`;
+                console.log(`📥 Descargando: ${scpCommand}`);
+                execSync(scpCommand, { stdio: 'inherit' });
+                console.log(`✅ Backup remoto guardado: ${localBackupPath}`);
+            }
 
-            console.log(`📥 Descargando: ${scpCommand}`);
-            execSync(scpCommand, { stdio: 'inherit' });
-
-            console.log(`✅ Backup de producción guardado: ${localBackupPath}`);
             return localBackupPath;
         } catch (error) {
             console.error('❌ Error en backup de producción:', error.message);
