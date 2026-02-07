@@ -46,6 +46,7 @@ const logAuth = (level, message, details = {}) => {
 const authenticateToken = async (req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`\n🔐 [${timestamp}] Verificando autenticación para: ${req.url}`);
+  console.log(`🔍 [${timestamp}] Método: ${req.method}, Path: ${req.path}`);
 
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -94,6 +95,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     console.log(`✅ Token válido para usuario: ${user.email}`);
+    console.log(`🚀 [${timestamp}] Pasando al siguiente middleware/handler`);
     req.user = user;
     next();
   } catch (error) {
@@ -562,7 +564,15 @@ router.put('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
 });
 
 // Eliminar tarea diaria
-router.delete('/daily-tasks/:taskId', authenticateToken, async (req, res) => {
+router.delete('/daily-tasks/:taskId', (req, res, next) => {
+  console.log('🗑️ [DELETE ENDPOINT] ¡ENTRANDO AL ENDPOINT!', {
+    taskId: req.params.taskId,
+    method: req.method,
+    url: req.url,
+    headers: req.headers.authorization ? 'PRESENTE' : 'AUSENTE'
+  });
+  next();
+}, authenticateToken, async (req, res) => {
   try {
     const { taskId } = req.params;
     const userId = req.user.userId;

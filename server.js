@@ -535,6 +535,66 @@ app.post('/api/daily-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Eliminar tarea diaria
+app.delete('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+
+    console.log('🗑️ [DELETE DAILY-TASK] Petición recibida:', {
+      taskId,
+      userId,
+      userObj: req.user,
+      timestamp: new Date().toISOString()
+    });
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM daily_tasks WHERE id = ? AND user_id = ?';
+    console.log('🗑️ [DELETE DAILY-TASK] Ejecutando query:', taskQuery, [taskId, userId]);
+
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('❌ [DELETE DAILY-TASK] Error verificando tarea diaria:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        console.log('🗑️ [DELETE DAILY-TASK] Tarea no encontrada:', { taskId, userId });
+        return res.status(404).json({ error: 'Tarea diaria no encontrada' });
+      }
+
+      console.log('🗑️ [DELETE DAILY-TASK] Tarea encontrada:', task);
+
+      // Eliminar la tarea
+      const deleteQuery = 'DELETE FROM daily_tasks WHERE id = ? AND user_id = ?';
+      console.log('🗑️ [DELETE DAILY-TASK] Ejecutando eliminación:', deleteQuery, [taskId, userId]);
+
+      userDB.db.run(deleteQuery, [taskId, userId], function(deleteErr) {
+        if (deleteErr) {
+          console.error('❌ [DELETE DAILY-TASK] Error eliminando tarea diaria:', deleteErr);
+          return res.status(500).json({ error: 'Error al eliminar tarea' });
+        }
+
+        console.log('✅ [DELETE DAILY-TASK] Tarea eliminada exitosamente:', {
+          taskId,
+          changes: this.changes
+        });
+
+        res.json({
+          success: true,
+          message: 'Tarea diaria eliminada exitosamente'
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [DELETE DAILY-TASK] Error general:', error);
+    res.status(500).json({
+      error: 'Error al eliminar tarea diaria'
+    });
+  }
+});
+
 app.get('/api/projects/:projectId/daily-tasks', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
