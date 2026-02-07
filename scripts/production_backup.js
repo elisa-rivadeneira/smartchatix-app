@@ -59,19 +59,27 @@ class ProductionBackupManager {
             const backupFileName = `production_files_${this.timestamp}.tar.gz`;
             const localBackupPath = path.join(this.backupDir, backupFileName);
 
-            // Crear tar remoto y descargar
-            const remoteCommand = `ssh ${this.remoteUser}@${this.remoteHost} "cd ${this.remotePath} && tar -czf /tmp/${backupFileName} --exclude=node_modules --exclude=.git ."`;
-            const downloadCommand = `scp ${this.remoteUser}@${this.remoteHost}:/tmp/${backupFileName} ${localBackupPath}`;
-            const cleanupCommand = `ssh ${this.remoteUser}@${this.remoteHost} "rm /tmp/${backupFileName}"`;
+            // Si estamos en localhost, crear tar local
+            if (this.remoteHost === 'localhost' || this.remoteHost === '127.0.0.1') {
+                console.log(`📦 Creando archivo local en: ${localBackupPath}`);
+                const tarCommand = `tar -czf ${localBackupPath} -C ${this.remotePath} --exclude=node_modules --exclude=.git --exclude=backups .`;
+                console.log(`🔄 Ejecutando: ${tarCommand}`);
+                execSync(tarCommand, { stdio: 'inherit' });
+            } else {
+                // Crear tar remoto y descargar
+                const remoteCommand = `ssh ${this.remoteUser}@${this.remoteHost} "cd ${this.remotePath} && tar -czf /tmp/${backupFileName} --exclude=node_modules --exclude=.git ."`;
+                const downloadCommand = `scp ${this.remoteUser}@${this.remoteHost}:/tmp/${backupFileName} ${localBackupPath}`;
+                const cleanupCommand = `ssh ${this.remoteUser}@${this.remoteHost} "rm /tmp/${backupFileName}"`;
 
-            console.log('📦 Creando archivo remoto...');
-            execSync(remoteCommand, { stdio: 'inherit' });
+                console.log('📦 Creando archivo remoto...');
+                execSync(remoteCommand, { stdio: 'inherit' });
 
-            console.log('📥 Descargando archivo...');
-            execSync(downloadCommand, { stdio: 'inherit' });
+                console.log('📥 Descargando archivo...');
+                execSync(downloadCommand, { stdio: 'inherit' });
 
-            console.log('🧹 Limpiando archivos temporales...');
-            execSync(cleanupCommand, { stdio: 'inherit' });
+                console.log('🧹 Limpiando archivos temporales...');
+                execSync(cleanupCommand, { stdio: 'inherit' });
+            }
 
             console.log(`✅ Backup de archivos guardado: ${localBackupPath}`);
             return localBackupPath;
