@@ -1349,19 +1349,36 @@ router.get('/task-details/:taskId', authenticateToken, async (req, res) => {
 });
 
 // Guardar detalles de tarea
-router.post('/task-details/:taskId', authenticateToken, async (req, res) => {
+router.post('/task-details/:taskId', (req, res, next) => {
+  console.log('📝 [TASK-DETAILS POST] ¡ENTRANDO AL ENDPOINT!', {
+    taskId: req.params.taskId,
+    method: req.method,
+    body: req.body,
+    authHeader: req.headers.authorization ? 'PRESENTE' : 'AUSENTE'
+  });
+  next();
+}, authenticateToken, async (req, res) => {
   try {
     const { taskId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id; // Fix: usar userId primero
     const { description, notes } = req.body;
 
-    console.log(`💾 [SAVE-DETAILS] Guardando detalles para tarea: ${taskId}`);
+    console.log('📝 [SAVE-DETAILS] Detalles de la petición:', {
+      taskId,
+      userId,
+      userObj: req.user,
+      body: req.body,
+      description,
+      notes,
+      timestamp: new Date().toISOString()
+    });
 
     const result = await userDB.saveTaskDetails(taskId, userId, {
       description,
       notes
     });
 
+    console.log('✅ [SAVE-DETAILS] Resultado exitoso:', result);
     res.json(result);
 
   } catch (error) {
