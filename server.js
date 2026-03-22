@@ -590,7 +590,7 @@ app.delete('/api/assistant/task/:taskId', authenticateToken, requirePremium, asy
 });
 
 // Endpoint para archivar tarea
-app.post('/api/assistant/task/:taskId/archive', authenticateToken, requirePremium, async (req, res) => {
+app.put('/api/assistant/task/:taskId/archive', authenticateToken, requirePremium, async (req, res) => {
   const { taskId } = req.params;
 
   try {
