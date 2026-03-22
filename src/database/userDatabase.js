@@ -112,6 +112,8 @@ class UserDatabase {
           project_id TEXT,
           project_task_id TEXT,
           task_order INTEGER DEFAULT 0,
+          archived INTEGER DEFAULT 0,
+          completed_at DATETIME DEFAULT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
           FOREIGN KEY (project_id) REFERENCES user_projects (id) ON DELETE SET NULL,
