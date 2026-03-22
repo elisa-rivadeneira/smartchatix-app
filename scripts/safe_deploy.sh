@@ -23,7 +23,7 @@ echo "=================================================="
 
 # 1. BACKUP OBLIGATORIO ANTES DE CUALQUIER CAMBIO
 echo -e "${YELLOW}📋 Paso 1: Backup de seguridad obligatorio${NC}"
-node production_backup.js create
+node scripts/production_backup.js create
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}💥 FALLO CRÍTICO: No se pudo crear backup${NC}"

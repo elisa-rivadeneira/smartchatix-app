@@ -595,6 +595,70 @@ app.delete('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
   }
 });
 
+// Obtener detalles de tarea
+app.get('/api/task-details/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+
+    console.log('📋 [GET TASK-DETAILS] Obteniendo detalles:', { taskId, userId });
+
+    const details = await userDB.getTaskDetails(taskId, userId);
+
+    res.json({
+      success: true,
+      data: details
+    });
+
+  } catch (error) {
+    console.error('❌ [GET TASK-DETAILS] Error:', error);
+    res.status(500).json({
+      error: 'Error al obtener detalles de la tarea'
+    });
+  }
+});
+
+// Guardar detalles de tarea
+app.post('/api/task-details/:taskId', (req, res, next) => {
+  console.log('📝 [TASK-DETAILS POST] ¡ENTRANDO AL ENDPOINT!', {
+    taskId: req.params.taskId,
+    method: req.method,
+    body: req.body,
+    authHeader: req.headers.authorization ? 'PRESENTE' : 'AUSENTE'
+  });
+  next();
+}, authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+    const { description, notes } = req.body;
+
+    console.log('📝 [SAVE-DETAILS] Detalles de la petición:', {
+      taskId,
+      userId,
+      userObj: req.user,
+      body: req.body,
+      description,
+      notes,
+      timestamp: new Date().toISOString()
+    });
+
+    const result = await userDB.saveTaskDetails(taskId, userId, {
+      description,
+      notes
+    });
+
+    console.log('✅ [SAVE-DETAILS] Resultado exitoso:', result);
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [SAVE-DETAILS] Error:', error);
+    res.status(500).json({
+      error: 'Error al guardar detalles de la tarea'
+    });
+  }
+});
+
 app.get('/api/projects/:projectId/daily-tasks', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
