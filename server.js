@@ -335,6 +335,43 @@ app.post('/upload.php', upload.array('files'), (req, res) => {
   }
 });
 
+// Endpoint compatible con frontend: /api/upload.php (para copiar/pegar)
+app.post('/api/upload.php', upload.array('files'), (req, res) => {
+  try {
+    const files = req.files;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se subieron archivos'
+      });
+    }
+
+    // Respuesta compatible con el frontend
+    const fileData = files.map(file => ({
+      file: {
+        filename: file.filename,
+        original_name: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype
+      }
+    }));
+
+    res.json({
+      success: true,
+      message: 'Archivos subidos exitosamente',
+      files: fileData
+    });
+
+  } catch (error) {
+    console.error('Error en upload:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al subir archivos: ' + error.message
+    });
+  }
+});
+
 // Initialize assistant on server start
 const initializeAssistant = async () => {
   try {
