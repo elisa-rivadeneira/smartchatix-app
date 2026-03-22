@@ -877,5 +877,17 @@
       "userAgent": "curl/7.81.0",
       "token": "test..."
     }
+  },
+  {
+    "timestamp": "2026-03-22T17:05:43.853Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/verify",
+      "ip": "127.0.0.1",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
+      "token": "eyJhbGciOiJIUzI1NiIs..."
+    }
   }
 ]

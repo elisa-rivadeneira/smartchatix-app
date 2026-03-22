@@ -845,46 +845,74 @@ class UserDatabase {
   // Obtener detalles completos de una tarea
   async getTaskDetails(taskId, userId) {
     return new Promise((resolve, reject) => {
-      const query = `
-        SELECT td.*,
-               (SELECT json_group_array(json_object(
-                 'id', ts.id,
-                 'text', ts.text,
-                 'completed', ts.completed,
-                 'order_index', ts.order_index
-               ))
-               FROM task_subtasks ts
-               WHERE ts.task_id = td.task_id AND ts.user_id = td.user_id
-               ORDER BY ts.order_index) as subtasks,
-               (SELECT json_group_array(json_object(
-                 'id', ta.id,
-                 'filename', ta.filename,
-                 'original_name', ta.original_name,
-                 'file_path', ta.file_path,
-                 'file_size', ta.file_size,
-                 'mime_type', ta.mime_type,
-                 'is_image', ta.is_image,
-                 'created_at', ta.created_at
-               ))
-               FROM task_attachments ta
-               WHERE ta.task_id = td.task_id AND ta.user_id = td.user_id) as attachments
-        FROM task_details td
-        WHERE td.task_id = ? AND td.user_id = ?
-      `;
+      console.log(`📋 [DB] getTaskDetails llamada para: { taskId: "${taskId}", userId: "${userId}" }`);
 
-      this.db.get(query, [taskId, userId], (err, result) => {
+      // Primero obtener detalles básicos de task_details si existen
+      const mainQuery = `SELECT * FROM task_details WHERE task_id = ? AND user_id = ?`;
+
+      this.db.get(mainQuery, [taskId, userId], (err, taskDetails) => {
         if (err) {
+          console.error(`❌ [DB] Error obteniendo task_details:`, err);
           reject(err);
           return;
         }
 
-        if (result) {
-          // Parsear los arrays JSON
-          result.subtasks = result.subtasks ? JSON.parse(result.subtasks) : [];
-          result.attachments = result.attachments ? JSON.parse(result.attachments) : [];
-        }
+        console.log(`📝 [DB] task_details encontrado:`, taskDetails ? 'SÍ' : 'NO');
 
-        resolve(result || null);
+        // Obtener subtareas independientemente de si existe task_details
+        const subtasksQuery = `
+          SELECT id, text, completed, order_index
+          FROM task_subtasks
+          WHERE task_id = ? AND user_id = ?
+          ORDER BY order_index
+        `;
+
+        this.db.all(subtasksQuery, [taskId, userId], (err, subtasks) => {
+          if (err) {
+            console.error(`❌ [DB] Error obteniendo subtareas:`, err);
+            reject(err);
+            return;
+          }
+
+          console.log(`📋 [DB] Subtareas encontradas: ${subtasks ? subtasks.length : 0}`);
+
+          // Obtener attachments independientemente
+          const attachmentsQuery = `
+            SELECT id, filename, original_name, file_path, file_size, mime_type, is_image, created_at
+            FROM task_attachments
+            WHERE task_id = ? AND user_id = ?
+          `;
+
+          this.db.all(attachmentsQuery, [taskId, userId], (err, attachments) => {
+            if (err) {
+              console.error(`❌ [DB] Error obteniendo attachments:`, err);
+              reject(err);
+              return;
+            }
+
+            console.log(`📎 [DB] Attachments encontrados: ${attachments ? attachments.length : 0}`);
+
+            // Construir resultado
+            const result = {
+              // Usar datos de task_details si existen, sino valores por defecto
+              task_id: taskId,
+              user_id: userId,
+              description: taskDetails?.description || '',
+              notes: taskDetails?.notes || '',
+              // Siempre incluir subtareas y attachments
+              subtasks: subtasks || [],
+              attachments: attachments || []
+            };
+
+            console.log(`✅ [DB] Resultado final:`, {
+              hasTaskDetails: !!taskDetails,
+              subtasksCount: result.subtasks.length,
+              attachmentsCount: result.attachments.length
+            });
+
+            resolve(result);
+          });
+        });
       });
     });
   }
@@ -957,6 +985,8 @@ class UserDatabase {
         VALUES (?, ?, ?, ?, ?)
       `;
 
+      console.log(`📝 [DB] addSubtask llamada con:`, { taskId, userId, subtaskData, subtaskId });
+
       this.db.run(query, [
         subtaskId,
         taskId,
@@ -965,9 +995,11 @@ class UserDatabase {
         subtaskData.order_index || 0
       ], function(err) {
         if (err) {
+          console.error(`❌ [DB] Error en addSubtask:`, err);
           reject(err);
           return;
         }
+        console.log(`✅ [DB] Subtarea insertada exitosamente:`, { subtaskId, changes: this.changes });
         resolve({ success: true, id: subtaskId });
       });
     });

@@ -882,12 +882,14 @@ app.post('/api/task-details/:taskId/subtasks', authenticateToken, async (req, re
     const { text, order_index } = req.body;
 
     console.log(`➕ [ADD-SUBTASK] Nueva subtarea para tarea: ${taskId}`);
+    console.log(`📋 [ADD-SUBTASK] Datos recibidos:`, { taskId, userId, text, order_index });
 
     const result = await userDB.addSubtask(taskId, userId, {
       text,
       order_index
     });
 
+    console.log(`✅ [ADD-SUBTASK] Resultado de addSubtask:`, result);
     res.json(result);
 
   } catch (error) {
