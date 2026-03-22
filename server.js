@@ -476,7 +476,7 @@ app.post('/api/assistant/response', authenticateToken, requirePremium, async (re
   }
 });
 
-app.post('/api/assistant/project', authenticateToken, requirePremium, async (req, res) => {
+app.post('/api/assistant/project', authenticateToken, async (req, res) => {
   const projectData = req.body;
 
   try {
@@ -493,7 +493,7 @@ app.post('/api/assistant/project', authenticateToken, requirePremium, async (req
   }
 });
 
-app.put('/api/assistant/project/:id', authenticateToken, requirePremium, (req, res) => {
+app.put('/api/assistant/project/:id', authenticateToken, (req, res) => {
   const projectId = parseInt(req.params.id);
   const updates = req.body;
 
@@ -506,7 +506,7 @@ app.put('/api/assistant/project/:id', authenticateToken, requirePremium, (req, r
   }
 });
 
-app.post('/api/assistant/priority', authenticateToken, requirePremium, (req, res) => {
+app.post('/api/assistant/priority', authenticateToken, (req, res) => {
   const priorityData = req.body;
 
   try {
@@ -518,7 +518,7 @@ app.post('/api/assistant/priority', authenticateToken, requirePremium, (req, res
   }
 });
 
-app.post('/api/assistant/user', authenticateToken, requirePremium, (req, res) => {
+app.post('/api/assistant/user', authenticateToken, (req, res) => {
   const profileData = req.body;
 
   try {
@@ -560,7 +560,7 @@ app.post('/api/assistant/morning-greeting', authenticateToken, requirePremium, (
   }
 });
 
-app.put('/api/assistant/task/:taskId', authenticateToken, requirePremium, async (req, res) => {
+app.put('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
   const { taskId } = req.params;
   const { completed } = req.body;
 
@@ -577,7 +577,7 @@ app.put('/api/assistant/task/:taskId', authenticateToken, requirePremium, async 
   }
 });
 
-app.delete('/api/assistant/task/:taskId', authenticateToken, requirePremium, async (req, res) => {
+app.delete('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
   const { taskId } = req.params;
 
   try {
@@ -589,8 +589,8 @@ app.delete('/api/assistant/task/:taskId', authenticateToken, requirePremium, asy
   }
 });
 
-// Endpoint para archivar tarea
-app.put('/api/assistant/task/:taskId/archive', authenticateToken, requirePremium, async (req, res) => {
+// Endpoint para archivar tarea (LIBRE para todos los usuarios)
+app.put('/api/assistant/task/:taskId/archive', authenticateToken, async (req, res) => {
   const { taskId } = req.params;
 
   try {
