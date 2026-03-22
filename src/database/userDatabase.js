@@ -1048,12 +1048,24 @@ class UserDatabase {
   async addAttachment(taskId, userId, attachmentData) {
     return new Promise((resolve, reject) => {
       const attachmentId = uuidv4();
+
+      console.log(`📎 [DB] addAttachment llamada:`, {
+        attachmentId,
+        taskId,
+        userId,
+        filename: attachmentData.filename,
+        original_name: attachmentData.original_name,
+        file_size: attachmentData.file_size,
+        mime_type: attachmentData.mime_type,
+        is_image: attachmentData.is_image
+      });
+
       const query = `
         INSERT INTO task_attachments (id, task_id, user_id, filename, original_name, file_path, file_size, mime_type, is_image)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
-      this.db.run(query, [
+      const values = [
         attachmentId,
         taskId,
         userId,
@@ -1063,11 +1075,24 @@ class UserDatabase {
         attachmentData.file_size || 0,
         attachmentData.mime_type || '',
         attachmentData.is_image ? 1 : 0
-      ], function(err) {
+      ];
+
+      console.log(`📎 [DB] Ejecutando query addAttachment:`, query);
+      console.log(`📎 [DB] Valores:`, values);
+
+      this.db.run(query, values, function(err) {
         if (err) {
+          console.error(`❌ [DB] Error en addAttachment:`, err);
           reject(err);
           return;
         }
+
+        console.log(`✅ [DB] Attachment agregado exitosamente:`, {
+          attachmentId,
+          changes: this.changes,
+          lastID: this.lastID
+        });
+
         resolve({ success: true, id: attachmentId });
       });
     });

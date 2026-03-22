@@ -812,6 +812,35 @@ app.post('/api/task-details/:taskId/attachments', authenticateToken, upload.arra
     const files = req.files;
 
     console.log(`📎 [UPLOAD-FILES] Subiendo ${files.length} archivo(s) para tarea: ${taskId}`);
+    console.log(`📎 [UPLOAD-FILES] Usuario ID: ${userId}`);
+
+    // Verificar que la tarea existe y pertenece al usuario
+    const taskExists = await new Promise((resolve, reject) => {
+      const query = 'SELECT id FROM daily_tasks WHERE id = ? AND user_id = ?';
+      userDB.db.get(query, [taskId, userId], (err, task) => {
+        if (err) {
+          console.error('❌ [UPLOAD-FILES] Error verificando tarea:', err);
+          reject(err);
+          return;
+        }
+        resolve(task);
+      });
+    });
+
+    if (!taskExists) {
+      console.log(`⚠️ [UPLOAD-FILES] Tarea no encontrada o no pertenece al usuario: ${taskId}`);
+      return res.status(404).json({
+        error: 'Tarea no encontrada'
+      });
+    }
+
+    console.log(`✅ [UPLOAD-FILES] Tarea verificada: ${taskId}`);
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        error: 'No se proporcionaron archivos'
+      });
+    }
 
     const results = [];
 
@@ -827,6 +856,8 @@ app.post('/api/task-details/:taskId/attachments', authenticateToken, upload.arra
         is_image: isImage
       };
 
+      console.log(`📎 [UPLOAD-FILES] Procesando archivo: ${file.originalname}`);
+
       const result = await userDB.addAttachment(taskId, userId, attachmentData);
       results.push({
         ...result,
@@ -841,6 +872,8 @@ app.post('/api/task-details/:taskId/attachments', authenticateToken, upload.arra
       });
     }
 
+    console.log(`✅ [UPLOAD-FILES] ${results.length} archivo(s) subido(s) exitosamente`);
+
     res.json({
       success: true,
       files: results
@@ -849,7 +882,7 @@ app.post('/api/task-details/:taskId/attachments', authenticateToken, upload.arra
   } catch (error) {
     console.error('❌ [UPLOAD-FILES] Error:', error);
     res.status(500).json({
-      error: 'Error al subir archivos'
+      error: 'Error al subir archivos: ' + error.message
     });
   }
 });
