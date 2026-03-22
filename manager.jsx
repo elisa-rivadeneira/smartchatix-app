@@ -6232,7 +6232,7 @@ Responde siempre en español y mantén el tono configurado.`;
                             </div>
                             <button
                               onClick={() => deleteSubtask(subtask.id)}
-                              className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="text-red-500 hover:text-red-700 transition-opacity ml-2"
                             >
                               <X size={14} />
                             </button>
