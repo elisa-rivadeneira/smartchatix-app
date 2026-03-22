@@ -33,6 +33,13 @@ app.use((req, res, next) => {
   console.log(`📱 Cliente: ${isMobile ? 'MÓVIL' : 'DESKTOP'} - ${userAgent.substring(0, 100)}`);
   console.log(`🔗 IP: ${req.ip}`);
 
+  // Log especial para uploads
+  if (req.url.includes('/attachments') || req.url.includes('/upload')) {
+    console.log(`🔥 UPLOAD REQUEST DETECTED: ${req.method} ${req.url}`);
+    console.log(`🔥 Content-Type: ${req.headers['content-type']}`);
+    console.log(`🔥 Authorization: ${req.headers['authorization'] ? 'PRESENT' : 'MISSING'}`);
+  }
+
   if (req.body && Object.keys(req.body).length > 0) {
     console.log(`📦 Body: ${JSON.stringify(req.body, null, 2)}`);
   }
@@ -266,6 +273,16 @@ app.get('/auth/user', (req, res) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Test endpoint para verificar conectividad
+app.get('/api/test-upload-connectivity', (req, res) => {
+  console.log('🧪 TEST ENDPOINT CALLED - Server is receiving requests');
+  res.json({
+    success: true,
+    message: 'Upload connectivity test successful',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Configurar multer para compatibilidad con frontend (upload.php)
 const storage = multer.diskStorage({
