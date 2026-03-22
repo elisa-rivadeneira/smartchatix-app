@@ -1207,14 +1207,36 @@ const PersonalCoachAssistant = () => {
     setEditingProjectDeadlineText(currentDeadline || '');
   };
 
-  const saveProjectDeadline = () => {
+  const saveProjectDeadline = async () => {
     if (editingProjectDeadlineId !== null) {
-      setProjects(projects.map(project => {
-        if (project.id === editingProjectDeadlineId) {
-          return { ...project, deadline: editingProjectDeadlineText.trim() || null };
+      try {
+        // Actualizar en la base de datos
+        const response = await authenticatedFetch(`${getApiBase()}/auth/projects/${editingProjectDeadlineId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: {
+              deadline: editingProjectDeadlineText.trim() || null
+            }
+          })
+        });
+
+        if (response.ok) {
+          // Actualizar el estado local
+          setProjects(projects.map(project => {
+            if (project.id === editingProjectDeadlineId) {
+              return { ...project, deadline: editingProjectDeadlineText.trim() || null };
+            }
+            return project;
+          }));
+        } else {
+          alert('❌ Error al actualizar la fecha límite del proyecto');
+          return; // No limpiar los estados si hay error
         }
-        return project;
-      }));
+      } catch (error) {
+        console.error('Error updating project deadline:', error);
+        alert('❌ Error al actualizar la fecha límite del proyecto');
+        return; // No limpiar los estados si hay error
+      }
     }
     setEditingProjectDeadlineId(null);
     setEditingProjectDeadlineText('');
@@ -1231,14 +1253,36 @@ const PersonalCoachAssistant = () => {
     setEditingProjectTitleText(currentTitle || '');
   };
 
-  const saveProjectTitle = () => {
+  const saveProjectTitle = async () => {
     if (editingProjectTitleId !== null && editingProjectTitleText.trim()) {
-      setProjects(projects.map(project => {
-        if (project.id === editingProjectTitleId) {
-          return { ...project, title: editingProjectTitleText.trim() };
+      try {
+        // Actualizar en la base de datos
+        const response = await authenticatedFetch(`${getApiBase()}/auth/projects/${editingProjectTitleId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: {
+              title: editingProjectTitleText.trim()
+            }
+          })
+        });
+
+        if (response.ok) {
+          // Actualizar el estado local
+          setProjects(projects.map(project => {
+            if (project.id === editingProjectTitleId) {
+              return { ...project, title: editingProjectTitleText.trim() };
+            }
+            return project;
+          }));
+        } else {
+          alert('❌ Error al actualizar el nombre del proyecto');
+          return; // No limpiar los estados si hay error
         }
-        return project;
-      }));
+      } catch (error) {
+        console.error('Error updating project title:', error);
+        alert('❌ Error al actualizar el nombre del proyecto');
+        return; // No limpiar los estados si hay error
+      }
     }
     setEditingProjectTitleId(null);
     setEditingProjectTitleText('');
@@ -1255,14 +1299,36 @@ const PersonalCoachAssistant = () => {
     setEditingProjectDescriptionText(currentDescription || '');
   };
 
-  const saveProjectDescription = () => {
+  const saveProjectDescription = async () => {
     if (editingProjectDescriptionId !== null) {
-      setProjects(projects.map(project => {
-        if (project.id === editingProjectDescriptionId) {
-          return { ...project, description: editingProjectDescriptionText.trim() || null };
+      try {
+        // Actualizar en la base de datos
+        const response = await authenticatedFetch(`${getApiBase()}/auth/projects/${editingProjectDescriptionId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            project: {
+              description: editingProjectDescriptionText.trim() || null
+            }
+          })
+        });
+
+        if (response.ok) {
+          // Actualizar el estado local
+          setProjects(projects.map(project => {
+            if (project.id === editingProjectDescriptionId) {
+              return { ...project, description: editingProjectDescriptionText.trim() || null };
+            }
+            return project;
+          }));
+        } else {
+          alert('❌ Error al actualizar la descripción del proyecto');
+          return; // No limpiar los estados si hay error
         }
-        return project;
-      }));
+      } catch (error) {
+        console.error('Error updating project description:', error);
+        alert('❌ Error al actualizar la descripción del proyecto');
+        return; // No limpiar los estados si hay error
+      }
     }
     setEditingProjectDescriptionId(null);
     setEditingProjectDescriptionText('');
