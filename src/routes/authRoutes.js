@@ -1547,4 +1547,31 @@ router.get('/attachments/:filename', authenticateToken, (req, res) => {
   }
 });
 
-module.exports = { router, authenticateToken, userDB };
+// Middleware para verificar suscripción premium
+const requirePremium = (req, res, next) => {
+  console.log(`🌟 [PREMIUM-CHECK] Verificando suscripción para: ${req.user?.email}`);
+  console.log(`🔍 [PREMIUM-CHECK] Subscription type: ${req.user?.subscription_type}`);
+
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Usuario no autenticado',
+      requiresPremium: true
+    });
+  }
+
+  // Verificar si el usuario es premium
+  if (req.user.subscription_type !== 'premium') {
+    console.log(`❌ [PREMIUM-CHECK] Acceso denegado - usuario no premium: ${req.user.email}`);
+    return res.status(403).json({
+      error: 'Esta funcionalidad requiere una suscripción Premium',
+      requiresPremium: true,
+      currentPlan: req.user.subscription_type || 'free',
+      message: 'El asistente está disponible solo para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.'
+    });
+  }
+
+  console.log(`✅ [PREMIUM-CHECK] Usuario premium verificado: ${req.user.email}`);
+  next();
+};
+
+module.exports = { router, authenticateToken, requirePremium, userDB };

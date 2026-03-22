@@ -357,6 +357,7 @@ const PersonalCoachAssistant = () => {
   const [selectedProjectDailyTasks, setSelectedProjectDailyTasks] = useState([]);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
+  const [userSubscription, setUserSubscription] = useState('free'); // Nuevo estado para suscripción
 
   // Nuevos estados para gestión de tareas de proyectos
   const [newProjectTask, setNewProjectTask] = useState({});
@@ -732,6 +733,11 @@ const PersonalCoachAssistant = () => {
 
         // Cargar tareas diarias del usuario
         setDailyTasks(data.dailyTasks || []);
+
+        // Cargar información del usuario incluido el subscription_type
+        if (data.user) {
+          setUserSubscription(data.user.subscription_type || 'free');
+        }
 
         // Cargar configuración del asistente
         if (data.assistantConfig) {
@@ -3981,10 +3987,15 @@ Responde siempre en español y mantén el tono configurado.`;
               </div>
               <button
                 onClick={() => setActiveView('assistant')}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-xs md:text-sm ml-2 md:ml-0"
+                className={`${
+                  isPremiumUser()
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
+                    : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
+                } text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-xs md:text-sm ml-2 md:ml-0`}
+                title={isPremiumUser() ? "Asistente IA" : "Funcionalidad Premium"}
               >
                 <Bot size={14} />
-                <span className="hidden sm:inline">IA</span>
+                <span className="hidden sm:inline">{isPremiumUser() ? 'IA' : '⭐ IA'}</span>
               </button>
             </div>
           </div>
@@ -4285,10 +4296,15 @@ Responde siempre en español y mantén el tono configurado.`;
                 </button>
                 <button
                   onClick={() => setActiveView('assistant')}
-                  className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center space-x-2"
+                  className={`w-full text-left p-2 text-sm rounded-lg transition-colors flex items-center space-x-2 ${
+                    isPremiumUser()
+                      ? 'text-gray-700 hover:bg-gray-50'
+                      : 'text-amber-700 hover:bg-amber-50 bg-amber-50/50 border border-amber-200'
+                  }`}
+                  title={isPremiumUser() ? "Consultar IA" : "Funcionalidad Premium"}
                 >
                   <Bot size={14} />
-                  <span>Consultar IA</span>
+                  <span>{isPremiumUser() ? 'Consultar IA' : '⭐ Consultar IA (Premium)'}</span>
                 </button>
               </div>
             </div>
@@ -4789,7 +4805,51 @@ Responde siempre en español y mantén el tono configurado.`;
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserDropdown]);
 
+  // Función para verificar si el usuario es premium
+  const isPremiumUser = () => {
+    return userSubscription === 'premium';
+  };
+
+  // Función para renderizar mensaje de premium requerido
+  const renderPremiumRequired = () => {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center p-8 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+          <div className="mb-4">
+            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-4">
+              <Bot size={32} className="text-white" />
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">
+            🌟 Funcionalidad Premium
+          </h3>
+          <p className="text-gray-600 mb-4">
+            El asistente personal está disponible solo para usuarios Premium.
+            Actualiza tu plan para acceder a esta increíble funcionalidad.
+          </p>
+          <div className="bg-white rounded-lg p-4 mb-4 border border-amber-200">
+            <h4 className="font-semibold text-gray-800 mb-2">Con Premium obtienes:</h4>
+            <ul className="text-sm text-gray-600 space-y-1 text-left">
+              <li>🤖 Asistente personal con IA</li>
+              <li>🎯 Análisis de proyectos personalizado</li>
+              <li>📊 Optimización de tareas inteligente</li>
+              <li>🗣️ Interacciones por voz</li>
+              <li>🧠 Memoria conversacional avanzada</li>
+            </ul>
+          </div>
+          <div className="text-sm text-gray-500">
+            Plan actual: <span className="font-semibold capitalize">{userSubscription}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderAssistantView = () => {
+    // Si el usuario no es premium, mostrar el mensaje
+    if (!isPremiumUser()) {
+      return renderPremiumRequired();
+    }
     return (
       <div className="h-full flex flex-col overflow-hidden">
         {/* Header de configuración del asistente */}
@@ -5618,12 +5678,13 @@ Responde siempre en español y mantén el tono configurado.`;
               onClick={() => setActiveView('assistant')}
               className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
                 activeView === 'assistant'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? (isPremiumUser() ? 'bg-blue-500 text-white' : 'bg-amber-500 text-white')
+                  : (isPremiumUser() ? 'text-gray-600 hover:bg-gray-100' : 'text-amber-600 hover:bg-amber-50')
               }`}
+              title={isPremiumUser() ? "Asistente" : "Funcionalidad Premium"}
             >
               <Bot size={14} className="mr-1" />
-              Asistente
+              {isPremiumUser() ? 'Asistente' : '⭐ Asistente'}
             </button>
           </div>
       </div>
@@ -7360,7 +7421,7 @@ Responde siempre en español y mantén el tono configurado.`;
 
 
       {/* Chat Bubble Flotante para Asistente IA */}
-      {chatBubbleOpen && (
+      {chatBubbleOpen && isPremiumUser() && (
         <div className="fixed bottom-20 right-6 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
           {/* Header del Chat */}
           <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
@@ -7483,6 +7544,11 @@ Responde siempre en español y mantén el tono configurado.`;
       {/* Botón flotante para abrir chat bubble */}
       <button
         onClick={() => {
+          if (!isPremiumUser()) {
+            // Si no es premium, cambiar a la vista del asistente que mostrará el mensaje
+            setActiveView('assistant');
+            return;
+          }
           setChatBubbleOpen(!chatBubbleOpen);
           if (!chatBubbleOpen) {
             // Siempre mostrar mensaje de bienvenida cuando se abre
@@ -7499,9 +7565,11 @@ Responde siempre en español y mantén el tono configurado.`;
         className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 ${
           chatBubbleOpen
             ? 'bg-gray-500 hover:bg-gray-600'
-            : 'bg-blue-500 hover:bg-blue-600'
+            : isPremiumUser()
+            ? 'bg-blue-500 hover:bg-blue-600'
+            : 'bg-amber-500 hover:bg-amber-600'
         } text-white hover:scale-110`}
-        title={chatBubbleOpen ? "Cerrar Asistente" : "Abrir Asistente IA"}
+        title={chatBubbleOpen ? "Cerrar Asistente" : isPremiumUser() ? "Abrir Asistente IA" : "Funcionalidad Premium"}
       >
         {chatBubbleOpen ? (
           <ChevronDown size={24} />

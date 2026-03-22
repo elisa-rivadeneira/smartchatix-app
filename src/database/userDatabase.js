@@ -491,7 +491,7 @@ class UserDatabase {
 
         // Verificar que la sesión exista y no haya expirado
         const query = `
-          SELECT s.*, u.email, u.name, u.avatar
+          SELECT s.*, u.email, u.name, u.avatar, u.subscription_type
           FROM user_sessions s
           JOIN users u ON s.user_id = u.id
           WHERE s.token = ? AND s.expires_at > CURRENT_TIMESTAMP AND u.is_active = 1
@@ -512,7 +512,8 @@ class UserDatabase {
             userId: session.user_id,
             email: session.email,
             name: session.name,
-            avatar: session.avatar
+            avatar: session.avatar,
+            subscription_type: session.subscription_type
           });
         });
       });

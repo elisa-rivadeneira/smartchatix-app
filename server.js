@@ -7,7 +7,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const AssistantManager = require('./src/assistantManager');
 const UserDatabase = require('./src/database/userDatabase');
-const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
+const { router: authRoutes, authenticateToken, requirePremium } = require('./src/routes/authRoutes');
 const DatabaseBackupSystem = require('./backup_system');
 const DatabaseMigrations = require('./src/database/migrations');
 const multer = require('multer');
@@ -423,7 +423,7 @@ const initializeAssistant = async () => {
 };
 
 // API Routes (protegidas por autenticación)
-app.get('/api/assistant/status', authenticateToken, (req, res) => {
+app.get('/api/assistant/status', authenticateToken, requirePremium, (req, res) => {
   const context = assistant.getDailyContext();
   res.json({
     active: assistant.isActive,
@@ -432,12 +432,12 @@ app.get('/api/assistant/status', authenticateToken, (req, res) => {
   });
 });
 
-app.get('/api/assistant/context', authenticateToken, (req, res) => {
+app.get('/api/assistant/context', authenticateToken, requirePremium, (req, res) => {
   const context = assistant.getDailyContext();
   res.json(context);
 });
 
-app.post('/api/assistant/message', authenticateToken, (req, res) => {
+app.post('/api/assistant/message', authenticateToken, requirePremium, (req, res) => {
   const { message } = req.body;
 
   if (!message) {
@@ -460,7 +460,7 @@ app.post('/api/assistant/message', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/assistant/response', authenticateToken, async (req, res) => {
+app.post('/api/assistant/response', authenticateToken, requirePremium, async (req, res) => {
   const { message } = req.body;
 
   if (!message) {
@@ -476,7 +476,7 @@ app.post('/api/assistant/response', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/assistant/project', authenticateToken, async (req, res) => {
+app.post('/api/assistant/project', authenticateToken, requirePremium, async (req, res) => {
   const projectData = req.body;
 
   try {
@@ -493,7 +493,7 @@ app.post('/api/assistant/project', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/assistant/project/:id', authenticateToken, (req, res) => {
+app.put('/api/assistant/project/:id', authenticateToken, requirePremium, (req, res) => {
   const projectId = parseInt(req.params.id);
   const updates = req.body;
 
@@ -506,7 +506,7 @@ app.put('/api/assistant/project/:id', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/assistant/priority', authenticateToken, (req, res) => {
+app.post('/api/assistant/priority', authenticateToken, requirePremium, (req, res) => {
   const priorityData = req.body;
 
   try {
@@ -518,7 +518,7 @@ app.post('/api/assistant/priority', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/assistant/user', authenticateToken, (req, res) => {
+app.post('/api/assistant/user', authenticateToken, requirePremium, (req, res) => {
   const profileData = req.body;
 
   try {
@@ -530,7 +530,7 @@ app.post('/api/assistant/user', authenticateToken, (req, res) => {
   }
 });
 
-app.get('/api/assistant/chat-history', authenticateToken, (req, res) => {
+app.get('/api/assistant/chat-history', authenticateToken, requirePremium, (req, res) => {
   try {
     const chatHistory = assistant.getChatHistory();
     res.json(chatHistory);
@@ -540,7 +540,7 @@ app.get('/api/assistant/chat-history', authenticateToken, (req, res) => {
   }
 });
 
-app.get('/api/assistant/summary', authenticateToken, (req, res) => {
+app.get('/api/assistant/summary', authenticateToken, requirePremium, (req, res) => {
   try {
     const summary = assistant.generateDailySummary();
     res.json(summary);
@@ -550,7 +550,7 @@ app.get('/api/assistant/summary', authenticateToken, (req, res) => {
   }
 });
 
-app.post('/api/assistant/morning-greeting', authenticateToken, (req, res) => {
+app.post('/api/assistant/morning-greeting', authenticateToken, requirePremium, (req, res) => {
   try {
     assistant.triggerMorningGreeting();
     res.json({ message: 'Morning greeting triggered' });
@@ -560,7 +560,7 @@ app.post('/api/assistant/morning-greeting', authenticateToken, (req, res) => {
   }
 });
 
-app.put('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
+app.put('/api/assistant/task/:taskId', authenticateToken, requirePremium, async (req, res) => {
   const { taskId } = req.params;
   const { completed } = req.body;
 
@@ -577,7 +577,7 @@ app.put('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/assistant/task/:taskId', authenticateToken, async (req, res) => {
+app.delete('/api/assistant/task/:taskId', authenticateToken, requirePremium, async (req, res) => {
   const { taskId } = req.params;
 
   try {
@@ -1092,7 +1092,12 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
     res.json({
       projects: projects || [],
       dailyTasks: dailyTasks || [],
-      assistantConfig: assistantConfig || null
+      assistantConfig: assistantConfig || null,
+      user: {
+        email: req.user.email,
+        name: req.user.name,
+        subscription_type: req.user.subscription_type || 'free'
+      }
     });
   } catch (error) {
     console.error('Error loading user profile:', error);
