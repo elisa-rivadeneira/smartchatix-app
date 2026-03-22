@@ -3180,6 +3180,20 @@ Responde siempre en español y mantén el tono configurado.`;
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
+          // Recargar todos los detalles de la tarea para mantener sincronización
+          const detailsResponse = await authenticatedFetch(`${getApiBase()}/task-details/${selectedTaskForDetail.id}`);
+          if (detailsResponse.ok) {
+            const detailsData = await detailsResponse.json();
+            if (detailsData.success && detailsData.data) {
+              setTaskDetailData({
+                description: detailsData.data.description || '',
+                notes: detailsData.data.notes || '',
+                subtasks: detailsData.data.subtasks || [],
+                attachments: detailsData.data.attachments || []
+              });
+            }
+          }
+
           Swal.fire({
             title: '¡Guardado!',
             text: 'Los detalles de la tarea se guardaron correctamente',
