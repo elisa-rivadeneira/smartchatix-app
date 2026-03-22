@@ -535,6 +535,108 @@ app.post('/api/daily-tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar tarea diaria
+app.put('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔥 [UPDATE DAILY-TASK] Nueva petición recibida:', {
+      taskId: req.params.taskId,
+      updates: req.body,
+      userId: req.user.userId,
+      timestamp: new Date().toISOString()
+    });
+
+    const { taskId } = req.params;
+    const { text, completed, projectId, projectTaskId } = req.body;
+    const userId = req.user.userId;
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM daily_tasks WHERE id = ? AND user_id = ?';
+    console.log('🔍 [UPDATE DAILY-TASK] Verificando tarea:', { taskId, userId });
+
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('❌ [UPDATE DAILY-TASK] Error en consulta de tarea:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        console.log('⚠️ [UPDATE DAILY-TASK] Tarea no encontrada:', { taskId, userId });
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+
+      console.log('✅ [UPDATE DAILY-TASK] Tarea verificada correctamente:', task);
+
+      // Construir la query de actualización dinámicamente
+      const updates = [];
+      const values = [];
+
+      if (text !== undefined) {
+        updates.push('text = ?');
+        values.push(text);
+      }
+      if (completed !== undefined) {
+        updates.push('completed = ?');
+        values.push(completed ? 1 : 0);
+      }
+      if (projectId !== undefined) {
+        updates.push('project_id = ?');
+        values.push(projectId);
+      }
+      if (projectTaskId !== undefined) {
+        updates.push('project_task_id = ?');
+        values.push(projectTaskId);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No hay campos para actualizar' });
+      }
+
+      values.push(taskId, userId);
+
+      const updateQuery = `
+        UPDATE daily_tasks
+        SET ${updates.join(', ')}
+        WHERE id = ? AND user_id = ?
+      `;
+
+      console.log('📝 [UPDATE DAILY-TASK] Ejecutando query:', updateQuery, values);
+
+      userDB.db.run(updateQuery, values, function(updateErr) {
+        if (updateErr) {
+          console.error('❌ [UPDATE DAILY-TASK] Error actualizando tarea:', updateErr);
+          return res.status(500).json({ error: 'Error al actualizar tarea' });
+        }
+
+        console.log('✅ [UPDATE DAILY-TASK] Tarea actualizada exitosamente:', {
+          taskId,
+          changes: this.changes
+        });
+
+        const responseData = {
+          success: true,
+          task: {
+            id: taskId,
+            text: text !== undefined ? text : task.text,
+            completed: completed !== undefined ? completed : task.completed,
+            projectId: projectId !== undefined ? projectId : task.project_id,
+            projectTaskId: projectTaskId !== undefined ? projectTaskId : task.project_task_id,
+            user_id: userId
+          }
+        };
+
+        console.log('📤 [UPDATE DAILY-TASK] Enviando respuesta:', responseData);
+        res.json(responseData);
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [UPDATE DAILY-TASK] Error general:', error);
+    res.status(500).json({
+      error: 'Error al actualizar tarea'
+    });
+  }
+});
+
 // Eliminar tarea diaria
 app.delete('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
   try {
