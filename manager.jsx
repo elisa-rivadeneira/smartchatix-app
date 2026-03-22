@@ -6051,6 +6051,59 @@ Responde siempre en español y mantén el tono configurado.`;
               </div>
             </div>
 
+            {/* Selector de Proyecto */}
+            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center space-x-4">
+                <label className="text-sm font-medium text-gray-700">
+                  📁 Proyecto:
+                </label>
+                <select
+                  value={selectedTaskForDetail.project_id || ''}
+                  onChange={async (e) => {
+                    const newProjectId = e.target.value || null;
+                    try {
+                      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${selectedTaskForDetail.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                          projectId: newProjectId
+                        })
+                      });
+
+                      if (response.ok) {
+                        // Actualizar el estado local
+                        setSelectedTaskForDetail(prev => ({
+                          ...prev,
+                          project_id: newProjectId
+                        }));
+
+                        // Recargar las tareas diarias para reflejar el cambio
+                        await loadUserProfile();
+
+                        // Mostrar mensaje de éxito
+                        alert('✅ Proyecto asignado correctamente');
+                      } else {
+                        alert('❌ Error al asignar proyecto');
+                      }
+                    } catch (error) {
+                      console.error('Error updating task project:', error);
+                      alert('❌ Error al asignar proyecto');
+                    }
+                  }}
+                  className="flex-1 max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                >
+                  <option value="">Sin proyecto (Independiente)</option>
+                  {projects.map(project => (
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-gray-500">
+                  {selectedTaskForDetail.project_id ? 'Asignado' : 'Independiente'}
+                </span>
+              </div>
+            </div>
+
             {/* Content */}
             <div className="flex-1 overflow-hidden">
               <div className="grid grid-cols-1 lg:grid-cols-3 h-full">
