@@ -1137,7 +1137,7 @@ const startServer = async () => {
 
   // Ejecutar migraciones de base de datos
   console.log('🔧 Ejecutando migraciones de base de datos...');
-  const migrations = new DatabaseMigrations('users.db');
+  const migrations = new DatabaseMigrations(path.join(__dirname, 'data/users.db'));
   await migrations.runMigrations();
   migrations.close();
 
