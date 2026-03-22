@@ -6078,9 +6078,6 @@ Responde siempre en español y mantén el tono configurado.`;
 
                         // Recargar las tareas diarias para reflejar el cambio
                         await loadUserData();
-
-                        // Mostrar mensaje de éxito
-                        alert('✅ Proyecto asignado correctamente');
                       } else {
                         alert('❌ Error al asignar proyecto');
                       }
