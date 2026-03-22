@@ -10,7 +10,7 @@ class ProductionBackupManager {
         this.timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         this.remoteHost = process.env.PRODUCTION_HOST || 'localhost';
         this.remoteUser = process.env.PRODUCTION_USER || 'root';
-        this.remotePath = process.env.PRODUCTION_PATH || '/app';
+        this.remotePath = process.env.PRODUCTION_PATH || path.join(__dirname, '..');
         this.dbPath = process.env.PRODUCTION_DB_PATH || path.join(__dirname, '../users.db');
     }
 
