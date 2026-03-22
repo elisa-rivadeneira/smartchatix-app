@@ -176,6 +176,12 @@ app.use('/uploads', (req, res, next) => {
   express.static(path.join(__dirname, 'uploads/tasks'))(req, res, next);
 });
 
+// Serve attachments with /api prefix (para compatibilidad con frontend)
+app.use('/api/uploads', (req, res, next) => {
+  console.log(`🎯 API UPLOADS REQUEST: ${req.path}`);
+  express.static(path.join(__dirname, 'uploads/tasks'))(req, res, next);
+});
+
 app.use(express.static('dist'));
 
 // Google OAuth routes (solo si las credenciales están configuradas)
