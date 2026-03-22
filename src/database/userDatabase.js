@@ -12,7 +12,15 @@ const uuidv4 = () => {
 
 class UserDatabase {
   constructor() {
-    this.dbPath = path.join(__dirname, '../../data/users.db');
+    // En producción, usar users.db del directorio raíz
+    // En desarrollo, usar data/users.db
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      this.dbPath = path.join(__dirname, '../../users.db');
+    } else {
+      this.dbPath = path.join(__dirname, '../../data/users.db');
+    }
+    console.log(`📁 Usando base de datos en: ${this.dbPath}`);
     this.db = null;
     this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
     this.isReady = false;
