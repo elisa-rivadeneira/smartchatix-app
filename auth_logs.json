@@ -829,5 +829,17 @@
       "userAgent": "curl/7.81.0",
       "token": "test..."
     }
+  },
+  {
+    "timestamp": "2026-03-22T15:45:56.388Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/api/task-details/test-id/attachments",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "token": "test..."
+    }
   }
 ]
