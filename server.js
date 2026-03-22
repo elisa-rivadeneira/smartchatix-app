@@ -589,6 +589,20 @@ app.delete('/api/assistant/task/:taskId', authenticateToken, requirePremium, asy
   }
 });
 
+// Endpoint para archivar tarea
+app.post('/api/assistant/task/:taskId/archive', authenticateToken, requirePremium, async (req, res) => {
+  const { taskId } = req.params;
+
+  try {
+    console.log(`📦 [ARCHIVE-TASK] Archivando tarea: ${taskId} para usuario: ${req.user.userId}`);
+    const result = await userDB.archiveDailyTask(req.user.userId, taskId);
+    console.log(`✅ [ARCHIVE-TASK] Resultado:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ [ARCHIVE-TASK] Error archivando tarea:', error);
+    res.status(500).json({ error: 'Error archivando tarea' });
+  }
+});
 
 app.post('/api/daily-tasks', authenticateToken, async (req, res) => {
   try {
