@@ -40,10 +40,10 @@ database.sqlite
 .nixpacks/
 
 # Database and data files - NEVER COMMIT USER DATA
-*.db
-data/users.db
+# *.db  # Temporalmente comentado para subir users.db
+# data/users.db  # Temporalmente comentado para subir users.db
 data/smartchatix.db
-data/*.db
+# data/*.db  # Temporalmente comentado para subir users.db
 *_backup_*.db
 *_backup_*.json
 user_memory.json
