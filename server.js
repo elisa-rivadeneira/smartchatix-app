@@ -306,17 +306,34 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024 // 50MB límite
   },
   fileFilter: function (req, file, cb) {
-    // Permitir imágenes y documentos comunes
+    console.log(`📎 [MULTER-FILTER] Archivo recibido: ${file.originalname}`);
+    console.log(`📎 [MULTER-FILTER] Tipo MIME: ${file.mimetype}`);
+    console.log(`📎 [MULTER-FILTER] Fieldname: ${file.fieldname}`);
+
+    // Lista expandida de tipos de archivo permitidos
     const allowedMimes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
-      'application/pdf', 'text/plain',
-      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      // Imágenes
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml',
+      // Documentos
+      'application/pdf', 'text/plain', 'text/csv',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Archivos comprimidos
+      'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed',
+      // Otros comunes
+      'application/json', 'application/xml', 'text/xml',
+      // Tipos genéricos para archivos sin extensión
+      'application/octet-stream'
     ];
 
     if (allowedMimes.includes(file.mimetype)) {
+      console.log(`✅ [MULTER-FILTER] Archivo aceptado: ${file.originalname}`);
       cb(null, true);
     } else {
-      cb(new Error('Tipo de archivo no permitido'), false);
+      console.log(`❌ [MULTER-FILTER] Archivo rechazado: ${file.originalname} (tipo: ${file.mimetype})`);
+      console.log(`💡 [MULTER-FILTER] Tipos permitidos:`, allowedMimes);
+      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}`), false);
     }
   }
 });
