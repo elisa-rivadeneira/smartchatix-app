@@ -889,5 +889,17 @@
       "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
       "token": "eyJhbGciOiJIUzI1NiIs..."
     }
+  },
+  {
+    "timestamp": "2026-03-22T17:22:08.040Z",
+    "level": "ERROR",
+    "message": "Error verificando token",
+    "details": {
+      "error": "Token inválido",
+      "url": "/api/task-details/fake-task-id/attachments",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.81.0",
+      "token": "fake-token..."
+    }
   }
 ]
