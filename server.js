@@ -1141,6 +1141,48 @@ const startServer = async () => {
   await migrations.runMigrations();
   migrations.close();
 
+  // Auto-configurar cuenta premium de prueba
+  console.log('🌟 Configurando cuenta premium de prueba...');
+  try {
+    await userDB.waitForReady();
+    const premiumResult = await new Promise((resolve, reject) => {
+      userDB.db.run(
+        "UPDATE users SET subscription_type = 'premium' WHERE email = 'erivadeneiraq@gmail.com'",
+        function(err) {
+          if (err) {
+            console.error('❌ Error configurando premium:', err);
+            reject(err);
+          } else {
+            console.log(`✅ Cuenta premium configurada (${this.changes} filas afectadas)`);
+            resolve(this.changes);
+          }
+        }
+      );
+    });
+
+    // Verificar que se aplicó
+    const verifyResult = await new Promise((resolve, reject) => {
+      userDB.db.get(
+        "SELECT email, subscription_type FROM users WHERE email = 'erivadeneiraq@gmail.com'",
+        (err, row) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(row);
+          }
+        }
+      );
+    });
+
+    if (verifyResult) {
+      console.log(`🎯 Verificado: ${verifyResult.email} = ${verifyResult.subscription_type}`);
+    } else {
+      console.log('⚠️ Usuario erivadeneiraq@gmail.com no encontrado');
+    }
+  } catch (error) {
+    console.error('❌ Error en configuración premium:', error);
+  }
+
   app.listen(PORT, '0.0.0.0', () => {
     const now = new Date().toLocaleString('es-ES');
     console.log(`🚀🚀🚀🚀🚀 Servidor ejecutándoseeeeeeeeeeee aqui en http://0.0.0.0:${PORT} - ${now}`);
