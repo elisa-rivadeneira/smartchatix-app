@@ -874,6 +874,74 @@ app.delete('/api/attachments/:attachmentId', authenticateToken, async (req, res)
   }
 });
 
+// Agregar subtarea
+app.post('/api/task-details/:taskId/subtasks', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+    const { text, order_index } = req.body;
+
+    console.log(`➕ [ADD-SUBTASK] Nueva subtarea para tarea: ${taskId}`);
+
+    const result = await userDB.addSubtask(taskId, userId, {
+      text,
+      order_index
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [ADD-SUBTASK] Error:', error);
+    res.status(500).json({
+      error: 'Error al agregar subtarea'
+    });
+  }
+});
+
+// Actualizar subtarea
+app.put('/api/subtasks/:subtaskId', authenticateToken, async (req, res) => {
+  try {
+    const { subtaskId } = req.params;
+    const userId = req.user.userId;
+    const { text, completed } = req.body;
+
+    console.log(`✏️ [UPDATE-SUBTASK] Actualizando subtarea: ${subtaskId}`);
+
+    const result = await userDB.updateSubtask(subtaskId, userId, {
+      text,
+      completed
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [UPDATE-SUBTASK] Error:', error);
+    res.status(500).json({
+      error: 'Error al actualizar subtarea'
+    });
+  }
+});
+
+// Eliminar subtarea
+app.delete('/api/subtasks/:subtaskId', authenticateToken, async (req, res) => {
+  try {
+    const { subtaskId } = req.params;
+    const userId = req.user.userId;
+
+    console.log(`🗑️ [DELETE-SUBTASK] Eliminando subtarea: ${subtaskId}`);
+
+    const result = await userDB.deleteSubtask(subtaskId, userId);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [DELETE-SUBTASK] Error:', error);
+    res.status(500).json({
+      error: 'Error al eliminar subtarea'
+    });
+  }
+});
+
 // Servir archivos adjuntos
 app.get('/api/attachments/:filename', authenticateToken, (req, res) => {
   try {
