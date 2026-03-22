@@ -6077,7 +6077,7 @@ Responde siempre en español y mantén el tono configurado.`;
                         }));
 
                         // Recargar las tareas diarias para reflejar el cambio
-                        await loadUserProfile();
+                        await loadUserData();
 
                         // Mostrar mensaje de éxito
                         alert('✅ Proyecto asignado correctamente');
