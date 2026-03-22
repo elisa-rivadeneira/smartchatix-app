@@ -813,6 +813,7 @@ app.post('/api/task-details/:taskId/attachments', authenticateToken, upload.arra
 
     console.log(`📎 [UPLOAD-FILES] Subiendo ${files.length} archivo(s) para tarea: ${taskId}`);
     console.log(`📎 [UPLOAD-FILES] Usuario ID: ${userId}`);
+    console.log(`🔧 [UPLOAD-FILES] VERSIÓN CORREGIDA - Validaciones activas`);
 
     // Verificar que la tarea existe y pertenece al usuario
     const taskExists = await new Promise((resolve, reject) => {
