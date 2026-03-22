@@ -52,7 +52,7 @@ auth_logs.json
 
 # Database backups (never commit user data)
 backups/
-data/users_*.db
+# data/users_*.db  # Temporalmente comentado para despliegue
 *.db.backup
 # User uploads
 uploads/
