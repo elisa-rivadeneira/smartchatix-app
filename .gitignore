@@ -44,6 +44,7 @@ database.sqlite
 # data/users.db  # Temporalmente comentado para subir users.db
 data/smartchatix.db
 # data/*.db  # Temporalmente comentado para subir users.db
+# users.db  # Temporalmente comentado para despliegue de producción
 *_backup_*.db
 *_backup_*.json
 user_memory.json
