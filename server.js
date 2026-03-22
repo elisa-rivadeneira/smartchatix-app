@@ -604,6 +604,21 @@ app.put('/api/assistant/task/:taskId/archive', authenticateToken, async (req, re
   }
 });
 
+// Endpoint para desarchivar tarea (LIBRE para todos los usuarios)
+app.put('/api/assistant/task/:taskId/unarchive', authenticateToken, async (req, res) => {
+  const { taskId } = req.params;
+
+  try {
+    console.log(`📦 [UNARCHIVE-TASK] Desarchivando tarea: ${taskId} para usuario: ${req.user.userId}`);
+    const result = await userDB.unarchiveDailyTask(req.user.userId, taskId);
+    console.log(`✅ [UNARCHIVE-TASK] Resultado:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ [UNARCHIVE-TASK] Error desarchivando tarea:', error);
+    res.status(500).json({ error: 'Error desarchivando tarea' });
+  }
+});
+
 // Endpoint para obtener tareas archivadas
 app.get('/api/assistant/archived-tasks', authenticateToken, async (req, res) => {
   try {
