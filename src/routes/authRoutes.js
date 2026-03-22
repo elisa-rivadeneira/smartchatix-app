@@ -1551,6 +1551,7 @@ router.get('/attachments/:filename', authenticateToken, (req, res) => {
 const requirePremium = (req, res, next) => {
   console.log(`🌟 [PREMIUM-CHECK] Verificando suscripción para: ${req.user?.email}`);
   console.log(`🔍 [PREMIUM-CHECK] Subscription type: ${req.user?.subscription_type}`);
+  console.log(`🔍 [PREMIUM-CHECK] Usuario completo:`, JSON.stringify(req.user, null, 2));
 
   if (!req.user) {
     return res.status(401).json({
@@ -1562,11 +1563,17 @@ const requirePremium = (req, res, next) => {
   // Verificar si el usuario es premium
   if (req.user.subscription_type !== 'premium') {
     console.log(`❌ [PREMIUM-CHECK] Acceso denegado - usuario no premium: ${req.user.email}`);
+    console.log(`❌ [PREMIUM-CHECK] subscription_type actual: "${req.user.subscription_type}"`);
     return res.status(403).json({
       error: 'Esta funcionalidad requiere una suscripción Premium',
       requiresPremium: true,
       currentPlan: req.user.subscription_type || 'free',
-      message: 'El asistente está disponible solo para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.'
+      message: 'El asistente está disponible solo para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.',
+      debug: {
+        email: req.user.email,
+        subscription_type: req.user.subscription_type,
+        userKeys: Object.keys(req.user)
+      }
     });
   }
 
