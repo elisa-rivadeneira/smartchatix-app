@@ -604,6 +604,18 @@ app.put('/api/assistant/task/:taskId/archive', authenticateToken, async (req, re
   }
 });
 
+// Endpoint para obtener tareas archivadas
+app.get('/api/assistant/archived-tasks', authenticateToken, async (req, res) => {
+  try {
+    console.log(`📋 [ARCHIVED-TASKS] Obteniendo tareas archivadas para usuario: ${req.user.userId}`);
+    const archivedTasks = await userDB.getUserArchivedTasks(req.user.userId);
+    res.json(archivedTasks);
+  } catch (error) {
+    console.error('❌ [ARCHIVED-TASKS] Error fetching archived tasks:', error);
+    res.status(500).json({ error: 'Error al obtener tareas archivadas' });
+  }
+});
+
 app.post('/api/daily-tasks', authenticateToken, async (req, res) => {
   try {
     const { task } = req.body;
