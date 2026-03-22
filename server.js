@@ -761,6 +761,96 @@ app.post('/api/task-details/:taskId', (req, res, next) => {
   }
 });
 
+// Subir archivos adjuntos a tarea
+app.post('/api/task-details/:taskId/attachments', authenticateToken, upload.array('files'), async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
+    const files = req.files;
+
+    console.log(`📎 [UPLOAD-FILES] Subiendo ${files.length} archivo(s) para tarea: ${taskId}`);
+
+    const results = [];
+
+    for (const file of files) {
+      const isImage = file.mimetype.startsWith('image/');
+
+      const attachmentData = {
+        filename: file.filename,
+        original_name: file.originalname,
+        file_path: file.path,
+        file_size: file.size,
+        mime_type: file.mimetype,
+        is_image: isImage
+      };
+
+      const result = await userDB.addAttachment(taskId, userId, attachmentData);
+      results.push({
+        ...result,
+        file: {
+          id: result.id,
+          filename: file.filename,
+          original_name: file.originalname,
+          size: file.size,
+          type: file.mimetype,
+          is_image: isImage
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      files: results
+    });
+
+  } catch (error) {
+    console.error('❌ [UPLOAD-FILES] Error:', error);
+    res.status(500).json({
+      error: 'Error al subir archivos'
+    });
+  }
+});
+
+// Eliminar archivo adjunto
+app.delete('/api/attachments/:attachmentId', authenticateToken, async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const userId = req.user.userId;
+
+    console.log(`🗑️ [DELETE-ATTACHMENT] Eliminando archivo: ${attachmentId}`);
+
+    const result = await userDB.deleteAttachment(attachmentId, userId);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ [DELETE-ATTACHMENT] Error:', error);
+    res.status(500).json({
+      error: 'Error al eliminar archivo'
+    });
+  }
+});
+
+// Servir archivos adjuntos
+app.get('/api/attachments/:filename', authenticateToken, (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, 'uploads/tasks', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    res.sendFile(filePath);
+
+  } catch (error) {
+    console.error('❌ [SERVE-FILE] Error:', error);
+    res.status(500).json({
+      error: 'Error al servir archivo'
+    });
+  }
+});
+
 app.get('/api/projects/:projectId/daily-tasks', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
