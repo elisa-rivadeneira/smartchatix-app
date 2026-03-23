@@ -5567,6 +5567,20 @@ Responde siempre en español y mantén el tono configurado.`;
   const themeStyles = getThemeStyles(currentTheme);
   const headerStyles = getHeaderStyles(currentTheme);
 
+  // Mostrar loading mientras se verifica la autenticación
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4 mx-auto animate-pulse">
+            <span className="text-white font-bold text-xl">∞</span>
+          </div>
+          <p className="text-white text-xl">Iniciando SmartChatix...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Landing Page para usuarios no autenticados
   if (!isAuthenticated && appView === 'landing') {
     return (
