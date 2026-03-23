@@ -17,7 +17,7 @@ const getAuthApiBase = () => {
   return `http://${devHost}:3001/api/auth`;
 };
 
-const Auth = ({ onLogin }) => {
+const Auth = ({ onLogin, onSuccess, onBack }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -112,6 +112,7 @@ const Auth = ({ onLogin }) => {
           // Llamar callback de login
           setTimeout(() => {
             onLogin(data.user, data.token);
+            if (onSuccess) onSuccess();
           }, 1000);
         } else {
           setMessage({
@@ -175,6 +176,7 @@ const Auth = ({ onLogin }) => {
 
         setTimeout(() => {
           onLogin(user, token);
+          if (onSuccess) onSuccess();
         }, 1000);
 
         // Limpiar URL
@@ -194,11 +196,21 @@ const Auth = ({ onLogin }) => {
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         {/* Header */}
         <div className="text-center mb-8">
+          {onBack && (
+            <div className="flex justify-start mb-4">
+              <button
+                onClick={onBack}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                ← Volver
+              </button>
+            </div>
+          )}
           <div className="mx-auto w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center mb-4">
             <User className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            Personal Coach Assistant
+            SmartChatix
           </h1>
           <p className="text-gray-600">
             {isLogin ? 'Inicia sesión en tu cuenta' : 'Crea tu cuenta gratuita'}

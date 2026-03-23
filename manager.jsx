@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Play, Trash2, Edit3, Bot, User, MessageCircle, Send, Save, CheckCircle2, Mic, MicOff, Volume2, VolumeX, LogOut, Eye, EyeOff, ChevronDown, ChevronRight, AlertCircle, Clock, RotateCcw, GripVertical, FileText, Paperclip, Image, X, Bold, Italic, List, AlignLeft, Type, Upload, Download, Maximize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
+import Landing from './src/components/Landing';
 import useAuth from './src/hooks/useAuth';
 import Swal from 'sweetalert2';
 import {
@@ -357,6 +358,7 @@ const PersonalCoachAssistant = () => {
   const [selectedProjectDailyTasks, setSelectedProjectDailyTasks] = useState([]);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
+  const [appView, setAppView] = useState(isAuthenticated ? 'app' : 'landing'); // 'landing', 'auth', 'app'
   const [userSubscription, setUserSubscription] = useState('free'); // Nuevo estado para suscripción
 
   // Nuevos estados para gestión de tareas de proyectos
@@ -772,6 +774,15 @@ const PersonalCoachAssistant = () => {
       loadUserData();
     }
   }, [isAuthenticated, user]); // Removed loadUserData from dependencies to prevent infinite loop
+
+  // Manejar cambio de vista cuando cambia la autenticación
+  useEffect(() => {
+    if (isAuthenticated && appView !== 'app') {
+      setAppView('app');
+    } else if (!isAuthenticated && appView === 'app') {
+      setAppView('landing');
+    }
+  }, [isAuthenticated, appView]);
 
   // Cargar tareas archivadas cuando se cambie a esa vista
   useEffect(() => {
@@ -5555,6 +5566,29 @@ Responde siempre en español y mantén el tono configurado.`;
 
   const themeStyles = getThemeStyles(currentTheme);
   const headerStyles = getHeaderStyles(currentTheme);
+
+  // Landing Page para usuarios no autenticados
+  if (!isAuthenticated && appView === 'landing') {
+    return (
+      <Landing
+        onNavigate={(view) => {
+          if (view === 'login' || view === 'register') {
+            setAppView('auth');
+          }
+        }}
+      />
+    );
+  }
+
+  // Auth Component para login/registro
+  if (!isAuthenticated || appView === 'auth') {
+    return (
+      <Auth
+        onSuccess={() => setAppView('app')}
+        onBack={() => setAppView('landing')}
+      />
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col ${themeStyles.className}`} style={{
