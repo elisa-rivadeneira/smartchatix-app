@@ -1,13 +1,27 @@
 # 🛡️ PROTECCIÓN TOTAL DE DATOS
 
+## 🚨 LECCIÓN APRENDIDA: CONFIGURAR VOLUMEN ANTES DEL PRIMER DEPLOY
+
+**⚠️ ERROR COMÚN**: Si configuras el volumen persistente DESPUÉS de crear datos, se perderán porque el volumen estará vacío.
+
 ## 🚀 VOLUMEN PERSISTENTE CONFIGURADO
 
 Los datos están ahora **100% SEGUROS** con volumen persistente en `/data`.
 
-**⚠️ IMPORTANTE**: EasyPanel debe tener configurado:
-- ✅ **Volumen persistente**: `/data` → `/data`
+**⚠️ CRÍTICO EN EASYPANEL**:
+- ✅ **PRIMERO**: Configurar volumen persistente `/data` → `/data`
+- ✅ **DESPUÉS**: Hacer el primer deploy
 - ✅ **Puerto del contenedor**: 3001
 - ✅ **Variable de entorno**: `NODE_ENV=production`
+
+## 🔧 Script de Inicialización de BD
+
+Si necesitas migrar una BD existente al volumen persistente:
+
+```bash
+# Ejecutar ANTES del primer arranque con volumen
+node scripts/init_database.js
+```
 
 ## 🧠 **LEE PRIMERO**: DEV_MEMORY.md
 **IMPORTANTE**: Antes de hacer CUALQUIER cambio, lee `DEV_MEMORY.md` - contiene toda la información crítica y errores ya resueltos.
