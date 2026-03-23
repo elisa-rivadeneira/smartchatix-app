@@ -17,6 +17,15 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Verificar volumen persistente ANTES de inicializar base de datos
+console.log('🔍 Verificando volumen persistente...');
+const { execSync } = require('child_process');
+try {
+  execSync('node scripts/ensure_volume.js', { stdio: 'inherit' });
+} catch (error) {
+  console.error('❌ Error verificando volumen:', error.message);
+}
+
 // Initialize assistant and database
 const assistant = new AssistantManager();
 const userDB = new UserDatabase();
