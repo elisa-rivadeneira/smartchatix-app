@@ -553,24 +553,45 @@ class UserDatabase {
           return;
         }
 
-        // Obtener tareas para cada proyecto
+        // Obtener tareas para cada proyecto (project_tasks Y daily_tasks asignadas)
         const projectPromises = projects.map(project => {
           return new Promise((taskResolve, taskReject) => {
-            const taskQuery = `
-              SELECT * FROM project_tasks
+            // Consulta para project_tasks
+            const projectTasksQuery = `
+              SELECT *, 'project_task' as task_type FROM project_tasks
               WHERE project_id = ?
               ORDER BY created_at DESC
             `;
 
-            this.db.all(taskQuery, [project.id], (taskErr, tasks) => {
-              if (taskErr) {
-                taskReject(taskErr);
+            // Consulta para daily_tasks asignadas
+            const dailyTasksQuery = `
+              SELECT *, 'daily_task' as task_type FROM daily_tasks
+              WHERE project_id = ? AND archived = 0
+              ORDER BY created_at DESC
+            `;
+
+            this.db.all(projectTasksQuery, [project.id], (err1, projectTasks) => {
+              if (err1) {
+                taskReject(err1);
                 return;
               }
 
-              taskResolve({
-                ...project,
-                tasks: tasks || []
+              this.db.all(dailyTasksQuery, [project.id], (err2, dailyTasks) => {
+                if (err2) {
+                  taskReject(err2);
+                  return;
+                }
+
+                // Combinar ambos tipos de tareas
+                const allTasks = [
+                  ...(projectTasks || []),
+                  ...(dailyTasks || [])
+                ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                taskResolve({
+                  ...project,
+                  tasks: allTasks
+                });
               });
             });
           });
