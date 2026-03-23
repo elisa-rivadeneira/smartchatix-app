@@ -13,9 +13,16 @@ const uuidv4 = () => {
 class UserDatabase {
   constructor() {
     // SIEMPRE usar /data/ directorio para volumen persistente
-    // Tanto en desarrollo como en producción
-    this.dbPath = path.join(__dirname, '../../data/users.db');
+    // En producción EasyPanel: /data/users.db
+    // En desarrollo: ./data/users.db
+    if (process.env.NODE_ENV === 'production') {
+      this.dbPath = '/data/users.db';
+    } else {
+      this.dbPath = path.join(__dirname, '../../data/users.db');
+    }
+    console.log(`📁 [VOLUMEN PERSISTENTE] NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`📁 [VOLUMEN PERSISTENTE] Usando base de datos en: ${this.dbPath}`);
+    console.log(`📁 [VOLUMEN PERSISTENTE] __dirname actual: ${__dirname}`);
     this.db = null;
     this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
     this.isReady = false;
