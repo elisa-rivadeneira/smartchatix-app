@@ -8,158 +8,269 @@ const Landing = ({ onNavigate }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden relative">
-      {/* Background Effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-75"></div>
-        <div className="absolute -bottom-8 left-1/3 w-96 h-96 bg-pink-600 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-150"></div>
-      </div>
+    <div className="min-h-screen text-white relative"
+         style={{
+           background: `
+             linear-gradient(135deg, #000000 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #000000 100%)
+           `
+         }}>
+      {/* Gradiente simple optimizado */}
+      <div className="absolute inset-0 opacity-40"
+           style={{
+             background: `
+               radial-gradient(ellipse 60% 40% at 20% 20%, #2672b8, transparent),
+               radial-gradient(ellipse 50% 30% at 80% 80%, #8b5cf6, transparent)
+             `
+           }}></div>
+
 
       <div className="relative z-10">
-        {/* Navigation */}
-        <nav className="flex justify-between items-center p-6 lg:p-8">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-xl">∞</span>
+        {/* Navigation con mejor contraste */}
+        <nav className="flex justify-between items-center p-6 lg:p-8 bg-black/50 border-b border-white/20">
+          <div className="flex items-center space-x-4">
+            <div className="relative group">
+              <img
+                src="/smartchatix_logo.svg"
+                alt="SmartChatix Logo"
+                className="w-12 h-12 object-contain transition-transform duration-300 group-hover:scale-110"
+              />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              SmartChatix
-            </span>
+            <div className="flex flex-col">
+              <span className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-pink-300 via-blue-300 to-orange-300 bg-clip-text text-transparent drop-shadow-lg">
+                SmartChatix
+              </span>
+              <span className="text-xs text-gray-300 tracking-widest uppercase">
+                Productividad Simple
+              </span>
+            </div>
           </div>
 
-          <div className="flex space-x-4">
+          <div className="flex items-center space-x-4">
             <button
               onClick={() => onNavigate('login')}
-              className="px-6 py-2 border border-gray-700 rounded-full hover:border-blue-500 transition-all duration-300 hover:bg-blue-500/10"
+              className="px-6 py-3 rounded-lg border border-white/30 backdrop-blur-sm bg-white/10 hover:bg-white/20 text-white font-medium transition-all duration-300"
             >
               Iniciar Sesión
             </button>
             <button
               onClick={() => onNavigate('register')}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full hover:from-blue-500 hover:to-purple-500 transition-all duration-300 transform hover:scale-105"
+              className="px-8 py-3 rounded-lg bg-gradient-to-r from-pink-600 to-orange-600 text-white font-semibold hover:from-pink-500 hover:to-orange-500 transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
             >
-              Empezar Revolución
+              Empezar Ahora
             </button>
           </div>
         </nav>
 
         {/* Hero Section */}
-        <div className={`text-center py-20 px-6 transition-all duration-1000 ${isVisible ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-10'}`}>
-          <div className="mb-8">
-            <h1 className="text-6xl lg:text-8xl font-bold mb-6 leading-none">
-              <span className="bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent">
-                EL FUTURO
-              </span>
-              <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                DE LA PRODUCTIVIDAD
-              </span>
-              <br />
-              <span className="text-white">YA ESTÁ AQUÍ</span>
+        <div className={`text-center py-16 lg:py-24 px-6 transition-all duration-1000 ${isVisible ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-10'}`}>
+
+          {/* Logo simple y rápido */}
+          <div className="flex justify-center mb-12">
+            <img
+              src="/smartchatix_logo.svg"
+              alt="SmartChatix Logo"
+              className="w-32 h-32 lg:w-48 lg:h-48 object-contain"
+            />
+          </div>
+
+          {/* Título auténtico y directo */}
+          <div className="mb-12">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-8 leading-tight">
+              <div className="mb-2">
+                <span className="text-white drop-shadow-lg">
+                  Organiza mejor.
+                </span>
+              </div>
+              <div className="mb-2">
+                <span className="bg-gradient-to-r from-pink-300 to-orange-300 bg-clip-text text-transparent drop-shadow-lg">
+                  Trabaja mejor.
+                </span>
+              </div>
+              <div className="mb-8">
+                <span className="text-gray-200 drop-shadow-lg">
+                  Vive mejor.
+                </span>
+              </div>
             </h1>
+
+            {/* Botones CTA principales */}
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-8">
+              <button
+                onClick={() => onNavigate('register')}
+                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-lg font-medium hover:from-blue-500 hover:to-purple-500 transition-all duration-300 transform hover:scale-[1.02] shadow-xl"
+              >
+                Crear cuenta gratis
+              </button>
+
+              <button
+                onClick={() => onNavigate('login')}
+                className="px-8 py-4 border border-white/30 bg-white/10 hover:bg-white/20 text-white rounded-lg text-lg font-medium transition-all duration-300"
+              >
+                Ya tengo cuenta
+              </button>
+            </div>
           </div>
 
-          <p className="text-xl lg:text-2xl text-gray-300 mb-8 max-w-4xl mx-auto leading-relaxed">
-            SmartChatix • Tu asistente AI revolucionario<br />
-            <span className="text-blue-400">Piensa más rápido.</span>
-            <span className="text-purple-400"> Trabaja más inteligente.</span>
-            <span className="text-pink-400"> Logra lo imposible.</span>
-          </p>
+          {/* Subtítulo honesto y directo */}
+          <div className="mb-16 max-w-3xl mx-auto bg-black/30 rounded-2xl p-8">
+            <p className="text-lg lg:text-xl text-gray-200 mb-12 leading-relaxed drop-shadow-md">
+              La app que te ayuda a no perderte en tus proyectos.
+              <br />
+              <span className="text-white font-medium">Simple, práctica, efectiva.</span>
+            </p>
 
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
-            <button
-              onClick={() => onNavigate('register')}
-              className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full text-xl font-semibold hover:from-blue-500 hover:to-purple-500 transition-all duration-300 transform hover:scale-105 shadow-2xl"
-            >
-              🚀 EMPEZAR REVOLUCIÓN
-            </button>
-            <button
-              onClick={() => onNavigate('login')}
-              className="px-8 py-4 border-2 border-gray-700 rounded-full text-xl font-semibold hover:border-blue-500 transition-all duration-300 hover:bg-blue-500/10"
-            >
-              ⚡ VER DEMO
-            </button>
+            {/* Beneficios reales */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-base">
+              <div className="text-center p-4 rounded-lg bg-white/10 border border-white/10">
+                <div className="text-3xl mb-3">📝</div>
+                <span className="font-medium text-white block mb-2 drop-shadow-md">Todo en un lugar</span>
+                <p className="text-gray-300 text-sm">Proyectos, tareas, ideas. Sin complicaciones.</p>
+              </div>
+
+              <div className="text-center p-4 rounded-lg bg-white/10 border border-white/10">
+                <div className="text-3xl mb-3">💬</div>
+                <span className="font-medium text-white block mb-2 drop-shadow-md">Chat inteligente</span>
+                <p className="text-gray-300 text-sm">Pregúntale cualquier cosa sobre tus proyectos.</p>
+              </div>
+
+              <div className="text-center p-4 rounded-lg bg-white/10 border border-white/10">
+                <div className="text-3xl mb-3">✅</div>
+                <span className="font-medium text-white block mb-2 drop-shadow-md">Simplemente funciona</span>
+                <p className="text-gray-300 text-sm">Sin curva de aprendizaje. Empieza ya.</p>
+              </div>
+            </div>
           </div>
 
-          {/* Stats */}
+
+          {/* Números reales */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-20">
-            <div className="text-center">
-              <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">∞</div>
-              <div className="text-gray-400">Posibilidades Infinitas</div>
+            <div className="text-center p-6 bg-black/30 rounded-lg border border-white/10">
+              <div className="text-3xl font-bold text-white mb-2 drop-shadow-lg">100% Gratis</div>
+              <div className="text-gray-300">Para siempre</div>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">⚡</div>
-              <div className="text-gray-400">Velocidad Cuántica</div>
+            <div className="text-center p-6 bg-black/30 rounded-lg border border-white/10">
+              <div className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Sin Límites</div>
+              <div className="text-gray-300">Todos los proyectos que quieras</div>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold bg-gradient-to-r from-pink-400 to-blue-400 bg-clip-text text-transparent mb-2">🧠</div>
-              <div className="text-gray-400">Inteligencia Neural</div>
+            <div className="text-center p-6 bg-black/30 rounded-lg border border-white/10">
+              <div className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Seguro</div>
+              <div className="text-gray-300">Tus datos siempre privados</div>
             </div>
           </div>
         </div>
 
         {/* Features */}
-        <div className="px-6 lg:px-8 py-20">
-          <h2 className="text-4xl lg:text-6xl font-bold text-center mb-16">
-            <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-              IMPOSIBLE HECHO POSIBLE
-            </span>
+        <div className="px-6 lg:px-8 py-20 bg-black/20">
+          <h2 className="text-3xl lg:text-4xl font-bold text-center mb-16 text-white drop-shadow-lg">
+            Todo lo que necesitas
           </h2>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-8 max-w-7xl mx-auto">
-            <div className="p-8 bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-800 hover:border-blue-500/50 transition-all duration-300 group">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">🧠</div>
-              <h3 className="text-xl font-bold mb-4 text-blue-400">Neural Task Processing</h3>
-              <p className="text-gray-400">AI que entiende el contexto de tus proyectos y anticipa lo que necesitas antes de que lo pidas.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="p-6 bg-black/40 rounded-lg border border-white/20 hover:border-pink-400/50 transition-all duration-300">
+              <div className="text-3xl mb-4">📋</div>
+              <h3 className="text-lg font-semibold mb-3 text-white drop-shadow-md">Gestión de proyectos</h3>
+              <p className="text-gray-200">Organiza tus proyectos por categorías. Ve el progreso de un vistazo.</p>
             </div>
 
-            <div className="p-8 bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-800 hover:border-purple-500/50 transition-all duration-300 group">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">⚡</div>
-              <h3 className="text-xl font-bold mb-4 text-purple-400">Quantum Sync</h3>
-              <p className="text-gray-400">Sincronización instantánea en tiempo real. Tus ideas se guardan antes de que termines de pensarlas.</p>
+            <div className="p-6 bg-black/40 rounded-lg border border-white/20 hover:border-blue-400/50 transition-all duration-300">
+              <div className="text-3xl mb-4">✅</div>
+              <h3 className="text-lg font-semibold mb-3 text-white drop-shadow-md">Tareas inteligentes</h3>
+              <p className="text-gray-200">Crea tareas, subtareas, fechas límite. El sistema te recuerda lo importante.</p>
             </div>
 
-            <div className="p-8 bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-800 hover:border-pink-500/50 transition-all duration-300 group">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">🌌</div>
-              <h3 className="text-xl font-bold mb-4 text-pink-400">Infinite Canvas</h3>
-              <p className="text-gray-400">Proyectos sin límites. Organiza desde startups hasta misiones espaciales con la misma facilidad.</p>
+            <div className="p-6 bg-black/40 rounded-lg border border-white/20 hover:border-orange-400/50 transition-all duration-300">
+              <div className="text-3xl mb-4">💬</div>
+              <h3 className="text-lg font-semibold mb-3 text-white drop-shadow-md">Chat con IA</h3>
+              <p className="text-gray-200">Pregúntale a tu asistente sobre cualquier proyecto. Obtén respuestas instantáneas.</p>
             </div>
 
-            <div className="p-8 bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-800 hover:border-blue-500/50 transition-all duration-300 group">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">🔮</div>
-              <h3 className="text-xl font-bold mb-4 text-blue-400">Predictive Insights</h3>
-              <p className="text-gray-400">Análisis predictivo que sugiere mejoras y optimizaciones antes de que las necesites.</p>
+            <div className="p-6 bg-black/40 rounded-lg border border-white/20 hover:border-purple-400/50 transition-all duration-300">
+              <div className="text-3xl mb-4">🔄</div>
+              <h3 className="text-lg font-semibold mb-3 text-white drop-shadow-md">Sincronización automática</h3>
+              <p className="text-gray-200">Accede desde cualquier dispositivo. Tus datos siempre actualizados.</p>
+            </div>
+
+            <div className="p-6 bg-black/40 rounded-lg border border-white/20 hover:border-pink-400/50 transition-all duration-300">
+              <div className="text-3xl mb-4">🎨</div>
+              <h3 className="text-lg font-semibold mb-3 text-white drop-shadow-md">Interfaz limpia</h3>
+              <p className="text-gray-200">Diseño intuitivo que no se interpone en tu trabajo. Enfócate en lo importante.</p>
+            </div>
+
+            <div className="p-6 bg-black/40 rounded-lg border border-white/20 hover:border-blue-400/50 transition-all duration-300">
+              <div className="text-3xl mb-4">🔐</div>
+              <h3 className="text-lg font-semibold mb-3 text-white drop-shadow-md">Privacidad total</h3>
+              <p className="text-gray-200">Tus proyectos son solo tuyos. Sin rastreo, sin publicidad, sin sorpresas.</p>
             </div>
           </div>
         </div>
 
         {/* CTA Final */}
-        <div className="text-center py-20 px-6">
-          <h3 className="text-3xl lg:text-5xl font-bold mb-8">
-            <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              ¿LISTO PARA EL FUTURO?
-            </span>
+        <div className="text-center py-20 px-6 bg-black/20">
+          <h3 className="text-2xl lg:text-3xl font-bold mb-6 text-white drop-shadow-lg">
+            ¿Listo para organizarte mejor?
           </h3>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-            No es solo una app. Es tu copiloto hacia el éxito.<br />
-            Mientras otros usan to-do lists, tú usas el futuro.
+          <p className="text-lg text-gray-200 mb-8 max-w-xl mx-auto drop-shadow-md">
+            Empieza gratis. No necesitas tarjeta de crédito.
+            <br />
+            En 2 minutos ya estarás usando SmartChatix.
           </p>
           <button
             onClick={() => onNavigate('register')}
-            className="px-12 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full text-xl font-bold hover:from-blue-500 hover:to-purple-500 transition-all duration-300 transform hover:scale-105 shadow-2xl"
+            className="px-10 py-4 bg-gradient-to-r from-pink-600 to-orange-600 text-white rounded-lg text-lg font-medium hover:from-pink-500 hover:to-orange-500 transition-all duration-300 transform hover:scale-[1.02] shadow-xl"
           >
-            🚀 UNIRSE A LA REVOLUCIÓN
+            Crear cuenta gratis
           </button>
         </div>
 
         {/* Footer */}
         <footer className="text-center py-8 px-6 border-t border-gray-800">
           <p className="text-gray-500">
-            © 2026 SmartChatix. El futuro de la productividad personal.
+            © 2026 SmartChatix. Productividad simple y efectiva.
           </p>
         </footer>
       </div>
+
+      {/* Estilos CSS para las animaciones */}
+      <style jsx>{`
+        @keyframes gradient-shift {
+          0%, 100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+        }
+
+        @keyframes spin-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes spin-reverse {
+          from {
+            transform: rotate(360deg);
+          }
+          to {
+            transform: rotate(0deg);
+          }
+        }
+
+        .animate-spin-slow {
+          animation: spin-slow 8s linear infinite;
+        }
+
+        .animate-spin-reverse {
+          animation: spin-reverse 12s linear infinite;
+        }
+
+        .gradient-shift {
+          animation: gradient-shift 4s ease infinite;
+        }
+      `}</style>
     </div>
   );
 };

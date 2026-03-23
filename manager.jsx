@@ -358,7 +358,7 @@ const PersonalCoachAssistant = () => {
   const [selectedProjectDailyTasks, setSelectedProjectDailyTasks] = useState([]);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
-  const [appView, setAppView] = useState(isAuthenticated ? 'app' : 'landing'); // 'landing', 'auth', 'app'
+  const [appView, setAppView] = useState('landing'); // Forzar landing page para testing // 'landing', 'auth', 'app'
   const [userSubscription, setUserSubscription] = useState('free'); // Nuevo estado para suscripción
 
   // Nuevos estados para gestión de tareas de proyectos
@@ -777,12 +777,21 @@ const PersonalCoachAssistant = () => {
 
   // Manejar cambio de vista cuando cambia la autenticación
   useEffect(() => {
-    if (isAuthenticated && appView !== 'app') {
-      setAppView('app');
-    } else if (!isAuthenticated && appView === 'app') {
-      setAppView('landing');
+    console.log('🔍 [ROUTING-DEBUG] isAuthenticated:', isAuthenticated);
+    console.log('🔍 [ROUTING-DEBUG] authLoading:', authLoading);
+    console.log('🔍 [ROUTING-DEBUG] appView:', appView);
+
+    // Solo actualizar appView cuando ya no esté cargando
+    if (!authLoading) {
+      if (isAuthenticated && appView !== 'app') {
+        console.log('🔄 [ROUTING] Cambiando a app (usuario autenticado)');
+        setAppView('app');
+      } else if (!isAuthenticated && appView === 'app') {
+        console.log('🔄 [ROUTING] Cambiando a landing (usuario no autenticado)');
+        setAppView('landing');
+      }
     }
-  }, [isAuthenticated, appView]);
+  }, [isAuthenticated, authLoading, appView]);
 
   // Cargar tareas archivadas cuando se cambie a esa vista
   useEffect(() => {
@@ -5471,41 +5480,52 @@ Responde siempre en español y mantén el tono configurado.`;
   };
 
   // Main component JSX
-  // Mostrar pantalla de carga mientras verifica autenticación
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
-        backgroundSize: '400% 400%',
-        animation: 'gradientShift 15s ease infinite'
-      }}>
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Verificando autenticación...</p>
-        </div>
-      </div>
-    );
-  }
+  const themeStyles = getThemeStyles(currentTheme);
+  const headerStyles = getHeaderStyles(currentTheme);
+
+  console.log('🚀 [RENDER-DEBUG] authLoading:', authLoading);
+  console.log('🚀 [RENDER-DEBUG] isAuthenticated:', isAuthenticated);
+  console.log('🚀 [RENDER-DEBUG] appView:', appView);
+  console.log('🚀 [RENDER-DEBUG] user:', user);
 
   // Mostrar loading mientras se verifica la autenticación
   if (authLoading) {
+    console.log('📱 [RENDER] Mostrando loading screen');
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
-        backgroundSize: '400% 400%',
-        animation: 'gradientShift 15s ease infinite'
-      }}>
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando...</p>
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4 mx-auto animate-pulse">
+            <span className="text-white font-bold text-xl">∞</span>
+          </div>
+          <p className="text-white text-xl">Iniciando SmartChatix...</p>
         </div>
       </div>
     );
   }
 
-  // Mostrar pantalla de login si no está autenticado
-  if (!isAuthenticated) {
-    return <Auth onLogin={login} />;
+  // Landing Page para usuarios no autenticados
+  if (!isAuthenticated && appView === 'landing') {
+    console.log('🌟 [RENDER] Mostrando Landing Page');
+    return (
+      <Landing
+        onNavigate={(view) => {
+          console.log('🔄 [NAVIGATION] Landing página navegando a:', view);
+          if (view === 'login' || view === 'register') {
+            setAppView('auth');
+          }
+        }}
+      />
+    );
+  }
+
+  // Auth Component para login/registro
+  if (!isAuthenticated && appView === 'auth') {
+    return (
+      <Auth
+        onSuccess={() => setAppView('app')}
+        onBack={() => setAppView('landing')}
+      />
+    );
   }
 
   const renderArchivedTasksView = () => {
@@ -5564,11 +5584,14 @@ Responde siempre en español y mantén el tono configurado.`;
     );
   };
 
-  const themeStyles = getThemeStyles(currentTheme);
-  const headerStyles = getHeaderStyles(currentTheme);
+  console.log('🚀 [RENDER-DEBUG] authLoading:', authLoading);
+  console.log('🚀 [RENDER-DEBUG] isAuthenticated:', isAuthenticated);
+  console.log('🚀 [RENDER-DEBUG] appView:', appView);
+  console.log('🚀 [RENDER-DEBUG] user:', user);
 
   // Mostrar loading mientras se verifica la autenticación
   if (authLoading) {
+    console.log('📱 [RENDER] Mostrando loading screen');
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -5578,29 +5601,6 @@ Responde siempre en español y mantén el tono configurado.`;
           <p className="text-white text-xl">Iniciando SmartChatix...</p>
         </div>
       </div>
-    );
-  }
-
-  // Landing Page para usuarios no autenticados
-  if (!isAuthenticated && appView === 'landing') {
-    return (
-      <Landing
-        onNavigate={(view) => {
-          if (view === 'login' || view === 'register') {
-            setAppView('auth');
-          }
-        }}
-      />
-    );
-  }
-
-  // Auth Component para login/registro
-  if (!isAuthenticated && appView === 'auth') {
-    return (
-      <Auth
-        onSuccess={() => setAppView('app')}
-        onBack={() => setAppView('landing')}
-      />
     );
   }
 
