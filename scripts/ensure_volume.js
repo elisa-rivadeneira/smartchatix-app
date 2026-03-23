@@ -7,7 +7,7 @@ console.log('🔍 Verificando volumen persistente...');
 
 // Verificar si estamos en producción
 const isProduction = process.env.NODE_ENV === 'production';
-const dataPath = isProduction ? '/data' : path.join(__dirname, '../data');
+const dataPath = isProduction ? '/app/data' : path.join(__dirname, '../data');
 const dbPath = path.join(dataPath, 'users.db');
 
 console.log(`🌍 Entorno: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'}`);

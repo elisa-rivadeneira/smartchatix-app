@@ -16,7 +16,7 @@ class UserDatabase {
     // En producción EasyPanel: /data/users.db
     // En desarrollo: ./data/users.db
     if (process.env.NODE_ENV === 'production') {
-      this.dbPath = '/data/users.db';
+      this.dbPath = '/app/data/users.db';
     } else {
       this.dbPath = path.join(__dirname, '../../data/users.db');
     }
