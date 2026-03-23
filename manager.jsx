@@ -5595,7 +5595,7 @@ Responde siempre en español y mantén el tono configurado.`;
   }
 
   // Auth Component para login/registro
-  if (!isAuthenticated || appView === 'auth') {
+  if (!isAuthenticated && appView === 'auth') {
     return (
       <Auth
         onSuccess={() => setAppView('app')}
