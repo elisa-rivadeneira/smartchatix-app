@@ -843,7 +843,7 @@ app.put('/api/daily-tasks-reorder', authenticateToken, async (req, res) => {
     // Actualizar el orden de cada tarea
     const updatePromises = tasks.map((task, index) => {
       return new Promise((resolve, reject) => {
-        const query = 'UPDATE daily_tasks SET order_index = ? WHERE id = ? AND user_id = ?';
+        const query = 'UPDATE daily_tasks SET task_order = ? WHERE id = ? AND user_id = ?';
         userDB.db.run(query, [index, task.id, userId], function(err) {
           if (err) {
             console.error('❌ [REORDER] Error actualizando tarea:', task.id, err);
