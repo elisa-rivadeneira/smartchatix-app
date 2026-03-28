@@ -60,10 +60,14 @@ const useAuth = () => {
   }, []);
 
   const login = (userData, authToken) => {
+    console.log('🔐 [useAuth] Login ejecutado:', { userData, authToken });
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('user', JSON.stringify(userData));
+
+    // Asegurar que el loading se desactive
+    setLoading(false);
   };
 
   const logout = async () => {

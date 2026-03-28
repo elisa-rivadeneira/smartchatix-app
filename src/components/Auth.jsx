@@ -174,10 +174,9 @@ const Auth = ({ onLogin, onSuccess, onBack }) => {
         localStorage.setItem('authToken', token);
         localStorage.setItem('user', JSON.stringify(user));
 
-        setTimeout(() => {
-          onLogin(user, token);
-          if (onSuccess) onSuccess();
-        }, 1000);
+        // Llamar inmediatamente a onLogin, no con setTimeout
+        onLogin(user, token);
+        if (onSuccess) onSuccess();
 
         // Limpiar URL
         window.history.replaceState({}, document.title, window.location.pathname);
