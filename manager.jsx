@@ -311,6 +311,8 @@ const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgen
               const newProgress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
               onUpdateProgress && onUpdateProgress(task.id, newProgress);
             }}
+            onClick={(e) => e.target.select()}
+            onFocus={(e) => e.target.select()}
             className="w-12 px-1 py-1 text-xs border border-gray-300 rounded text-center focus:outline-none focus:border-blue-500"
           />
           <span className="text-xs text-gray-500">%</span>
