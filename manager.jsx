@@ -298,24 +298,29 @@ const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgen
 
       {/* Progress Controls */}
       <div className="flex flex-col items-center gap-1 mr-3">
-        <div className="text-xs text-gray-500">
-          {task.progress || 0}%
+        <div className="text-xs text-gray-500 mb-1">
+          Progreso
         </div>
-        <div className="flex gap-1">
-          {[25, 50, 75, 100].map(percentage => (
-            <button
-              key={percentage}
-              onClick={() => onUpdateProgress && onUpdateProgress(task.id, percentage)}
-              className={`px-1 py-0.5 text-xs rounded ${
-                (task.progress || 0) === percentage
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-              }`}
-              title={`Marcar ${percentage}%`}
-            >
-              {percentage}%
-            </button>
-          ))}
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={task.progress || 0}
+            onChange={(e) => {
+              const newProgress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+              onUpdateProgress && onUpdateProgress(task.id, newProgress);
+            }}
+            className="w-12 px-1 py-1 text-xs border border-gray-300 rounded text-center focus:outline-none focus:border-blue-500"
+          />
+          <span className="text-xs text-gray-500">%</span>
+        </div>
+        {/* Progress Bar */}
+        <div className="w-16 bg-gray-200 rounded-full h-1.5 mt-1">
+          <div
+            className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+            style={{ width: `${task.progress || 0}%` }}
+          />
         </div>
       </div>
 
