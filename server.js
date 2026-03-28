@@ -673,7 +673,7 @@ app.put('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
     });
 
     const { taskId } = req.params;
-    const { text, completed, projectId, projectTaskId } = req.body;
+    const { text, completed, projectId, projectTaskId, progress } = req.body;
     const userId = req.user.userId;
 
     // Verificar que la tarea pertenece al usuario
@@ -712,6 +712,10 @@ app.put('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
       if (projectTaskId !== undefined) {
         updates.push('project_task_id = ?');
         values.push(projectTaskId);
+      }
+      if (progress !== undefined) {
+        updates.push('progress = ?');
+        values.push(progress);
       }
 
       if (updates.length === 0) {
@@ -868,6 +872,74 @@ app.put('/api/daily-tasks-reorder', authenticateToken, async (req, res) => {
     console.error('❌ [REORDER] Error general:', error);
     res.status(500).json({
       error: 'Error al reordenar tareas'
+    });
+  }
+});
+
+// Actualizar progreso de tarea diaria
+app.put('/api/daily-tasks/:taskId/progress', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { progress } = req.body;
+    const userId = req.user.userId;
+
+    console.log('🔄 [PROGRESS] Actualizando progreso de tarea:', {
+      taskId,
+      progress,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
+    if (typeof progress !== 'number' || progress < 0 || progress > 100) {
+      return res.status(400).json({ error: 'El progreso debe ser un número entre 0 y 100' });
+    }
+
+    // Verificar que la tarea pertenece al usuario
+    const taskQuery = 'SELECT * FROM daily_tasks WHERE id = ? AND user_id = ?';
+
+    userDB.db.get(taskQuery, [taskId, userId], (err, task) => {
+      if (err) {
+        console.error('❌ [PROGRESS] Error verificando tarea:', err);
+        return res.status(500).json({ error: 'Error al verificar tarea' });
+      }
+
+      if (!task) {
+        console.log('⚠️ [PROGRESS] Tarea no encontrada:', { taskId, userId });
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+
+      // Actualizar progreso y completed
+      const completed = progress === 100 ? 1 : 0;
+      const updateQuery = 'UPDATE daily_tasks SET progress = ?, completed = ? WHERE id = ? AND user_id = ?';
+
+      userDB.db.run(updateQuery, [progress, completed, taskId, userId], function(updateErr) {
+        if (updateErr) {
+          console.error('❌ [PROGRESS] Error actualizando progreso:', updateErr);
+          return res.status(500).json({ error: 'Error al actualizar progreso' });
+        }
+
+        console.log('✅ [PROGRESS] Progreso actualizado exitosamente:', {
+          taskId,
+          progress,
+          completed,
+          changes: this.changes
+        });
+
+        res.json({
+          success: true,
+          task: {
+            id: taskId,
+            progress: progress,
+            completed: completed === 1
+          }
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [PROGRESS] Error general:', error);
+    res.status(500).json({
+      error: 'Error al actualizar progreso de tarea'
     });
   }
 });

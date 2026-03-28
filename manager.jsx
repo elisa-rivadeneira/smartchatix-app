@@ -232,7 +232,7 @@ const getAttachmentBase = () => {
 };
 
 // Componente para elementos sorteable de tareas
-const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgent, editingTaskId, editingTaskText, setEditingTaskText, saveEditedTask, cancelEditingTask, startEditingTask, onOpenTaskDetail }) => {
+const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgent, editingTaskId, editingTaskText, setEditingTaskText, saveEditedTask, cancelEditingTask, startEditingTask, onOpenTaskDetail, onUpdateProgress }) => {
   const {
     attributes,
     listeners,
@@ -294,6 +294,29 @@ const SortableTaskItem = ({ task, onToggle, onEdit, onDelete, onArchive, isUrgen
             </span>
           </div>
         )}
+      </div>
+
+      {/* Progress Controls */}
+      <div className="flex flex-col items-center gap-1 mr-3">
+        <div className="text-xs text-gray-500">
+          {task.progress || 0}%
+        </div>
+        <div className="flex gap-1">
+          {[25, 50, 75, 100].map(percentage => (
+            <button
+              key={percentage}
+              onClick={() => onUpdateProgress && onUpdateProgress(task.id, percentage)}
+              className={`px-1 py-0.5 text-xs rounded ${
+                (task.progress || 0) === percentage
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+              title={`Marcar ${percentage}%`}
+            >
+              {percentage}%
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center gap-1 ml-2">
@@ -2895,15 +2918,21 @@ Responde siempre en español y mantén el tono configurado.`;
 
       try {
         // Llamar al API para persistir el cambio
+        // Cuando se marca como completada, también actualizar progreso al 100%
+        const newProgress = newCompleted ? 100 : (task.progress || 0);
+
         const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${taskId}`, {
           method: 'PUT',
-          body: JSON.stringify({ completed: newCompleted })
+          body: JSON.stringify({
+            completed: newCompleted,
+            progress: newProgress
+          })
         });
 
         if (response.ok) {
           // Solo actualizar el estado local si el API fue exitoso
           setDailyTasks(dailyTasks.map(t =>
-            t.id === taskId ? { ...t, completed: newCompleted } : t
+            t.id === taskId ? { ...t, completed: newCompleted, progress: newProgress } : t
           ));
 
           // Sincronizar con tarea de proyecto si está vinculada
@@ -3154,6 +3183,46 @@ Responde siempre en español y mantén el tono configurado.`;
           }
         });
       }
+    }
+  };
+
+  const updateDailyTaskProgress = async (taskId, progress) => {
+    try {
+      console.log('🔄 Actualizando progreso de tarea:', { taskId, progress });
+
+      const response = await authenticatedFetch(`${getApiBase()}/daily-tasks/${taskId}/progress`, {
+        method: 'PUT',
+        body: JSON.stringify({ progress })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Actualizar estado local
+        setDailyTasks(dailyTasks.map(task =>
+          task.id === taskId ? {
+            ...task,
+            progress: progress,
+            completed: progress === 100
+          } : task
+        ));
+
+        console.log('✅ Progreso actualizado exitosamente');
+      } else {
+        throw new Error('Error en la respuesta del servidor');
+      }
+    } catch (error) {
+      console.error('❌ Error actualizando progreso de tarea:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'No se pudo actualizar el progreso de la tarea',
+        icon: 'error',
+        background: '#1f2937',
+        color: '#f9fafb',
+        customClass: {
+          popup: 'swal-dark-theme'
+        }
+      });
     }
   };
 
@@ -4090,6 +4159,7 @@ Responde siempre en español y mantén el tono configurado.`;
                           cancelEditingTask={cancelEditingTask}
                           startEditingTask={startEditingTask}
                           onOpenTaskDetail={openTaskDetailModal}
+                          onUpdateProgress={updateDailyTaskProgress}
                         />
                       ))}
                     </div>

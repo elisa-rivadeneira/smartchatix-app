@@ -83,6 +83,24 @@ class DatabaseMigrations {
             }
           }
         }
+      },
+      {
+        version: 3,
+        description: 'Add progress column to daily_tasks',
+        up: async (migrationInstance) => {
+          console.log('🔧 Running migration: Add progress column to daily_tasks...');
+
+          try {
+            await migrationInstance.runQuery('ALTER TABLE daily_tasks ADD COLUMN progress INTEGER DEFAULT 0');
+            console.log('✅ Added progress column to daily_tasks table');
+          } catch (error) {
+            if (error.message.includes('duplicate column name')) {
+              console.log('✅ progress column already exists in daily_tasks table');
+            } else {
+              console.log('ℹ️ daily_tasks table issue:', error.message);
+            }
+          }
+        }
       }
       // Future migrations go here
     ];
