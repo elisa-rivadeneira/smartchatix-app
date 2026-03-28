@@ -824,6 +824,54 @@ app.delete('/api/daily-tasks/:taskId', authenticateToken, async (req, res) => {
   }
 });
 
+// Reordenar tareas diarias
+app.put('/api/daily-tasks-reorder', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔄 [REORDER] Petición de reordenamiento recibida:', {
+      tasks: req.body.tasks,
+      userId: req.user.userId,
+      timestamp: new Date().toISOString()
+    });
+
+    const { tasks } = req.body;
+    const userId = req.user.userId;
+
+    if (!tasks || !Array.isArray(tasks)) {
+      return res.status(400).json({ error: 'Tasks array is required' });
+    }
+
+    // Actualizar el orden de cada tarea
+    const updatePromises = tasks.map((task, index) => {
+      return new Promise((resolve, reject) => {
+        const query = 'UPDATE daily_tasks SET order_index = ? WHERE id = ? AND user_id = ?';
+        userDB.db.run(query, [index, task.id, userId], function(err) {
+          if (err) {
+            console.error('❌ [REORDER] Error actualizando tarea:', task.id, err);
+            reject(err);
+          } else {
+            console.log(`✅ [REORDER] Tarea ${task.id} actualizada a posición ${index}`);
+            resolve(this.changes);
+          }
+        });
+      });
+    });
+
+    await Promise.all(updatePromises);
+
+    console.log('✅ [REORDER] Todas las tareas reordenadas exitosamente');
+    res.json({
+      success: true,
+      message: 'Tareas reordenadas exitosamente'
+    });
+
+  } catch (error) {
+    console.error('❌ [REORDER] Error general:', error);
+    res.status(500).json({
+      error: 'Error al reordenar tareas'
+    });
+  }
+});
+
 // Obtener detalles de tarea
 app.get('/api/task-details/:taskId', authenticateToken, async (req, res) => {
   try {
