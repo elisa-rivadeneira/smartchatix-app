@@ -7168,17 +7168,18 @@ Responde siempre en español y mantén el tono configurado.`;
                         )}
                         {/* Timer Controls */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {/* Timer Display */}
+                          {/* Timer Display - TEMPORALMENTE OCULTO */}
                           <span style={{
                             fontSize: '10px',
                             color: taskTimers[task.id]?.isActive ? '#3b82f6' : '#6b7280',
                             fontWeight: taskTimers[task.id]?.isActive ? 'bold' : 'normal',
-                            minWidth: '35px'
+                            minWidth: '35px',
+                            display: 'none' // OCULTO POR PETICIÓN DEL USUARIO
                           }}>
                             {getTaskElapsedTime(task.id)}
                           </span>
 
-                          {/* Play/Pause Button */}
+                          {/* Play/Pause Button - TEMPORALMENTE OCULTO */}
                           <button
                             onClick={() => {
                               if (taskTimers[task.id]?.isActive) {
@@ -7195,7 +7196,7 @@ Responde siempre en español y mantén el tono configurado.`;
                               borderRadius: '3px',
                               fontSize: '10px',
                               cursor: 'pointer',
-                              display: 'flex',
+                              display: 'none', // OCULTO POR PETICIÓN DEL USUARIO
                               alignItems: 'center',
                               gap: '2px'
                             }}
