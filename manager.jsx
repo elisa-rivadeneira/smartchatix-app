@@ -4903,9 +4903,38 @@ Responde siempre en español y mantén el tono configurado.`;
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserDropdown]);
 
+  // Verificar periódicamente cambios en la suscripción
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Verificar inmediatamente al cargar
+      refreshUserSubscription();
+
+      // Luego verificar cada 30 segundos
+      const interval = setInterval(refreshUserSubscription, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, userSubscription]);
+
   // Función para verificar si el usuario es premium
   const isPremiumUser = () => {
     return userSubscription === 'premium';
+  };
+
+  // Función para actualizar el estado de suscripción del usuario
+  const refreshUserSubscription = async () => {
+    try {
+      const response = await authenticatedFetch(`${getApiBase()}/user-info`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user && data.user.subscription_type !== userSubscription) {
+          console.log('🔄 Actualizando suscripción:', data.user.subscription_type);
+          setUserSubscription(data.user.subscription_type || 'free');
+        }
+      }
+    } catch (error) {
+      console.error('Error actualizando suscripción:', error);
+    }
   };
 
   // Función para renderizar mensaje de premium requerido
@@ -4935,8 +4964,14 @@ Responde siempre en español y mantén el tono configurado.`;
               <li>🧠 Memoria conversacional avanzada</li>
             </ul>
           </div>
-          <div className="text-sm text-gray-500">
-            Plan actual: <span className="font-semibold capitalize">{userSubscription}</span>
+          <div className="text-sm text-gray-500 flex items-center justify-between">
+            <span>Plan actual: <span className="font-semibold capitalize">{userSubscription}</span></span>
+            <button
+              onClick={refreshUserSubscription}
+              className="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              🔄 Actualizar
+            </button>
           </div>
         </div>
       </div>
