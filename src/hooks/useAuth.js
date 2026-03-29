@@ -25,6 +25,37 @@ const useAuth = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Primero verificar si hay parámetros de OAuth callback en la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const loginSuccess = urlParams.get('login');
+        const userParam = urlParams.get('user');
+        const tokenParam = urlParams.get('token');
+
+        if (loginSuccess === 'success' && userParam && tokenParam) {
+          console.log('🔐 [useAuth] OAuth callback detectado, procesando...');
+
+          try {
+            const userData = JSON.parse(decodeURIComponent(userParam));
+            const authToken = decodeURIComponent(tokenParam);
+
+            // Guardar datos de autenticación
+            setUser(userData);
+            setToken(authToken);
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('user', JSON.stringify(userData));
+
+            console.log('✅ [useAuth] OAuth login exitoso:', userData);
+
+            // Limpiar parámetros de URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            setLoading(false);
+            return;
+          } catch (parseError) {
+            console.error('❌ [useAuth] Error parseando parámetros OAuth:', parseError);
+          }
+        }
+
         const savedToken = localStorage.getItem('authToken');
         const savedUser = localStorage.getItem('user');
 
