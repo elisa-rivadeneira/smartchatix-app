@@ -4924,7 +4924,7 @@ Responde siempre en español y mantén el tono configurado.`;
   // Función para actualizar el estado de suscripción del usuario
   const refreshUserSubscription = async () => {
     try {
-      const response = await authenticatedFetch(`${getApiBase()}/user-info`);
+      const response = await authenticatedFetch(`${getApiBase()}/profile`);
       if (response.ok) {
         const data = await response.json();
         if (data.user && data.user.subscription_type !== userSubscription) {
