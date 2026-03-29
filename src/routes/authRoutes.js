@@ -274,6 +274,79 @@ router.get('/verify', authenticateToken, (req, res) => {
   });
 });
 
+// Endpoint de diagnóstico para verificar subscription_type
+router.get('/debug-subscription', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔍 [DEBUG] Datos de req.user:', req.user);
+
+    // Consultar directamente la BD para verificar subscription_type
+    const query = 'SELECT id, email, subscription_type, created_at, updated_at FROM users WHERE email = ?';
+    userDB.db.get(query, [req.user.email], (err, dbUser) => {
+      if (err) {
+        console.error('❌ [DEBUG] Error consultando BD:', err);
+        return res.status(500).json({ error: 'Error consultando BD' });
+      }
+
+      console.log('🔍 [DEBUG] Usuario desde BD:', dbUser);
+
+      res.json({
+        success: true,
+        debug: {
+          reqUser: req.user,
+          dbUser: dbUser,
+          timestamp: new Date().toISOString()
+        }
+      });
+    });
+  } catch (error) {
+    console.error('❌ [DEBUG] Error en debug-subscription:', error);
+    res.status(500).json({ error: 'Error en debug' });
+  }
+});
+
+// Endpoint para forzar actualización a premium (solo para erivadeneiraq@gmail.com)
+router.post('/force-premium', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.email !== 'erivadeneiraq@gmail.com') {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    console.log('🔧 [FORCE-PREMIUM] Iniciando actualización forzada...');
+
+    const updateQuery = 'UPDATE users SET subscription_type = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?';
+    userDB.db.run(updateQuery, ['premium', req.user.email], function(err) {
+      if (err) {
+        console.error('❌ [FORCE-PREMIUM] Error:', err);
+        return res.status(500).json({ error: 'Error actualizando suscripción' });
+      }
+
+      console.log(`✅ [FORCE-PREMIUM] Actualizado: ${this.changes} fila(s)`);
+
+      // Verificar que se aplicó
+      const verifyQuery = 'SELECT email, subscription_type FROM users WHERE email = ?';
+      userDB.db.get(verifyQuery, [req.user.email], (verifyErr, row) => {
+        if (verifyErr) {
+          console.error('❌ [FORCE-PREMIUM] Error verificando:', verifyErr);
+          return res.status(500).json({ error: 'Error verificando actualización' });
+        }
+
+        console.log('🔍 [FORCE-PREMIUM] Verificación:', row);
+
+        res.json({
+          success: true,
+          message: 'Suscripción actualizada a premium',
+          user: row,
+          changes: this.changes
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [FORCE-PREMIUM] Error general:', error);
+    res.status(500).json({ error: 'Error en force-premium' });
+  }
+});
+
 // Rutas protegidas para datos de usuario
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
