@@ -1459,6 +1459,99 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+// Cambiar estado de usuario (bloquear/desbloquear) - Solo admin
+app.put('/api/admin/users/:userId/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { is_active } = req.body;
+
+    console.log('🔧 [ADMIN] Cambiando estado de usuario:', { userId, is_active, adminEmail: req.user.email });
+
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ error: 'is_active debe ser un boolean' });
+    }
+
+    const updateQuery = 'UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+
+    userDB.db.run(updateQuery, [is_active ? 1 : 0, userId], function(err) {
+      if (err) {
+        console.error('❌ [ADMIN] Error cambiando estado de usuario:', err);
+        return res.status(500).json({ error: 'Error al cambiar estado de usuario' });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      console.log(`✅ [ADMIN] Estado actualizado: Usuario ${userId} → ${is_active ? 'activo' : 'bloqueado'}`);
+      res.json({
+        success: true,
+        message: 'Estado de usuario actualizado correctamente',
+        userId: userId,
+        is_active: is_active
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error general:', error);
+    res.status(500).json({ error: 'Error al cambiar estado de usuario' });
+  }
+});
+
+// Eliminar usuario completamente - Solo admin
+app.delete('/api/admin/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    console.log('🗑️ [ADMIN] Eliminando usuario y todos sus datos:', { userId, adminEmail: req.user.email });
+
+    // Verificar que el usuario existe
+    const checkUserQuery = 'SELECT email FROM users WHERE id = ?';
+
+    userDB.db.get(checkUserQuery, [userId], (err, user) => {
+      if (err) {
+        console.error('❌ [ADMIN] Error verificando usuario:', err);
+        return res.status(500).json({ error: 'Error al verificar usuario' });
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      // Prevenir que el admin se elimine a sí mismo
+      if (user.email === req.user.email) {
+        return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta de administrador' });
+      }
+
+      // Eliminar usuario y todos sus datos relacionados (CASCADE debería manejar esto)
+      const deleteUserQuery = 'DELETE FROM users WHERE id = ?';
+
+      userDB.db.run(deleteUserQuery, [userId], function(deleteErr) {
+        if (deleteErr) {
+          console.error('❌ [ADMIN] Error eliminando usuario:', deleteErr);
+          return res.status(500).json({ error: 'Error al eliminar usuario' });
+        }
+
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        console.log(`✅ [ADMIN] Usuario eliminado completamente: ${user.email} (${userId})`);
+        res.json({
+          success: true,
+          message: 'Usuario y todos sus datos eliminados correctamente',
+          userId: userId,
+          email: user.email
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error general:', error);
+    res.status(500).json({ error: 'Error al eliminar usuario' });
+  }
+});
+
 // Serve React app for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));

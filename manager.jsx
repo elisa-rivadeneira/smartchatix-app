@@ -655,7 +655,6 @@ const PersonalCoachAssistant = () => {
   });
   const [showAssistantModal, setShowAssistantModal] = useState(false);
   const [showUserProfileModal, setShowUserProfileModal] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMemoryFields, setShowMemoryFields] = useState(false);
 
   // Estados para modal de edición completa de tareas
@@ -5801,6 +5800,19 @@ Responde siempre en español y mantén el tono configurado.`;
               <Archive size={14} className="mr-1" />
               Tareas Realizadas
             </button>
+            {user?.email === 'smartchatix@gmail.com' && (
+              <button
+                onClick={() => setActiveView('admin')}
+                className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
+                  activeView === 'admin'
+                    ? 'bg-purple-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Settings size={14} className="mr-1" />
+                Admin
+              </button>
+            )}
             <button
               onClick={() => setActiveView('assistant')}
               className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
@@ -5825,7 +5837,9 @@ Responde siempre en español y mantén el tono configurado.`;
               renderProjectsView() :
               activeView === 'archived' ?
                 renderArchivedTasksView() :
-                renderAssistantView()
+                activeView === 'admin' ?
+                  <AdminPanel /> :
+                  renderAssistantView()
           }
         </div>
       </div>
@@ -6023,11 +6037,11 @@ Responde siempre en español y mantén el tono configurado.`;
             </button>
 
             {/* Admin Panel - Solo para administradores */}
-            {user?.email === 'erivadeneiraq@gmail.com' && (
+            {user?.email === 'smartchatix@gmail.com' && (
               <button
                 onClick={() => {
                   setShowUserDropdown(false);
-                  setShowAdminPanel(true);
+                  setActiveView('admin');
                 }}
                 className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center"
               >

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Crown, X, Shield, Eye, EyeOff, Search, Filter, Calendar, Mail, UserCheck, UserX } from 'lucide-react';
+import { Users, Crown, Shield, Search, Filter, Calendar, Mail, UserCheck, UserX, Ban, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import Swal from 'sweetalert2';
 
-const AdminPanel = ({ onClose, authenticatedFetch, getApiBase }) => {
+const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubscription, setFilterSubscription] = useState('all');
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     loadUsers();
@@ -38,20 +39,131 @@ const AdminPanel = ({ onClose, authenticatedFetch, getApiBase }) => {
       });
 
       if (response.ok) {
-        // Actualizar estado local
         setUsers(users.map(user =>
           user.id === userId
             ? { ...user, subscription_type: newSubscription }
             : user
         ));
 
-        // Mostrar confirmación
-        console.log(`Usuario ${userId} actualizado a ${newSubscription}`);
-      } else {
-        console.error('Error actualizando subscripción');
+        Swal.fire({
+          title: 'Subscripción actualizada',
+          text: `Usuario cambió a ${newSubscription}`,
+          icon: 'success',
+          timer: 2000,
+          background: '#1f2937',
+          color: '#f9fafb'
+        });
       }
     } catch (error) {
       console.error('Error en updateUserSubscription:', error);
+    }
+  };
+
+  const blockUser = async (userId, currentStatus) => {
+    const action = currentStatus ? 'bloquear' : 'desbloquear';
+    const newStatus = !currentStatus;
+
+    const result = await Swal.fire({
+      title: `¿${action.charAt(0).toUpperCase() + action.slice(1)} usuario?`,
+      text: `Esta acción ${action}á el acceso del usuario a la aplicación`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: newStatus ? '#dc2626' : '#16a34a',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Sí, ${action}`,
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#f9fafb'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await authenticatedFetch(`${getApiBase()}/admin/users/${userId}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ is_active: newStatus })
+        });
+
+        if (response.ok) {
+          setUsers(users.map(user =>
+            user.id === userId
+              ? { ...user, is_active: newStatus }
+              : user
+          ));
+
+          Swal.fire({
+            title: 'Usuario ' + (newStatus ? 'desbloqueado' : 'bloqueado'),
+            text: `El usuario ahora está ${newStatus ? 'activo' : 'bloqueado'}`,
+            icon: 'success',
+            timer: 2000,
+            background: '#1f2937',
+            color: '#f9fafb'
+          });
+        }
+      } catch (error) {
+        console.error('Error bloqueando usuario:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'No se pudo actualizar el estado del usuario',
+          icon: 'error',
+          background: '#1f2937',
+          color: '#f9fafb'
+        });
+      }
+    }
+  };
+
+  const deleteUser = async (userId, userEmail) => {
+    const result = await Swal.fire({
+      title: '⚠️ ¿Eliminar usuario permanentemente?',
+      html: `
+        <p>Se eliminará <strong>${userEmail}</strong> y todos sus datos:</p>
+        <ul style="text-align: left; margin: 16px 0;">
+          <li>• Proyectos y tareas</li>
+          <li>• Historial de chat</li>
+          <li>• Archivos adjuntos</li>
+          <li>• Configuraciones</li>
+        </ul>
+        <p style="color: #dc2626; font-weight: bold;">Esta acción NO se puede deshacer</p>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar permanentemente',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#f9fafb',
+      width: 600
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await authenticatedFetch(`${getApiBase()}/admin/users/${userId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          setUsers(users.filter(user => user.id !== userId));
+
+          Swal.fire({
+            title: 'Usuario eliminado',
+            text: 'El usuario y todos sus datos han sido eliminados permanentemente',
+            icon: 'success',
+            timer: 3000,
+            background: '#1f2937',
+            color: '#f9fafb'
+          });
+        }
+      } catch (error) {
+        console.error('Error eliminando usuario:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'No se pudo eliminar el usuario',
+          icon: 'error',
+          background: '#1f2937',
+          color: '#f9fafb'
+        });
+      }
     }
   };
 
@@ -60,11 +172,16 @@ const AdminPanel = ({ onClose, authenticatedFetch, getApiBase }) => {
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesFilter =
+    const matchesSubscription =
       filterSubscription === 'all' ||
       user.subscription_type === filterSubscription;
 
-    return matchesSearch && matchesFilter;
+    const matchesStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'active' && user.is_active !== 0) ||
+      (filterStatus === 'blocked' && user.is_active === 0);
+
+    return matchesSearch && matchesSubscription && matchesStatus;
   });
 
   const getSubscriptionBadge = (subscription) => {
@@ -87,6 +204,20 @@ const AdminPanel = ({ onClose, authenticatedFetch, getApiBase }) => {
     }
   };
 
+  const getStatusBadge = (isActive) => {
+    return isActive !== 0 ? (
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+        <UserCheck size={12} />
+        Activo
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+        <Ban size={12} />
+        Bloqueado
+      </span>
+    );
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'No disponible';
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -99,262 +230,288 @@ const AdminPanel = ({ onClose, authenticatedFetch, getApiBase }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-              <Shield className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={onBack}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Volver a la aplicación"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-500" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
+                  <p className="text-sm text-gray-600">SmartChatix - Gestión de Usuarios</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Panel de Administración</h2>
-              <p className="text-sm text-gray-600">SmartChatix - Gestión de Usuarios</p>
+            <div className="text-sm text-gray-500">
+              {new Date().toLocaleDateString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
         </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Stats */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-600 text-sm font-medium">Total Usuarios</p>
-                  <p className="text-2xl font-bold text-blue-900">{users.length}</p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas de Usuarios</h2>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-600 text-sm font-medium">Total Usuarios</p>
+                    <p className="text-2xl font-bold text-blue-900">{users.length}</p>
+                  </div>
+                  <Users className="w-8 h-8 text-blue-500" />
                 </div>
-                <Users className="w-8 h-8 text-blue-500" />
               </div>
-            </div>
-            <div className="bg-yellow-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-yellow-600 text-sm font-medium">Premium</p>
-                  <p className="text-2xl font-bold text-yellow-900">
-                    {users.filter(u => u.subscription_type === 'premium').length}
-                  </p>
+              <div className="bg-yellow-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-yellow-600 text-sm font-medium">Premium</p>
+                    <p className="text-2xl font-bold text-yellow-900">
+                      {users.filter(u => u.subscription_type === 'premium').length}
+                    </p>
+                  </div>
+                  <Crown className="w-8 h-8 text-yellow-500" />
                 </div>
-                <Crown className="w-8 h-8 text-yellow-500" />
               </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Free</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {users.filter(u => u.subscription_type === 'free' || !u.subscription_type).length}
-                  </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium">Free</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {users.filter(u => u.subscription_type === 'free' || !u.subscription_type).length}
+                    </p>
+                  </div>
+                  <Users className="w-8 h-8 text-gray-500" />
                 </div>
-                <Users className="w-8 h-8 text-gray-500" />
               </div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-600 text-sm font-medium">Conversión</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {users.length > 0 ? Math.round((users.filter(u => u.subscription_type === 'premium').length / users.length) * 100) : 0}%
-                  </p>
+              <div className="bg-red-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-red-600 text-sm font-medium">Bloqueados</p>
+                    <p className="text-2xl font-bold text-red-900">
+                      {users.filter(u => u.is_active === 0).length}
+                    </p>
+                  </div>
+                  <Ban className="w-8 h-8 text-red-500" />
                 </div>
-                <UserCheck className="w-8 h-8 text-green-500" />
+              </div>
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-600 text-sm font-medium">Conversión</p>
+                    <p className="text-2xl font-bold text-green-900">
+                      {users.length > 0 ? Math.round((users.filter(u => u.subscription_type === 'premium').length / users.length) * 100) : 0}%
+                    </p>
+                  </div>
+                  <UserCheck className="w-8 h-8 text-green-500" />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Buscar por email o nombre..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Filtros y Búsqueda</h2>
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por email o nombre..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={filterSubscription}
-                onChange={(e) => setFilterSubscription(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="all">Todos</option>
-                <option value="free">Free</option>
-                <option value="premium">Premium</option>
-              </select>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-gray-400" />
+                  <select
+                    value={filterSubscription}
+                    onChange={(e) => setFilterSubscription(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="all">Todas las subscripciones</option>
+                    <option value="free">Free</option>
+                    <option value="premium">Premium</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-gray-400" />
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="all">Todos los estados</option>
+                    <option value="active">Activos</option>
+                    <option value="blocked">Bloqueados</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Users Table */}
-        <div className="flex-1 overflow-auto">
-          {loading ? (
-            <div className="flex items-center justify-center p-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Lista de Usuarios ({filteredUsers.length})
+              </h2>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Usuario
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Subscripción
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Registro
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8">
-                            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                              <span className="text-sm font-medium text-purple-800">
-                                {(user.name || user.email || 'U')[0].toUpperCase()}
-                              </span>
+
+            {loading ? (
+              <div className="flex items-center justify-center p-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usuario
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Subscripción
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Registro
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredUsers.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <span className="text-sm font-medium text-purple-800">
+                                  {(user.name || user.email || 'U')[0].toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {user.name || 'Sin nombre'}
+                              </div>
+                              <div className="text-sm text-gray-500 font-mono">
+                                {user.id.substring(0, 8)}...
+                              </div>
                             </div>
                           </div>
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.name || 'Sin nombre'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              ID: {user.id}
-                            </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Mail className="w-4 h-4 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-900">{user.email}</span>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Mail className="w-4 h-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900">{user.email}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getSubscriptionBadge(user.subscription_type)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                          {formatDate(user.created_at)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          {user.subscription_type === 'premium' ? (
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getSubscriptionBadge(user.subscription_type)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(user.is_active)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                            {formatDate(user.created_at)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            {/* Subscription Actions */}
+                            {user.subscription_type === 'premium' ? (
+                              <button
+                                onClick={() => updateUserSubscription(user.id, 'free')}
+                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                              >
+                                <UserX className="w-3 h-3" />
+                                Quitar Premium
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => updateUserSubscription(user.id, 'premium')}
+                                className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                              >
+                                <Crown className="w-3 h-3" />
+                                Dar Premium
+                              </button>
+                            )}
+
+                            {/* Block/Unblock Actions */}
                             <button
-                              onClick={() => updateUserSubscription(user.id, 'free')}
+                              onClick={() => blockUser(user.id, user.is_active)}
+                              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                                user.is_active
+                                  ? 'bg-orange-100 hover:bg-orange-200 text-orange-800'
+                                  : 'bg-green-100 hover:bg-green-200 text-green-800'
+                              }`}
+                            >
+                              <Ban className="w-3 h-3" />
+                              {user.is_active ? 'Bloquear' : 'Desbloquear'}
+                            </button>
+
+                            {/* Delete Action */}
+                            <button
+                              onClick={() => deleteUser(user.id, user.email)}
                               className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
                             >
-                              <UserX className="w-3 h-3" />
-                              Desactivar Premium
+                              <Trash2 className="w-3 h-3" />
+                              Eliminar
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => updateUserSubscription(user.id, 'premium')}
-                              className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                            >
-                              <Crown className="w-3 h-3" />
-                              Activar Premium
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setSelectedUser(user)}
-                            className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                          >
-                            <Eye className="w-3 h-3" />
-                            Ver Detalles
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No se encontraron usuarios</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* User Details Modal */}
-      {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">Detalles del Usuario</h3>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredUsers.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No se encontraron usuarios con los filtros aplicados</p>
+                  </div>
+                )}
               </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">ID</label>
-                    <p className="text-gray-900 font-mono">{selectedUser.id}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Nombre</label>
-                    <p className="text-gray-900">{selectedUser.name || 'Sin nombre'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Email</label>
-                    <p className="text-gray-900">{selectedUser.email}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Subscripción</label>
-                    <div className="mt-1">
-                      {getSubscriptionBadge(selectedUser.subscription_type)}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Fecha de Registro</label>
-                    <p className="text-gray-900">{formatDate(selectedUser.created_at)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Último Acceso</label>
-                    <p className="text-gray-900">{formatDate(selectedUser.updated_at) || 'No disponible'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
