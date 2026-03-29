@@ -1275,6 +1275,134 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Admin routes - SOLO para administradores
+const ADMIN_EMAILS = ['erivadeneiraq@gmail.com']; // Lista de emails admin
+
+const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
+  if (!ADMIN_EMAILS.includes(req.user.email)) {
+    return res.status(403).json({ error: 'Acceso denegado - Se requieren permisos de administrador' });
+  }
+
+  next();
+};
+
+// Obtener todos los usuarios (solo admin)
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔧 [ADMIN] Obteniendo lista de usuarios');
+
+    const query = `
+      SELECT id, email, name, subscription_type, created_at, updated_at
+      FROM users
+      ORDER BY created_at DESC
+    `;
+
+    userDB.db.all(query, [], (err, users) => {
+      if (err) {
+        console.error('❌ [ADMIN] Error obteniendo usuarios:', err);
+        return res.status(500).json({ error: 'Error al obtener usuarios' });
+      }
+
+      console.log(`✅ [ADMIN] ${users.length} usuarios obtenidos`);
+      res.json({
+        success: true,
+        users: users,
+        total: users.length
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error general:', error);
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
+});
+
+// Actualizar subscripción de usuario (solo admin)
+app.put('/api/admin/users/:userId/subscription', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { subscription_type } = req.body;
+
+    console.log('🔧 [ADMIN] Actualizando subscripción:', { userId, subscription_type, adminEmail: req.user.email });
+
+    if (!['free', 'premium'].includes(subscription_type)) {
+      return res.status(400).json({ error: 'Tipo de subscripción inválido' });
+    }
+
+    const updateQuery = 'UPDATE users SET subscription_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+
+    userDB.db.run(updateQuery, [subscription_type, userId], function(err) {
+      if (err) {
+        console.error('❌ [ADMIN] Error actualizando subscripción:', err);
+        return res.status(500).json({ error: 'Error al actualizar subscripción' });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      console.log(`✅ [ADMIN] Subscripción actualizada: Usuario ${userId} → ${subscription_type}`);
+      res.json({
+        success: true,
+        message: 'Subscripción actualizada correctamente',
+        userId: userId,
+        subscription_type: subscription_type
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error general:', error);
+    res.status(500).json({ error: 'Error al actualizar subscripción' });
+  }
+});
+
+// Obtener estadísticas de admin
+app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('📊 [ADMIN] Obteniendo estadísticas');
+
+    const statsQuery = `
+      SELECT
+        COUNT(*) as total_users,
+        SUM(CASE WHEN subscription_type = 'premium' THEN 1 ELSE 0 END) as premium_users,
+        SUM(CASE WHEN subscription_type = 'free' OR subscription_type IS NULL THEN 1 ELSE 0 END) as free_users,
+        COUNT(CASE WHEN created_at >= date('now', '-30 days') THEN 1 END) as new_users_30d,
+        COUNT(CASE WHEN created_at >= date('now', '-7 days') THEN 1 END) as new_users_7d
+      FROM users
+    `;
+
+    userDB.db.get(statsQuery, [], (err, stats) => {
+      if (err) {
+        console.error('❌ [ADMIN] Error obteniendo estadísticas:', err);
+        return res.status(500).json({ error: 'Error al obtener estadísticas' });
+      }
+
+      const conversionRate = stats.total_users > 0
+        ? Math.round((stats.premium_users / stats.total_users) * 100)
+        : 0;
+
+      const result = {
+        success: true,
+        stats: {
+          ...stats,
+          conversion_rate: conversionRate
+        }
+      };
+
+      console.log('✅ [ADMIN] Estadísticas obtenidas:', result.stats);
+      res.json(result);
+    });
+
+  } catch (error) {
+    console.error('❌ [ADMIN] Error general:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas' });
+  }
+});
+
 // Serve React app for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));

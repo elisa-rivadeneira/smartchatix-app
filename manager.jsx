@@ -3,6 +3,7 @@ import { Plus, CheckCircle, Calendar, Target, TrendingUp, Settings, Archive, Pla
 import ReactMarkdown from 'react-markdown';
 import Auth from './src/components/Auth';
 import Landing from './src/components/Landing';
+import AdminPanel from './src/components/AdminPanel';
 import useAuth from './src/hooks/useAuth';
 import Swal from 'sweetalert2';
 import {
@@ -654,6 +655,7 @@ const PersonalCoachAssistant = () => {
   });
   const [showAssistantModal, setShowAssistantModal] = useState(false);
   const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMemoryFields, setShowMemoryFields] = useState(false);
 
   // Estados para modal de edición completa de tareas
@@ -6020,6 +6022,20 @@ Responde siempre en español y mantén el tono configurado.`;
               Perfil
             </button>
 
+            {/* Admin Panel - Solo para administradores */}
+            {user?.email === 'erivadeneiraq@gmail.com' && (
+              <button
+                onClick={() => {
+                  setShowUserDropdown(false);
+                  setShowAdminPanel(true);
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 rounded-lg flex items-center"
+              >
+                <Settings className="mr-2" size={16} />
+                Panel de Administración
+              </button>
+            )}
+
             {/* Selector de Theme */}
             <div className="px-3 py-2 border-t border-gray-100">
               <div className="flex items-center mb-1">
@@ -7703,6 +7719,15 @@ Responde siempre en español y mantén el tono configurado.`;
           <Bot size={24} />
         )}
       </button>
+
+      {/* Admin Panel Modal */}
+      {showAdminPanel && (
+        <AdminPanel
+          onClose={() => setShowAdminPanel(false)}
+          authenticatedFetch={authenticatedFetch}
+          getApiBase={getApiBase}
+        />
+      )}
 
     </div>
   );
