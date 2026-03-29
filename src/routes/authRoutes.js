@@ -292,7 +292,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
         id: req.user.userId,
         email: req.user.email,
         name: req.user.name,
-        avatar: req.user.avatar
+        avatar: req.user.avatar,
+        subscription_type: req.user.subscription_type || 'free'
       },
       assistantConfig: config,
       projects,
