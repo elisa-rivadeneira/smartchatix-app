@@ -101,6 +101,50 @@ class DatabaseMigrations {
             }
           }
         }
+      },
+      {
+        version: 4,
+        description: 'Add Google OAuth support to users table',
+        up: async (migrationInstance) => {
+          console.log('🔧 Running migration: Add Google OAuth support to users table...');
+
+          try {
+            // Primero hacer el password opcional
+            await migrationInstance.runQuery(`
+              CREATE TABLE users_new (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT,
+                name TEXT,
+                avatar TEXT,
+                google_id TEXT,
+                picture TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_login DATETIME,
+                is_active BOOLEAN DEFAULT 1,
+                subscription_type TEXT DEFAULT 'free'
+              )
+            `);
+            console.log('✅ Created new users table with Google OAuth support');
+
+            // Copiar datos existentes
+            await migrationInstance.runQuery(`
+              INSERT INTO users_new (id, email, password, name, avatar, created_at, updated_at, last_login, is_active, subscription_type)
+              SELECT id, email, password, name, avatar, created_at, updated_at, last_login, is_active, subscription_type
+              FROM users
+            `);
+            console.log('✅ Copied existing users data');
+
+            // Renombrar tablas
+            await migrationInstance.runQuery('DROP TABLE users');
+            await migrationInstance.runQuery('ALTER TABLE users_new RENAME TO users');
+            console.log('✅ Replaced users table with new structure');
+
+          } catch (error) {
+            console.log('ℹ️ Google OAuth migration issue:', error.message);
+          }
+        }
       }
       // Future migrations go here
     ];

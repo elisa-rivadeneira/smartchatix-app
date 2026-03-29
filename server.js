@@ -158,20 +158,76 @@ if (!googleClientId || !googleClientSecret) {
         name: profile.displayName
       });
 
-      // Aquí guardarías el usuario en tu base de datos
-      // Por ahora, devolvemos el perfil directamente
-      const user = {
-        id: profile.id,
-        email: profile.emails[0].value,
-        name: profile.displayName,
-        picture: profile.photos[0].value,
-        googleId: profile.id
-      };
+      const email = profile.emails[0].value;
+      const name = profile.displayName;
+      const googleId = profile.id;
+      const picture = profile.photos[0]?.value;
 
-      console.log('✅ Google OAuth Strategy - User created:', user);
-      return done(null, user);
+      // Buscar o crear usuario en la base de datos
+      const findUserQuery = 'SELECT * FROM users WHERE email = ? OR google_id = ?';
+
+      return new Promise((resolve, reject) => {
+        userDB.db.get(findUserQuery, [email, googleId], (err, existingUser) => {
+          if (err) {
+            console.error('❌ Google OAuth Strategy - Error buscando usuario:', err);
+            return reject(err);
+          }
+
+          if (existingUser) {
+            // Usuario existe, actualizar datos si es necesario
+            console.log('👤 Google OAuth Strategy - Usuario existente encontrado:', existingUser.id);
+
+            const updateQuery = 'UPDATE users SET name = ?, google_id = ?, picture = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+            userDB.db.run(updateQuery, [name, googleId, picture, existingUser.id], (updateErr) => {
+              if (updateErr) {
+                console.error('❌ Google OAuth Strategy - Error actualizando usuario:', updateErr);
+                return reject(updateErr);
+              }
+
+              const user = {
+                id: existingUser.id,
+                email: existingUser.email,
+                name: name,
+                picture: picture,
+                googleId: googleId,
+                subscription_type: existingUser.subscription_type || 'free'
+              };
+
+              console.log('✅ Google OAuth Strategy - Usuario existente actualizado:', user);
+              resolve(done(null, user));
+            });
+          } else {
+            // Crear nuevo usuario
+            const userId = crypto.randomUUID();
+            const createUserQuery = `
+              INSERT INTO users (id, email, name, google_id, picture, subscription_type, created_at)
+              VALUES (?, ?, ?, ?, ?, 'free', CURRENT_TIMESTAMP)
+            `;
+
+            userDB.db.run(createUserQuery, [userId, email, name, googleId, picture], function(createErr) {
+              if (createErr) {
+                console.error('❌ Google OAuth Strategy - Error creando usuario:', createErr);
+                return reject(createErr);
+              }
+
+              const user = {
+                id: userId,
+                email: email,
+                name: name,
+                picture: picture,
+                googleId: googleId,
+                subscription_type: 'free'
+              };
+
+              console.log('✅ Google OAuth Strategy - Nuevo usuario creado:', user);
+              resolve(done(null, user));
+            });
+          }
+        });
+      });
+
     } catch (error) {
-      console.error('❌ Google OAuth Strategy - Error:', error);
+      console.error('❌ Google OAuth Strategy - Error general:', error);
       return done(error, null);
     }
   }));
