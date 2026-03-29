@@ -5838,7 +5838,10 @@ Responde siempre en español y mantén el tono configurado.`;
               activeView === 'archived' ?
                 renderArchivedTasksView() :
                 activeView === 'admin' ?
-                  <AdminPanel /> :
+                  <AdminPanel
+                    authenticatedFetch={authenticatedFetch}
+                    getApiBase={getApiBase}
+                  /> :
                   renderAssistantView()
           }
         </div>
