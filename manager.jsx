@@ -7734,14 +7734,6 @@ Responde siempre en español y mantén el tono configurado.`;
         )}
       </button>
 
-      {/* Admin Panel Modal */}
-      {showAdminPanel && (
-        <AdminPanel
-          onClose={() => setShowAdminPanel(false)}
-          authenticatedFetch={authenticatedFetch}
-          getApiBase={getApiBase}
-        />
-      )}
 
     </div>
   );
