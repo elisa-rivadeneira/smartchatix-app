@@ -5800,7 +5800,7 @@ Responde siempre en español y mantén el tono configurado.`;
               <Archive size={14} className="mr-1" />
               Tareas Realizadas
             </button>
-            {user?.email === 'smartchatix@gmail.com' && (
+            {user?.email === 'erivadeneiraq@gmail.com' && (
               <button
                 onClick={() => setActiveView('admin')}
                 className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
@@ -6037,7 +6037,7 @@ Responde siempre en español y mantén el tono configurado.`;
             </button>
 
             {/* Admin Panel - Solo para administradores */}
-            {user?.email === 'smartchatix@gmail.com' && (
+            {user?.email === 'erivadeneiraq@gmail.com' && (
               <button
                 onClick={() => {
                   setShowUserDropdown(false);
