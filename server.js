@@ -7,7 +7,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const AssistantManager = require('./src/assistantManager');
 const UserDatabase = require('./src/database/userDatabase');
-const { router: authRoutes, authenticateToken, requirePremium } = require('./src/routes/authRoutes');
+const { router: authRoutes, authenticateToken } = require('./src/routes/authRoutes');
 const DatabaseBackupSystem = require('./backup_system');
 const DatabaseMigrations = require('./src/database/migrations');
 const multer = require('multer');
@@ -488,7 +488,7 @@ const initializeAssistant = async () => {
 };
 
 // API Routes (protegidas por autenticación)
-app.get('/api/assistant/status', authenticateToken, requirePremium, (req, res) => {
+app.get('/api/assistant/status', authenticateToken, (req, res) => {
   const context = assistant.getDailyContext();
   res.json({
     active: assistant.isActive,
@@ -497,12 +497,12 @@ app.get('/api/assistant/status', authenticateToken, requirePremium, (req, res) =
   });
 });
 
-app.get('/api/assistant/context', authenticateToken, requirePremium, (req, res) => {
+app.get('/api/assistant/context', authenticateToken, (req, res) => {
   const context = assistant.getDailyContext();
   res.json(context);
 });
 
-app.post('/api/assistant/message', authenticateToken, requirePremium, (req, res) => {
+app.post('/api/assistant/message', authenticateToken, (req, res) => {
   const { message } = req.body;
 
   if (!message) {
@@ -525,7 +525,7 @@ app.post('/api/assistant/message', authenticateToken, requirePremium, (req, res)
   }
 });
 
-app.post('/api/assistant/response', authenticateToken, requirePremium, async (req, res) => {
+app.post('/api/assistant/response', authenticateToken, async (req, res) => {
   const { message } = req.body;
 
   if (!message) {
@@ -595,7 +595,7 @@ app.post('/api/assistant/user', authenticateToken, (req, res) => {
   }
 });
 
-app.get('/api/assistant/chat-history', authenticateToken, requirePremium, (req, res) => {
+app.get('/api/assistant/chat-history', authenticateToken, (req, res) => {
   try {
     const chatHistory = assistant.getChatHistory();
     res.json(chatHistory);
@@ -605,7 +605,7 @@ app.get('/api/assistant/chat-history', authenticateToken, requirePremium, (req, 
   }
 });
 
-app.get('/api/assistant/summary', authenticateToken, requirePremium, (req, res) => {
+app.get('/api/assistant/summary', authenticateToken, (req, res) => {
   try {
     const summary = assistant.generateDailySummary();
     res.json(summary);
@@ -615,7 +615,7 @@ app.get('/api/assistant/summary', authenticateToken, requirePremium, (req, res) 
   }
 });
 
-app.post('/api/assistant/morning-greeting', authenticateToken, requirePremium, (req, res) => {
+app.post('/api/assistant/morning-greeting', authenticateToken, (req, res) => {
   try {
     assistant.triggerMorningGreeting();
     res.json({ message: 'Morning greeting triggered' });
@@ -1385,7 +1385,7 @@ app.put('/api/admin/users/:userId/subscription', authenticateToken, requireAdmin
 
     console.log('🔧 [ADMIN] Actualizando subscripción:', { userId, subscription_type, adminEmail: req.user.email });
 
-    if (!['free', 'premium'].includes(subscription_type)) {
+    if (!['free'].includes(subscription_type)) {
       return res.status(400).json({ error: 'Tipo de subscripción inválido' });
     }
 
@@ -1424,7 +1424,6 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
     const statsQuery = `
       SELECT
         COUNT(*) as total_users,
-        SUM(CASE WHEN subscription_type = 'premium' THEN 1 ELSE 0 END) as premium_users,
         SUM(CASE WHEN subscription_type = 'free' OR subscription_type IS NULL THEN 1 ELSE 0 END) as free_users,
         COUNT(CASE WHEN created_at >= date('now', '-30 days') THEN 1 END) as new_users_30d,
         COUNT(CASE WHEN created_at >= date('now', '-7 days') THEN 1 END) as new_users_7d
@@ -1437,9 +1436,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
         return res.status(500).json({ error: 'Error al obtener estadísticas' });
       }
 
-      const conversionRate = stats.total_users > 0
-        ? Math.round((stats.premium_users / stats.total_users) * 100)
-        : 0;
+      const conversionRate = 0;
 
       const result = {
         success: true,
@@ -1588,47 +1585,6 @@ const startServer = async () => {
   await migrations.runMigrations();
   migrations.close();
 
-  // Auto-configurar cuenta premium de prueba
-  console.log('🌟 Configurando cuenta premium de prueba...');
-  try {
-    await userDB.waitForReady();
-    const premiumResult = await new Promise((resolve, reject) => {
-      userDB.db.run(
-        "UPDATE users SET subscription_type = 'premium' WHERE email = 'erivadeneiraq@gmail.com'",
-        function(err) {
-          if (err) {
-            console.error('❌ Error configurando premium:', err);
-            reject(err);
-          } else {
-            console.log(`✅ Cuenta premium configurada (${this.changes} filas afectadas)`);
-            resolve(this.changes);
-          }
-        }
-      );
-    });
-
-    // Verificar que se aplicó
-    const verifyResult = await new Promise((resolve, reject) => {
-      userDB.db.get(
-        "SELECT email, subscription_type FROM users WHERE email = 'erivadeneiraq@gmail.com'",
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(row);
-          }
-        }
-      );
-    });
-
-    if (verifyResult) {
-      console.log(`🎯 Verificado: ${verifyResult.email} = ${verifyResult.subscription_type}`);
-    } else {
-      console.log('⚠️ Usuario erivadeneiraq@gmail.com no encontrado');
-    }
-  } catch (error) {
-    console.error('❌ Error en configuración premium:', error);
-  }
 
   app.listen(PORT, '0.0.0.0', () => {
     const now = new Date().toLocaleString('es-ES');

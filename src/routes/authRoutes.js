@@ -304,48 +304,6 @@ router.get('/debug-subscription', authenticateToken, async (req, res) => {
   }
 });
 
-// Endpoint para forzar actualización a premium (solo para erivadeneiraq@gmail.com)
-router.post('/force-premium', authenticateToken, async (req, res) => {
-  try {
-    if (req.user.email !== 'erivadeneiraq@gmail.com') {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
-
-    console.log('🔧 [FORCE-PREMIUM] Iniciando actualización forzada...');
-
-    const updateQuery = 'UPDATE users SET subscription_type = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?';
-    userDB.db.run(updateQuery, ['premium', req.user.email], function(err) {
-      if (err) {
-        console.error('❌ [FORCE-PREMIUM] Error:', err);
-        return res.status(500).json({ error: 'Error actualizando suscripción' });
-      }
-
-      console.log(`✅ [FORCE-PREMIUM] Actualizado: ${this.changes} fila(s)`);
-
-      // Verificar que se aplicó
-      const verifyQuery = 'SELECT email, subscription_type FROM users WHERE email = ?';
-      userDB.db.get(verifyQuery, [req.user.email], (verifyErr, row) => {
-        if (verifyErr) {
-          console.error('❌ [FORCE-PREMIUM] Error verificando:', verifyErr);
-          return res.status(500).json({ error: 'Error verificando actualización' });
-        }
-
-        console.log('🔍 [FORCE-PREMIUM] Verificación:', row);
-
-        res.json({
-          success: true,
-          message: 'Suscripción actualizada a premium',
-          user: row,
-          changes: this.changes
-        });
-      });
-    });
-
-  } catch (error) {
-    console.error('❌ [FORCE-PREMIUM] Error general:', error);
-    res.status(500).json({ error: 'Error en force-premium' });
-  }
-});
 
 // Rutas protegidas para datos de usuario
 router.get('/profile', authenticateToken, async (req, res) => {
@@ -1621,38 +1579,5 @@ router.get('/attachments/:filename', authenticateToken, (req, res) => {
   }
 });
 
-// Middleware para verificar suscripción premium
-const requirePremium = (req, res, next) => {
-  console.log(`🌟 [PREMIUM-CHECK] Verificando suscripción para: ${req.user?.email}`);
-  console.log(`🔍 [PREMIUM-CHECK] Subscription type: ${req.user?.subscription_type}`);
-  console.log(`🔍 [PREMIUM-CHECK] Usuario completo:`, JSON.stringify(req.user, null, 2));
 
-  if (!req.user) {
-    return res.status(401).json({
-      error: 'Usuario no autenticado',
-      requiresPremium: true
-    });
-  }
-
-  // Verificar si el usuario es premium
-  if (req.user.subscription_type !== 'premium') {
-    console.log(`❌ [PREMIUM-CHECK] Acceso denegado - usuario no premium: ${req.user.email}`);
-    console.log(`❌ [PREMIUM-CHECK] subscription_type actual: "${req.user.subscription_type}"`);
-    return res.status(403).json({
-      error: 'Esta funcionalidad requiere una suscripción Premium',
-      requiresPremium: true,
-      currentPlan: req.user.subscription_type || 'free',
-      message: 'El asistente está disponible solo para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.',
-      debug: {
-        email: req.user.email,
-        subscription_type: req.user.subscription_type,
-        userKeys: Object.keys(req.user)
-      }
-    });
-  }
-
-  console.log(`✅ [PREMIUM-CHECK] Usuario premium verificado: ${req.user.email}`);
-  next();
-};
-
-module.exports = { router, authenticateToken, requirePremium, userDB };
+module.exports = { router, authenticateToken, userDB };

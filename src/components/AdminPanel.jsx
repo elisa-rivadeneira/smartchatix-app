@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Crown, Shield, Search, Filter, Calendar, Mail, UserCheck, UserX, Ban, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Users, Shield, Search, Filter, Calendar, Mail, UserCheck, Ban, Trash2, ArrowLeft } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterSubscription, setFilterSubscription] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
@@ -31,33 +30,6 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
     }
   };
 
-  const updateUserSubscription = async (userId, newSubscription) => {
-    try {
-      const response = await authenticatedFetch(`${getApiBase()}/admin/users/${userId}/subscription`, {
-        method: 'PUT',
-        body: JSON.stringify({ subscription_type: newSubscription })
-      });
-
-      if (response.ok) {
-        setUsers(users.map(user =>
-          user.id === userId
-            ? { ...user, subscription_type: newSubscription }
-            : user
-        ));
-
-        Swal.fire({
-          title: 'Subscripción actualizada',
-          text: `Usuario cambió a ${newSubscription}`,
-          icon: 'success',
-          timer: 2000,
-          background: '#1f2937',
-          color: '#f9fafb'
-        });
-      }
-    } catch (error) {
-      console.error('Error en updateUserSubscription:', error);
-    }
-  };
 
   const blockUser = async (userId, currentStatus) => {
     const action = currentStatus ? 'bloquear' : 'desbloquear';
@@ -172,37 +144,16 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesSubscription =
-      filterSubscription === 'all' ||
-      user.subscription_type === filterSubscription;
+    const matchesSubscription = true;
 
     const matchesStatus =
       filterStatus === 'all' ||
       (filterStatus === 'active' && user.is_active !== 0) ||
       (filterStatus === 'blocked' && user.is_active === 0);
 
-    return matchesSearch && matchesSubscription && matchesStatus;
+    return matchesSearch && matchesStatus;
   });
 
-  const getSubscriptionBadge = (subscription) => {
-    switch (subscription) {
-      case 'premium':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-            <Crown size={12} />
-            Premium
-          </span>
-        );
-      case 'free':
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
-            <Users size={12} />
-            Free
-          </span>
-        );
-    }
-  };
 
   const getStatusBadge = (isActive) => {
     return isActive !== 0 ? (
@@ -270,7 +221,7 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas de Usuarios</h2>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-blue-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -280,23 +231,12 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
                   <Users className="w-8 h-8 text-blue-500" />
                 </div>
               </div>
-              <div className="bg-yellow-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-yellow-600 text-sm font-medium">Premium</p>
-                    <p className="text-2xl font-bold text-yellow-900">
-                      {users.filter(u => u.subscription_type === 'premium').length}
-                    </p>
-                  </div>
-                  <Crown className="w-8 h-8 text-yellow-500" />
-                </div>
-              </div>
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-600 text-sm font-medium">Free</p>
+                    <p className="text-gray-600 text-sm font-medium">Usuarios Activos</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {users.filter(u => u.subscription_type === 'free' || !u.subscription_type).length}
+                      {users.filter(u => u.is_active !== 0).length}
                     </p>
                   </div>
                   <Users className="w-8 h-8 text-gray-500" />
@@ -316,9 +256,14 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
               <div className="bg-green-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-green-600 text-sm font-medium">Conversión</p>
+                    <p className="text-green-600 text-sm font-medium">Nuevos (7 días)</p>
                     <p className="text-2xl font-bold text-green-900">
-                      {users.length > 0 ? Math.round((users.filter(u => u.subscription_type === 'premium').length / users.length) * 100) : 0}%
+                      {users.filter(u => {
+                        const created = new Date(u.created_at);
+                        const weekAgo = new Date();
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        return created > weekAgo;
+                      }).length}
                     </p>
                   </div>
                   <UserCheck className="w-8 h-8 text-green-500" />
@@ -346,18 +291,6 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-gray-400" />
-                  <select
-                    value={filterSubscription}
-                    onChange={(e) => setFilterSubscription(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="all">Todas las subscripciones</option>
-                    <option value="free">Free</option>
-                    <option value="premium">Premium</option>
-                  </select>
-                </div>
                 <div className="flex items-center gap-2">
                   <Filter className="w-5 h-5 text-gray-400" />
                   <select
@@ -400,9 +333,6 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
                         Email
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Subscripción
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -442,9 +372,6 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {getSubscriptionBadge(user.subscription_type)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(user.is_active)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -455,24 +382,6 @@ const AdminPanel = ({ onBack, authenticatedFetch, getApiBase }) => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center gap-2">
-                            {/* Subscription Actions */}
-                            {user.subscription_type === 'premium' ? (
-                              <button
-                                onClick={() => updateUserSubscription(user.id, 'free')}
-                                className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                              >
-                                <UserX className="w-3 h-3" />
-                                Quitar Premium
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => updateUserSubscription(user.id, 'premium')}
-                                className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                              >
-                                <Crown className="w-3 h-3" />
-                                Dar Premium
-                              </button>
-                            )}
 
                             {/* Block/Unblock Actions */}
                             <button

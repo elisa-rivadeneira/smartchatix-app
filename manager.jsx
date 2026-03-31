@@ -390,7 +390,6 @@ const PersonalCoachAssistant = () => {
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const [appView, setAppView] = useState('landing'); // Forzar landing page para testing // 'landing', 'auth', 'app'
-  const [userSubscription, setUserSubscription] = useState('free'); // Nuevo estado para suscripción
 
   // Nuevos estados para gestión de tareas de proyectos
   const [newProjectTask, setNewProjectTask] = useState({});
@@ -708,46 +707,8 @@ const PersonalCoachAssistant = () => {
         return;
       }
 
-      // Ctrl/Cmd + Shift + A: Switch to Assistant
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'A') {
-        event.preventDefault();
-        setActiveView('assistant');
-        return;
-      }
 
 
-      // Quick AI prompts (only in assistant view)
-      if (activeView === 'assistant') {
-        // Ctrl/Cmd + 1: Project analysis
-        if ((event.ctrlKey || event.metaKey) && event.key === '1') {
-          event.preventDefault();
-          setNewMessage(`Analiza mis ${projects.length} proyectos y dime cuáles necesitan más atención`);
-          return;
-        }
-
-        // Ctrl/Cmd + 2: Task optimization
-        if ((event.ctrlKey || event.metaKey) && event.key === '2') {
-          event.preventDefault();
-          const pendingTasks = projects.reduce((total, project) =>
-            total + (project.tasks?.filter(task => !task.completed).length || 0), 0
-          );
-          setNewMessage(`Tengo ${pendingTasks} tareas pendientes. ¿Cómo puedo priorizarlas mejor?`);
-          return;
-        }
-
-        // Ctrl/Cmd + 3: Time-based coaching
-        if ((event.ctrlKey || event.metaKey) && event.key === '3') {
-          event.preventDefault();
-          const currentHour = new Date().getHours();
-          const timeBasedPrompt = currentHour < 12
-            ? 'Dame una estrategia productiva para empezar bien el día'
-            : currentHour < 18
-            ? 'Necesito mantener el foco y energía para la tarde'
-            : 'Ayúdame a planificar el día de mañana y cerrar bien hoy';
-          setNewMessage(timeBasedPrompt);
-          return;
-        }
-      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -4082,18 +4043,6 @@ Responde siempre en español y mantén el tono configurado.`;
                   <p className="text-sm md:text-lg font-bold text-blue-600">{completionRate}%</p>
                 </div>
               </div>
-              <button
-                onClick={() => setActiveView('assistant')}
-                className={`${
-                  isPremiumUser()
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
-                    : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
-                } text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-xs md:text-sm ml-2 md:ml-0`}
-                title={isPremiumUser() ? "Asistente IA" : "Funcionalidad Premium"}
-              >
-                <Bot size={14} />
-                <span className="hidden sm:inline">{isPremiumUser() ? 'IA' : '⭐ IA'}</span>
-              </button>
             </div>
           </div>
         </div>
@@ -4391,18 +4340,6 @@ Responde siempre en español y mantén el tono configurado.`;
                 >
                   <Archive size={14} />
                   <span>Ver proyectos</span>
-                </button>
-                <button
-                  onClick={() => setActiveView('assistant')}
-                  className={`w-full text-left p-2 text-sm rounded-lg transition-colors flex items-center space-x-2 ${
-                    isPremiumUser()
-                      ? 'text-gray-700 hover:bg-gray-50'
-                      : 'text-amber-700 hover:bg-amber-50 bg-amber-50/50 border border-amber-200'
-                  }`}
-                  title={isPremiumUser() ? "Consultar IA" : "Funcionalidad Premium"}
-                >
-                  <Bot size={14} />
-                  <span>{isPremiumUser() ? 'Consultar IA' : '⭐ Consultar IA (Premium)'}</span>
                 </button>
               </div>
             </div>
@@ -4903,86 +4840,16 @@ Responde siempre en español y mantén el tono configurado.`;
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserDropdown]);
 
-  // Verificar periódicamente cambios en la suscripción
-  useEffect(() => {
-    if (isAuthenticated) {
-      // Verificar inmediatamente al cargar
-      refreshUserSubscription();
 
-      // Luego verificar cada 30 segundos
-      const interval = setInterval(refreshUserSubscription, 30000);
 
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, userSubscription]);
 
-  // Función para verificar si el usuario es premium
-  const isPremiumUser = () => {
-    return userSubscription === 'premium';
-  };
-
-  // Función para actualizar el estado de suscripción del usuario
-  const refreshUserSubscription = async () => {
-    try {
-      const response = await authenticatedFetch(`${getApiBase()}/profile`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.user && data.user.subscription_type !== userSubscription) {
-          console.log('🔄 Actualizando suscripción:', data.user.subscription_type);
-          setUserSubscription(data.user.subscription_type || 'free');
-        }
-      }
-    } catch (error) {
-      console.error('Error actualizando suscripción:', error);
-    }
-  };
-
-  // Función para renderizar mensaje de premium requerido
-  const renderPremiumRequired = () => {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="max-w-md mx-auto text-center p-8 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200">
-          <div className="mb-4">
-            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-4">
-              <Bot size={32} className="text-white" />
-            </div>
-          </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">
-            🌟 Funcionalidad Premium
-          </h3>
-          <p className="text-gray-600 mb-4">
-            El asistente personal está disponible solo para usuarios Premium.
-            Actualiza tu plan para acceder a esta increíble funcionalidad.
-          </p>
-          <div className="bg-white rounded-lg p-4 mb-4 border border-amber-200">
-            <h4 className="font-semibold text-gray-800 mb-2">Con Premium obtienes:</h4>
-            <ul className="text-sm text-gray-600 space-y-1 text-left">
-              <li>🤖 Asistente personal con IA</li>
-              <li>🎯 Análisis de proyectos personalizado</li>
-              <li>📊 Optimización de tareas inteligente</li>
-              <li>🗣️ Interacciones por voz</li>
-              <li>🧠 Memoria conversacional avanzada</li>
-            </ul>
-          </div>
-          <div className="text-sm text-gray-500 flex items-center justify-between">
-            <span>Plan actual: <span className="font-semibold capitalize">{userSubscription}</span></span>
-            <button
-              onClick={refreshUserSubscription}
-              className="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-            >
-              🔄 Actualizar
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const renderAssistantView = () => {
-    // Si el usuario no es premium, mostrar el mensaje
-    if (!isPremiumUser()) {
-      return renderPremiumRequired();
-    }
+    // Redirigir al dashboard si alguien intenta acceder al asistente
+    useEffect(() => {
+      setActiveView('dashboard');
+    }, []);
+
     return (
       <div className="h-full flex flex-col overflow-hidden">
         {/* Header de configuración del asistente */}
@@ -5848,18 +5715,6 @@ Responde siempre en español y mantén el tono configurado.`;
                 Admin
               </button>
             )}
-            <button
-              onClick={() => setActiveView('assistant')}
-              className={`px-3 py-2 rounded-lg flex items-center whitespace-nowrap text-sm ${
-                activeView === 'assistant'
-                  ? (isPremiumUser() ? 'bg-blue-500 text-white' : 'bg-amber-500 text-white')
-                  : (isPremiumUser() ? 'text-gray-600 hover:bg-gray-100' : 'text-amber-600 hover:bg-amber-50')
-              }`}
-              title={isPremiumUser() ? "Asistente" : "Funcionalidad Premium"}
-            >
-              <Bot size={14} className="mr-1" />
-              {isPremiumUser() ? 'Asistente' : '⭐ Asistente'}
-            </button>
           </div>
       </div>
 
@@ -7614,163 +7469,6 @@ Responde siempre en español y mantén el tono configurado.`;
 
 
 
-      {/* Chat Bubble Flotante para Asistente IA */}
-      {chatBubbleOpen && isPremiumUser() && (
-        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
-          {/* Header del Chat */}
-          <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <Bot size={16} className="text-white" />
-              </div>
-              <span className="font-semibold text-gray-800">Asistente IA</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setChatBubbleMinimized(!chatBubbleMinimized)}
-                className="p-1 hover:bg-gray-200 rounded transition-colors"
-                title={chatBubbleMinimized ? "Expandir" : "Minimizar"}
-              >
-                <ChevronDown size={16} className={`text-gray-600 transform transition-transform ${chatBubbleMinimized ? 'rotate-180' : ''}`} />
-              </button>
-              <button
-                onClick={() => setChatBubbleOpen(false)}
-                className="p-1 hover:bg-gray-200 rounded transition-colors"
-                title="Cerrar"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-
-          {/* Contenido del Chat */}
-          {!chatBubbleMinimized && (
-            <>
-              {/* Área de mensajes */}
-              <div className="flex-1 p-3 overflow-y-auto">
-                <div className="text-center" style={{ color: '#374151', padding: '10px' }}>
-                  <Bot size={32} className="mx-auto mb-2" style={{ color: '#9CA3AF' }} />
-                  <p style={{
-                    color: '#111827',
-                    fontWeight: '500',
-                    fontSize: '14px',
-                    marginBottom: '8px',
-                    lineHeight: '1.4'
-                  }}>
-                    ¡Hola! Soy tu asistente personal.
-                  </p>
-                  <p style={{
-                    color: '#6B7280',
-                    fontSize: '12px',
-                    lineHeight: '1.3'
-                  }}>
-                    ¿En qué puedo ayudarte hoy?
-                  </p>
-                </div>
-                {messages.length > 0 && (
-                  <div className="space-y-3">
-                    {messages.map((msg, index) => (
-                      <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div
-                          className="px-3 py-2 rounded-lg text-sm"
-                          style={{
-                            backgroundColor: msg.type === 'user' ? '#3B82F6' : '#F3F4F6',
-                            color: msg.type === 'user' ? '#FFFFFF' : '#111827',
-                            maxWidth: '250px',
-                            minWidth: '120px',
-                            width: 'auto'
-                          }}
-                        >
-                          {msg.type === 'assistant' ? (
-                            <div style={{ color: '#111827', minHeight: '20px' }}>
-                              {msg.text}
-                            </div>
-                          ) : (
-                            <span style={{ color: msg.type === 'user' ? '#FFFFFF' : '#111827', minHeight: '20px' }}>
-                              {msg.text}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Input para nuevo mensaje */}
-              <div className="p-3 border-t border-gray-200">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
-                    placeholder="Escribe tu pregunta..."
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      border: '1px solid #D1D5DB',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      color: '#111827',
-                      backgroundColor: '#FFFFFF'
-                    }}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={!newMessage.trim() || isAssistantTyping}
-                    className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Send size={16} />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Botón flotante para abrir chat bubble */}
-      <button
-        onClick={() => {
-          if (!isPremiumUser()) {
-            // Si no es premium, cambiar a la vista del asistente que mostrará el mensaje
-            setActiveView('assistant');
-            return;
-          }
-          setChatBubbleOpen(!chatBubbleOpen);
-          if (!chatBubbleOpen) {
-            // Siempre mostrar mensaje de bienvenida cuando se abre
-            setTimeout(() => {
-              setMessages([{
-                id: Date.now(),
-                type: 'assistant',
-                text: '¡Hola! 👋 Soy tu asistente personal de SmartChatix. Estoy aquí para ayudarte a gestionar tus proyectos y tareas de manera más eficiente. \n\n¿Qué te gustaría hacer hoy?',
-                timestamp: new Date().toLocaleTimeString()
-              }]);
-            }, 300);
-          }
-        }}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 z-40 ${
-          chatBubbleOpen
-            ? 'bg-gray-500 hover:bg-gray-600'
-            : isPremiumUser()
-            ? 'bg-blue-500 hover:bg-blue-600'
-            : 'bg-amber-500 hover:bg-amber-600'
-        } text-white hover:scale-110`}
-        title={chatBubbleOpen ? "Cerrar Asistente" : isPremiumUser() ? "Abrir Asistente IA" : "Funcionalidad Premium"}
-      >
-        {chatBubbleOpen ? (
-          <ChevronDown size={24} />
-        ) : (
-          <Bot size={24} />
-        )}
-      </button>
 
 
     </div>
