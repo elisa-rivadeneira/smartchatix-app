@@ -5634,7 +5634,7 @@ Responde siempre en español y mantén el tono configurado.`;
               {currentTheme === 'brutalist' ? '> SMARTCHATIX_' : 'SMARTCHATIX'}
             </h1>
             <p className={`text-sm font-light -mt-1 ${currentTheme === 'brutalist' ? 'terminal-font' : 'synthwave-font'}`} style={headerStyles.subtitleStyle}>
-              {currentTheme === 'brutalist' ? '[SYSTEM_READY] project_manager.exe' : '◢ PROJECT MANAGER ◤'}
+              {currentTheme === 'brutalist' ? '[SYSTEM_READY] task_hero.exe' : '◢ TASK HERO ◤'}
             </p>
             </div>
           </div>
