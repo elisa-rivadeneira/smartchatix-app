@@ -81,7 +81,7 @@ const corsOptions = {
       'http://localhost:3001',
       'http://localhost:5173',
       'http://localhost:5174',
-      'https://app.smartchatix.com',
+      'https://taskhero.smartchatix.com',
       /^http:\/\/192\.168\.\d+\.\d+:3001$/  // IPs locales
     ];
 
@@ -135,7 +135,7 @@ app.use(passport.session());
 // Configurar estrategia de Google OAuth
 const callbackURL = process.env.GOOGLE_CALLBACK_URL ||
   (process.env.NODE_ENV === 'production'
-    ? 'https://app.smartchatix.com/auth/google/callback'
+    ? 'https://taskhero.smartchatix.com/auth/google/callback'
     : '/auth/google/callback');
 
 // Verificar que las variables de Google OAuth estén configuradas
@@ -286,7 +286,7 @@ if (googleClientId && googleClientSecret) {
         // Determinar URL del frontend
         const frontendUrl = process.env.FRONTEND_URL ||
           (process.env.NODE_ENV === 'production'
-            ? 'https://app.smartchatix.com'
+            ? 'https://taskhero.smartchatix.com'
             : 'http://localhost:5173');
 
         // Redireccionar al frontend con éxito y token
@@ -295,7 +295,7 @@ if (googleClientId && googleClientSecret) {
         console.error('Error generating token for Google user:', error);
         const frontendUrl = process.env.FRONTEND_URL ||
           (process.env.NODE_ENV === 'production'
-            ? 'https://app.smartchatix.com'
+            ? 'https://taskhero.smartchatix.com'
             : 'http://localhost:5173');
         res.redirect(`${frontendUrl}/?error=auth_failed`);
       }
